@@ -1,0 +1,39 @@
+[package]
+name = "Targeted-Vector"
+version = "0.1.0-alpha.1"
+edition = "2021"
+authors = ["ChepleBob <Cheple_Bob@outlook.com>"]
+description = "A simple shooting game."
+license = "MIT"
+readme = "README.md"
+keywords = ["mouse", "shoot"]
+repository = "https://github.com/ChepleBob30/Targeted-Vector"
+
+[[bin]]
+name = "Targeted-Vector"
+path = "src/main.rs"
+
+[package.metadata.bundle]
+identifier = "com.cheplebob.targetedvector"
+short_description = "A simple shooting game."
+name = "Targeted Vector"
+version = "0.1.0"
+short-version-string = "0.1"
+copyright = "© 2025 Binder"
+icon = ["Resources/assets/images/icon.icns"]  # 图标路径
+resources = [
+    "assets",
+    "config"
+]
+
+[dependencies]
+egui = "0.30.0"
+eframe = "0.30.0"
+egui_extras = { version = "0.30.0", features = ["all_loaders"] }
+rodio = "0.20.1"
+hound = "3.5.1"
+anyhow = "1.0.95"
+image = "0.25.5"
+json = "0.12.4"
+walkdir = "2.5.0"
+whoami = "2.0.0-pre.0"
