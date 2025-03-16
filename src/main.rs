@@ -1,4 +1,4 @@
-//! Targeted Vector v0.1.0
+//! Targeted Vector v0.2.0-alpha.1
 //! Developer: Cheple_Bob
 //! This is a rust shooter built on top of RustConstructor.
 //! Special Thanks:
@@ -40,7 +40,7 @@ fn main() {
         include_bytes!("../Resources/assets/images/icon.png"),
         image::ImageFormat::Png,
     )
-    .unwrap();
+        .unwrap();
     let rgba_data = img.into_rgba8();
     let (w, h) = (rgba_data.width(), rgba_data.height());
     let raw_data: Vec<u8> = rgba_data.into_raw();

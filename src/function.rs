@@ -3,14 +3,16 @@ use anyhow::Context;
 use eframe::emath::Rect;
 use eframe::epaint::textures::TextureOptions;
 use eframe::epaint::Stroke;
-use egui::{Color32, FontId, PointerButton, Pos2, Ui, Vec2};
+use egui::{Color32, FontId, Frame, PointerButton, Pos2, Ui, Vec2};
 use json::{object, JsonValue};
 use rodio::{Decoder, OutputStream};
 use std::fs;
 use std::fs::File;
 use std::io::{BufReader, Read};
+use std::path::Path;
 use std::path::PathBuf;
 use std::time::Instant;
+use std::collections::HashMap;
 use walkdir::WalkDir;
 
 /// 在 macOS 上搜索指定 .app 应用的绝对路径
@@ -68,29 +70,63 @@ pub fn find_app_bundle(
     None
 }
 
-#[allow(dead_code)]
-pub fn write_to_json<P: AsRef<std::path::Path>>(path: P, config: &Config) {
-    let json_value = config.to_json_value();
-    let serialized = json_value.dump(); // 将 JSON 值序列化为字符串
-    if let Err(e) = fs::write(path, serialized) {
-        eprintln!("写入文件失败: {}", e);
-    }
+pub fn value_to_bool(value: i32) -> bool {
+    value > 0
 }
 
-pub fn read_from_json<P: AsRef<std::path::Path>>(path: P) -> Option<Config> {
-    match fs::read_to_string(path) {
-        Ok(data) => match json::parse(&data) {
-            Ok(parsed) => Config::from_json_value(&parsed),
-            Err(e) => {
-                eprintln!("解析JSON失败: {}", e);
-                None
-            }
-        },
-        Err(e) => {
-            eprintln!("阅读文件失败: {}", e);
-            None
-        }
-    }
+// 创建格式化的JSON文件
+#[allow(dead_code)]
+pub fn create_pretty_json<P: AsRef<Path>>(path: P, data: JsonValue) -> anyhow::Result<()> {
+    let parent_dir = path
+        .as_ref()
+        .parent()
+        .ok_or_else(|| anyhow::anyhow!("无效的文件路径"))?;
+
+    // 创建父目录（如果不存在）
+    fs::create_dir_all(parent_dir)?;
+
+    // 生成带缩进的JSON字符串（4空格缩进）
+    let formatted = json::stringify_pretty(data, 4);
+
+    // 写入文件（自动处理换行符）
+    fs::write(path, formatted)?;
+    Ok(())
+}
+
+// 复制并重新格式化JSON文件
+#[allow(dead_code)]
+pub fn copy_and_reformat_json<P: AsRef<Path>>(src: P, dest: P) -> anyhow::Result<()> {
+    // 读取原始文件
+    let content = fs::read_to_string(&src)?;
+
+    // 解析JSON（自动验证格式）
+    let parsed = json::parse(&content)?;
+
+    // 使用格式化写入新文件
+    create_pretty_json(dest, parsed)?;
+
+    Ok(())
+}
+
+// 通用 JSON 写入函数
+#[allow(dead_code)]
+pub fn write_to_json<P: AsRef<Path>>(path: P, data: JsonValue) -> anyhow::Result<()> {
+    let parent_dir = path
+        .as_ref()
+        .parent()
+        .ok_or_else(|| anyhow::anyhow!("无效的文件路径"))?;
+
+    fs::create_dir_all(parent_dir)?;
+    let formatted = json::stringify_pretty(data, 4);
+    fs::write(path, formatted)?;
+    Ok(())
+}
+
+// 通用 JSON 读取函数
+pub fn read_from_json<P: AsRef<Path>>(path: P) -> anyhow::Result<JsonValue> {
+    let content = fs::read_to_string(&path)
+        .with_context(|| format!("无法读取文件: {}", path.as_ref().display()))?;
+    json::parse(&content).with_context(|| format!("解析 JSON 失败: {}", path.as_ref().display()))
 }
 
 pub fn wav_player(wav_path: String) -> anyhow::Result<f64> {
@@ -140,34 +176,115 @@ fn load_fonts(ctx: &egui::Context) {
 }
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Config {
     pub launch_path: String,
+    pub language: i8,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct GameText {
+    pub game_text: HashMap<String, Vec<String>>,
+}
+
+#[derive(Clone, Debug)]
+#[allow(dead_code)]
+pub enum Value {
+    Bool(bool),
+    Int(i32),
+    UInt(u32),
+    Float(f32),
+    Vec(Vec<Value>),
+    String(String),
+}
+
+impl From<bool> for Value {
+    fn from(b: bool) -> Self {
+        Value::Bool(b)
+    }
+}
+
+impl From<i32> for Value {
+    fn from(i: i32) -> Self {
+        Value::Int(i)
+    }
+}
+
+impl From<u32> for Value {
+    fn from(u: u32) -> Self {
+        Value::UInt(u)
+    }
+}
+
+impl From<f32> for Value {
+    fn from(f: f32) -> Self {
+        Value::Float(f)
+    }
+}
+
+impl<T: Into<Value>> From<Vec<T>> for Value {
+    fn from(v: Vec<T>) -> Self {
+        Value::Vec(v.into_iter().map(|x| x.into()).collect())
+    }
+}
+
+impl From<String> for Value {
+    fn from(s: String) -> Self {
+        Value::String(s)
+    }
 }
 
 #[allow(dead_code)]
 impl Config {
     fn to_json_value(&self) -> JsonValue {
         object! {
-            launch_path: self.launch_path.clone()
+            launch_path: self.launch_path.clone(),
+            language: self.language
         }
     }
 
     fn from_json_value(value: &JsonValue) -> Option<Config> {
         Some(Config {
             launch_path: value["launch_path"].as_str()?.to_string(),
+            language: value["language"].as_i8()?,
         })
+    }
+}
+
+impl GameText {
+    pub fn from_json_value(value: &JsonValue) -> Option<GameText> {
+        // 检查 game_text 字段是否为对象
+        if !value["game_text"].is_object() {
+            return None;
+        }
+
+        // 遍历对象键值对
+        let mut parsed = HashMap::new();
+        for (key, val) in value["game_text"].entries() {
+            if let JsonValue::Array(arr) = val {
+                let str_vec: Vec<String> = arr.iter()
+                    .filter_map(|v| v.as_str().map(String::from))
+                    .collect();
+                parsed.insert(key.to_string(), str_vec);
+            }
+        }
+
+        Some(GameText { game_text: parsed })
     }
 }
 
 #[allow(dead_code)]
 pub trait RustConstructorResource {}
 
+#[derive(Clone)]
 pub struct PageData {
+    pub name: String,
     pub forced_update: bool,
     pub change_page_updated: bool,
 }
 
+#[derive(Clone)]
 pub struct Timer {
     pub start_time: f32,
     pub total_time: f32,
@@ -179,14 +296,14 @@ pub struct Timer {
 impl RustConstructorResource for ImageTexture {}
 #[derive(Clone)]
 pub struct ImageTexture {
-    name: String,
+    pub name: String,
     pub texture: Option<egui::TextureHandle>,
 }
 
 impl RustConstructorResource for CustomRect {}
 #[derive(Clone)]
 pub struct CustomRect {
-    name: String,
+    pub name: String,
     pub position: [f32; 2],
     pub size: [f32; 2],
     pub rounding: f32,
@@ -196,12 +313,13 @@ pub struct CustomRect {
     pub color: [u8; 4],
     pub border_width: f32,
     pub border_color: [u8; 4],
+    pub origin_position: [f32; 2],
 }
 
 impl RustConstructorResource for Image {}
 #[derive(Clone)]
 pub struct Image {
-    name: String,
+    pub name: String,
     pub image_texture: Option<egui::TextureHandle>,
     pub image_position: [f32; 2],
     pub image_size: [f32; 2],
@@ -211,12 +329,13 @@ pub struct Image {
     pub alpha: u8,
     pub overlay_color: [u8; 4],
     pub use_overlay_color: bool,
+    pub origin_position: [f32; 2],
 }
 
 impl RustConstructorResource for Text {}
 #[derive(Clone)]
 pub struct Text {
-    name: String,
+    pub name: String,
     pub text_content: String,
     pub font_size: f32,
     pub rgba: [u8; 4],
@@ -228,12 +347,13 @@ pub struct Text {
     pub rounding: f32,
     pub x_grid: [u32; 2],
     pub y_grid: [u32; 2],
+    pub origin_position: [f32; 2],
 }
 
 impl RustConstructorResource for ScrollBackground {}
 #[derive(Clone)]
 pub struct ScrollBackground {
-    name: String,
+    pub name: String,
     pub image_name: Vec<String>,
     pub horizontal_or_vertical: bool,
     pub left_and_top_or_right_and_bottom: bool,
@@ -242,14 +362,16 @@ pub struct ScrollBackground {
     pub resume_point: f32,
 }
 
+#[derive(Clone)]
 pub struct Variable {
-    pub progress: i8,
+    pub name: String,
+    pub value: Value,
 }
 
 impl RustConstructorResource for SplitTime {}
 #[derive(Clone)]
 pub struct SplitTime {
-    name: String,
+    pub name: String,
     pub time: [f32; 2],
 }
 
@@ -257,7 +379,7 @@ impl RustConstructorResource for Switch {}
 #[derive(Clone)]
 #[allow(dead_code)]
 pub struct Switch {
-    name: String,
+    pub name: String,
     pub switch_image_name: String,
     pub switch_texture_name: Vec<String>,
     pub enable_hover_click_image: [bool; 2],
@@ -265,29 +387,28 @@ pub struct Switch {
     pub use_overlay: bool,
     pub overlay_color: Vec<[u8; 4]>,
     pub click_method: PointerButton,
-    pub last_time_clicked: bool
+    pub last_time_clicked: bool,
 }
 
 #[allow(dead_code)]
+#[derive(Clone)]
 pub struct App {
     pub config: Config,
+    pub game_text: GameText,
+    pub frame: Frame,
+    pub page_windows_account: u32,
     pub page_id: i32,
-    pub page: Page,
-    pub page_status: [PageData; 4],
+    pub page: String,
+    pub page_status: Vec<PageData>,
     pub resource_image: Vec<Image>,
     pub resource_text: Vec<Text>,
     pub resource_rect: Vec<CustomRect>,
     pub resource_scroll_background: Vec<ScrollBackground>,
     pub timer: Timer,
     pub last_window_size: [f32; 2],
-    pub variables: Variable,
+    pub variables: Vec<Variable>,
     pub resource_image_texture: Vec<ImageTexture>,
     pub resource_switch: Vec<Switch>,
-}
-
-pub enum Page {
-    Launch,
-    Home,
 }
 
 impl App {
@@ -296,33 +417,41 @@ impl App {
         egui_extras::install_image_loaders(&cc.egui_ctx);
         let mut config = Config {
             launch_path: "".to_string(),
+            language: 0,
         };
+        let mut game_text = GameText { game_text: HashMap::new() };
         // 写入 JSON 文件
-        // write_to_json("Resources/config/Preferences.json", &config);
+        // let json_value = config.to_json_value();
+        // write_to_json("Resources/config/Preferences.json", json_value)
+        //     .expect("写入 JSON 文件失败");
         // 读取 JSON 文件
-        if let Some(read_config) = read_from_json("Resources/config/Preferences.json") {
-            config = read_config
-        } else {
-            eprintln!("阅读/解析 JSON 文件失败");
-        };
+        if let Ok(json_value) = read_from_json("Resources/config/Preferences.json") {
+            if let Some(read_config) = Config::from_json_value(&json_value) {
+                config = read_config;
+            }
+        }
+        if let Ok(json_value) = read_from_json("Resources/config/GameText.json") {
+            if let Some(read_game_text) = GameText::from_json_value(&json_value) {
+                game_text = read_game_text;
+            }
+        }
         Self {
             config,
+            game_text,
+            frame: Frame {
+              ..Default::default()
+            },
+            page_windows_account: 0,
             page_id: 0,
-            page: Page::Launch,
-            page_status: [
+            page: "Launch".to_string(),
+            page_status: vec![
                 PageData {
+                    name: "Launch".to_string(),
                     forced_update: true,
                     change_page_updated: false,
                 },
                 PageData {
-                    forced_update: true,
-                    change_page_updated: false,
-                },
-                PageData {
-                    forced_update: true,
-                    change_page_updated: false,
-                },
-                PageData {
+                    name: "Home".to_string(),
                     forced_update: true,
                     change_page_updated: false,
                 },
@@ -339,31 +468,40 @@ impl App {
                 split_time: vec![],
             },
             last_window_size: [0.0, 0.0],
-            variables: Variable { progress: 0 },
+            variables: vec![],
             resource_image_texture: vec![],
             resource_switch: vec![],
         }
     }
 
+    pub fn switch_page(&mut self, page: &str) {
+        let id = self.track_resource("page", page);
+        self.page = self.page_status[id].name.to_string();
+    }
+
     pub fn launch_page_preload(&mut self, ctx: &egui::Context) {
+        let game_text = self.game_text.game_text.clone();
         for i in 0..self.page_status.len() {
             if i == 0 {
                 self.add_image_texture(
                     "RC_Logo",
-                    "Resources/assets/images/RC.png",
+                    "Resources/assets/images/rc.png",
                     [false, false],
+                    true,
                     ctx,
                 );
                 self.add_image_texture(
                     "Binder_Logo",
-                    "Resources/assets/images/Binder.png",
+                    "Resources/assets/images/binder.png",
                     [false, false],
+                    true,
                     ctx,
                 );
                 self.add_image_texture(
                     "Mouse",
-                    "Resources/assets/images/Mouse_white.png",
+                    "Resources/assets/images/mouse_white.png",
                     [false, false],
+                    true,
                     ctx,
                 );
                 self.add_image(
@@ -399,7 +537,10 @@ impl App {
                     [1, 2, 1, 2],
                 );
                 self.add_text(
-                    ["Organize", " 必达\n Binder"],
+                    [
+                        "Organize",
+                        &*game_text["organize"][self.config.language as usize].clone(),
+                    ],
                     [0_f32, 0_f32, 40_f32, 1000_f32, 0.0],
                     [255, 255, 255, 0, 0, 0, 0],
                     [true, false, false, true],
@@ -407,7 +548,10 @@ impl App {
                     [1, 2, 1, 2],
                 );
                 self.add_text(
-                    ["Mouse", " 请连接鼠标\n 以获得最佳游戏体验"],
+                    [
+                        "Mouse",
+                        &*game_text["connect_mouse"][self.config.language as usize].clone(),
+                    ],
                     [0_f32, 0_f32, 40_f32, 1000_f32, 0.0],
                     [255, 255, 255, 0, 0, 0, 0],
                     [true, false, false, true],
@@ -432,11 +576,75 @@ impl App {
                     let _ = wav_player("Resources/assets/sounds/Launch.wav".to_string());
                 });
             } else if i == 1 {
+                if self.config.language == 0 {
+                    self.add_image_texture(
+                        "Title",
+                        "Resources/assets/images/zh_title.png",
+                        [false, false],
+                        true,
+                        ctx,
+                    );
+                    self.add_image(
+                        "Title",
+                        [0_f32, 0_f32, 510_f32, 150_f32],
+                        [1, 2, 1, 4],
+                        [true, true, true, true, false],
+                        [255, 0, 0, 0, 0],
+                        "Title",
+                    );
+                } else {
+                    self.add_image_texture(
+                        "Title",
+                        "Resources/assets/images/en_title.png",
+                        [false, false],
+                        true,
+                        ctx,
+                    );
+                    self.add_image(
+                        "Title",
+                        [0_f32, 0_f32, 900_f32, 130_f32],
+                        [1, 2, 1, 4],
+                        [true, true, true, true, false],
+                        [255, 0, 0, 0, 0],
+                        "Title",
+                    );
+                };
                 self.add_image_texture(
                     "Background",
                     "Resources/assets/images/wallpaper.jpg",
                     [false, false],
+                    true,
                     ctx,
+                );
+                self.add_image_texture(
+                    "Power",
+                    "Resources/assets/images/power.png",
+                    [false, false],
+                    true,
+                    ctx,
+                );
+                self.add_image_texture(
+                    "Register",
+                    "Resources/assets/images/register.png",
+                    [false, false],
+                    true,
+                    ctx,
+                );
+                self.add_image(
+                    "Power",
+                    [-50_f32, 25_f32, 50_f32, 50_f32],
+                    [1, 2, 7, 8],
+                    [true, true, true, true, false],
+                    [255, 0, 0, 0, 0],
+                    "Power",
+                );
+                self.add_image(
+                    "Register",
+                    [50_f32, 25_f32, 50_f32, 50_f32],
+                    [1, 2, 7, 8],
+                    [true, true, true, true, false],
+                    [255, 0, 0, 0, 0],
+                    "Register",
                 );
                 self.add_image(
                     "Background",
@@ -450,14 +658,6 @@ impl App {
                     [true, true, false, false, false],
                     [255, 0, 0, 0, 0],
                     "Background",
-                );
-                self.add_text(
-                    ["Title", "靶向载体 v0.1.0"],
-                    [0_f32, 0_f32, 70_f32, 1000_f32, 0.0],
-                    [255, 255, 255, 255, 0, 0, 0],
-                    [false, true, true, false],
-                    true,
-                    [1, 2, 1, 4],
                 );
                 self.add_image(
                     "Wallpaper1",
@@ -488,6 +688,22 @@ impl App {
                         0_f32,
                         -ctx.available_rect().width(),
                     ],
+                );
+                self.add_switch(
+                    ["Power", "Power"],
+                    vec![],
+                    [false, true, true],
+                    1,
+                    vec![[255, 255, 255, 255], [120, 120, 120, 255]],
+                    PointerButton::Primary,
+                );
+                self.add_switch(
+                    ["Register", "Register"],
+                    vec![],
+                    [false, true, true],
+                    1,
+                    vec![[255, 255, 255, 255], [120, 120, 120, 255]],
+                    PointerButton::Primary,
                 );
             };
         }
@@ -545,6 +761,7 @@ impl App {
             color: [color[0], color[1], color[2], color[3]],
             border_width,
             border_color: [color[4], color[5], color[6], color[7]],
+            origin_position: [position_size_and_rounding[0], position_size_and_rounding[1]],
         });
     }
 
@@ -555,6 +772,7 @@ impl App {
             _ => {
                 (ctx.available_rect().width() as f64 / self.resource_rect[id].x_grid[1] as f64
                     * self.resource_rect[id].x_grid[0] as f64) as f32
+                    + self.resource_rect[id].origin_position[0]
             }
         };
         self.resource_rect[id].position[1] = match self.resource_rect[id].y_grid[1] {
@@ -562,6 +780,7 @@ impl App {
             _ => {
                 (ctx.available_rect().height() as f64 / self.resource_rect[id].y_grid[1] as f64
                     * self.resource_rect[id].y_grid[0] as f64) as f32
+                    + self.resource_rect[id].origin_position[1]
             }
         };
         let pos_x;
@@ -632,6 +851,10 @@ impl App {
             rounding: position_font_size_wrap_width_rounding[4],
             x_grid: [grid[0], grid[1]],
             y_grid: [grid[2], grid[3]],
+            origin_position: [
+                position_font_size_wrap_width_rounding[0],
+                position_font_size_wrap_width_rounding[1],
+            ],
         });
     }
 
@@ -657,6 +880,7 @@ impl App {
             _ => {
                 (ctx.available_rect().width() as f64 / self.resource_text[id].x_grid[1] as f64
                     * self.resource_text[id].x_grid[0] as f64) as f32
+                    + self.resource_text[id].origin_position[0]
             }
         };
         self.resource_text[id].position[1] = match self.resource_text[id].y_grid[1] {
@@ -664,6 +888,7 @@ impl App {
             _ => {
                 (ctx.available_rect().height() as f64 / self.resource_text[id].y_grid[1] as f64
                     * self.resource_text[id].y_grid[0] as f64) as f32
+                    + self.resource_text[id].origin_position[1]
             }
         };
         let pos_x;
@@ -718,67 +943,160 @@ impl App {
     }
 
     pub fn track_resource(&mut self, resource_list_name: &str, resource_name: &str) -> usize {
-        let mut id = 0;
+        let mut id: i32 = -1;
         match resource_list_name.to_lowercase().as_str() {
             "image" => {
                 for i in 0..self.resource_image.len() {
                     if self.resource_image[i].name == resource_name {
-                        id = i;
+                        id = i as i32;
                         break;
-                    }
+                    };
                 }
             }
             "text" => {
                 for i in 0..self.resource_text.len() {
                     if self.resource_text[i].name == resource_name {
-                        id = i;
+                        id = i as i32;
                         break;
-                    }
+                    };
                 }
             }
             "rect" => {
                 for i in 0..self.resource_rect.len() {
                     if self.resource_rect[i].name == resource_name {
-                        id = i;
+                        id = i as i32;
                         break;
-                    }
+                    };
                 }
             }
             "scroll_background" => {
                 for i in 0..self.resource_scroll_background.len() {
                     if self.resource_scroll_background[i].name == resource_name {
-                        id = i;
+                        id = i as i32;
                         break;
-                    }
+                    };
                 }
             }
             "split_time" => {
                 for i in 0..self.timer.split_time.len() {
                     if self.timer.split_time[i].name == resource_name {
-                        id = i;
+                        id = i as i32;
                         break;
-                    }
+                    };
                 }
             }
             "image_texture" => {
                 for i in 0..self.resource_image_texture.len() {
                     if self.resource_image_texture[i].name == resource_name {
-                        id = i;
+                        id = i as i32;
                         break;
-                    }
+                    };
                 }
             }
             "switch" => {
                 for i in 0..self.resource_switch.len() {
                     if self.resource_switch[i].name == resource_name {
-                        id = i;
+                        id = i as i32;
                         break;
-                    }
+                    };
+                }
+            }
+            "page" => {
+                for i in 0..self.page_status.len() {
+                    if self.page_status[i].name == resource_name {
+                        id = i as i32;
+                        break;
+                    };
+                }
+            }
+            "variables" => {
+                for i in 0..self.variables.len() {
+                    if self.variables[i].name == resource_name {
+                        id = i as i32;
+                        break;
+                    };
                 }
             }
             _ => panic!("\"{}\"资源列表不存在!", resource_list_name),
         };
-        id
+        if id == -1 {
+            panic!(
+                "\"{}\"中不存在资源\"{}\"!",
+                resource_list_name, resource_name
+            );
+        }
+        id as usize
+    }
+
+    pub fn add_var<T: Into<Value>>(&mut self, name: &str, value: T) {
+        self.variables.push(Variable {
+            name: name.to_string(),
+            value: value.into(),
+        });
+    }
+
+    #[allow(dead_code)]
+    pub fn modify_var<T: Into<Value>>(&mut self, name: &str, value: T) {
+        let id = self.track_resource("variables", name);
+        self.variables[id].value = value.into();
+    }
+
+    #[allow(dead_code)]
+    pub fn var(&mut self, name: &str) -> Value {
+        let id = self.track_resource("variables", name);
+        self.variables[id].clone().value
+    }
+
+    pub fn var_i(&mut self, name: &str) -> i32 {
+        let id = self.track_resource("variables", name);
+        match &self.variables[id].value {
+            // 直接访问 value 字段
+            Value::Int(i) => *i,
+            _ => panic!("变量 '{}' 不是 i32 类型", name),
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn var_u(&mut self, name: &str) -> u32 {
+        let id = self.track_resource("variables", name);
+        match &self.variables[id].value {
+            Value::UInt(u) => *u,
+            _ => panic!("变量 '{}' 不是 u32 类型", name),
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn var_f(&mut self, name: &str) -> f32 {
+        let id = self.track_resource("variables", name);
+        match &self.variables[id].value {
+            Value::Float(f) => *f,
+            _ => panic!("变量 '{}' 不是 f32 类型", name),
+        }
+    }
+
+    pub fn var_b(&mut self, name: &str) -> bool {
+        let id = self.track_resource("variables", name);
+        match &self.variables[id].value {
+            Value::Bool(b) => *b,
+            _ => panic!("变量 '{}' 不是 bool 类型", name),
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn var_v(&mut self, name: &str) -> Vec<Value> {
+        let id = self.track_resource("variables", name);
+        match &self.variables[id].value {
+            Value::Vec(v) => v.clone(),
+            _ => panic!("变量 '{}' 不是 Vec 类型", name),
+        }
+    }
+
+    pub fn var_s(&mut self, name: &str) -> String {
+        let id = self.track_resource("variables", name);
+        match &self.variables[id].value {
+            Value::String(s) => s.clone(),
+            _ => panic!("变量 '{}' 不是 String 类型", name),
+        }
     }
 
     pub fn add_scroll_background(
@@ -850,9 +1168,9 @@ impl App {
         let mut id2;
         for i in 0..self.resource_scroll_background[id].image_name.len() {
             self.image(
-                ctx,
-                &self.resource_scroll_background[id].image_name[i].clone(),
                 ui,
+                &self.resource_scroll_background[id].image_name[i].clone(),
+                ctx,
             );
         }
         for i in 0..self.resource_scroll_background[id].image_name.len() {
@@ -921,6 +1239,7 @@ impl App {
         name: &str,
         path: &str,
         flip: [bool; 2],
+        create_new_resource: bool,
         ctx: &egui::Context,
     ) {
         let img_bytes = self.read_image_to_vec(path);
@@ -937,10 +1256,15 @@ impl App {
         let color_image =
             egui::ColorImage::from_rgba_unmultiplied([w as usize, h as usize], &raw_data);
         let image_texture = Some(ctx.load_texture("", color_image, TextureOptions::LINEAR));
-        self.resource_image_texture.push(ImageTexture {
-            name: name.to_string(),
-            texture: image_texture,
-        });
+        if create_new_resource {
+            self.resource_image_texture.push(ImageTexture {
+                name: name.to_string(),
+                texture: image_texture,
+            });
+        } else {
+            let id = self.track_resource("image_texture", name);
+            self.resource_image_texture[id].texture = image_texture;
+        };
     }
 
     pub fn add_image(
@@ -960,20 +1284,32 @@ impl App {
             image_size: [position_size[2], position_size[3]],
             x_grid: [grid[0], grid[1]],
             y_grid: [grid[2], grid[3]],
-            center_display: [center_display_and_use_overlay[0], center_display_and_use_overlay[1], center_display_and_use_overlay[2], center_display_and_use_overlay[3]],
+            center_display: [
+                center_display_and_use_overlay[0],
+                center_display_and_use_overlay[1],
+                center_display_and_use_overlay[2],
+                center_display_and_use_overlay[3],
+            ],
             alpha: alpha_and_overlay_color[0],
-            overlay_color: [alpha_and_overlay_color[1], alpha_and_overlay_color[2], alpha_and_overlay_color[3], alpha_and_overlay_color[4]],
+            overlay_color: [
+                alpha_and_overlay_color[1],
+                alpha_and_overlay_color[2],
+                alpha_and_overlay_color[3],
+                alpha_and_overlay_color[4],
+            ],
             use_overlay_color: center_display_and_use_overlay[4],
+            origin_position: [position_size[0], position_size[1]],
         });
     }
 
-    pub fn image(&mut self, ctx: &egui::Context, name: &str, ui: &mut Ui) {
+    pub fn image(&mut self, ui: &Ui, name: &str, ctx: &egui::Context) {
         let id = self.track_resource("image", name);
         self.resource_image[id].image_position[0] = match self.resource_image[id].x_grid[1] {
             0 => self.resource_image[id].image_position[0],
             _ => {
                 (ctx.available_rect().width() as f64 / self.resource_image[id].x_grid[1] as f64
                     * self.resource_image[id].x_grid[0] as f64) as f32
+                    + self.resource_image[id].origin_position[0]
             }
         };
         self.resource_image[id].image_position[1] = match self.resource_image[id].y_grid[1] {
@@ -981,31 +1317,27 @@ impl App {
             _ => {
                 (ctx.available_rect().height() as f64 / self.resource_image[id].y_grid[1] as f64
                     * self.resource_image[id].y_grid[0] as f64) as f32
+                    + self.resource_image[id].origin_position[1]
             }
         };
-        let pos_x;
-        let pos_y;
         if self.resource_image[id].center_display[2] {
-            pos_x = self.resource_image[id].image_position[0]
-                - self.resource_image[id].image_size[0] / 2.0;
-        } else if self.resource_image[id].center_display[0] {
-            pos_x = self.resource_image[id].image_position[0];
-        } else {
-            pos_x =
-                self.resource_image[id].image_position[0] - self.resource_image[id].image_size[0];
+            self.resource_image[id].image_position[0] -=
+                self.resource_image[id].image_size[0] / 2.0;
+        } else if !self.resource_image[id].center_display[0] {
+            self.resource_image[id].image_position[0] -= self.resource_image[id].image_size[0];
         };
         if self.resource_image[id].center_display[3] {
-            pos_y = self.resource_image[id].image_position[1]
-                - self.resource_image[id].image_size[1] / 2.0;
-        } else if self.resource_image[id].center_display[1] {
-            pos_y = self.resource_image[id].image_position[1];
-        } else {
-            pos_y =
-                self.resource_image[id].image_position[1] - self.resource_image[id].image_size[1];
+            self.resource_image[id].image_position[1] -=
+                self.resource_image[id].image_size[1] / 2.0;
+        } else if !self.resource_image[id].center_display[1] {
+            self.resource_image[id].image_position[1] -= self.resource_image[id].image_size[1];
         };
         if let Some(texture) = &self.resource_image[id].image_texture {
             let rect = Rect::from_min_size(
-                Pos2::new(pos_x, pos_y),
+                Pos2::new(
+                    self.resource_image[id].image_position[0],
+                    self.resource_image[id].image_position[1],
+                ),
                 Vec2::new(
                     self.resource_image[id].image_size[0],
                     self.resource_image[id].image_size[1],
@@ -1018,8 +1350,9 @@ impl App {
                     self.resource_image[id].overlay_color[1],
                     self.resource_image[id].overlay_color[2],
                     // 将图片透明度与覆盖颜色透明度相乘
-                    (self.resource_image[id].alpha as f32 *
-                        self.resource_image[id].overlay_color[3] as f32 / 255.0) as u8
+                    (self.resource_image[id].alpha as f32
+                        * self.resource_image[id].overlay_color[3] as f32
+                        / 255.0) as u8,
                 )
             } else {
                 Color32::from_white_alpha(self.resource_image[id].alpha)
@@ -1042,7 +1375,7 @@ impl App {
         enable_hover_click_image_and_use_overlay: [bool; 3],
         switch_amounts_state: u32,
         overlay_color: Vec<[u8; 4]>,
-        click_method: PointerButton
+        click_method: PointerButton,
     ) {
         let mut count = 1;
         if enable_hover_click_image_and_use_overlay[0] {
@@ -1053,18 +1386,29 @@ impl App {
         };
         if enable_hover_click_image_and_use_overlay[2] {
             if overlay_color.len() as u32 != count * switch_amounts_state {
-                panic!("\"{}\"开关缺少/多出{}个资源！", name_and_switch_image_name[0], count * switch_amounts_state - overlay_color.len() as u32);
+                panic!(
+                    "\"{}\"开关缺少/多出{}个资源！",
+                    name_and_switch_image_name[0],
+                    count * switch_amounts_state - overlay_color.len() as u32
+                );
             };
             let id = self.track_resource("image", name_and_switch_image_name[1]);
             self.resource_image[id].use_overlay_color = true;
         } else if switch_texture_name.len() as u32 != count * switch_amounts_state {
-                panic!("\"{}\"开关缺少/多出{}个资源！", name_and_switch_image_name[0], count * switch_amounts_state - switch_texture_name.len() as u32);
+            panic!(
+                "\"{}\"开关缺少/多出{}个资源！",
+                name_and_switch_image_name[0],
+                count * switch_amounts_state - switch_texture_name.len() as u32
+            );
         };
         self.resource_switch.push(Switch {
             name: name_and_switch_image_name[0].to_string(),
             switch_texture_name,
             switch_image_name: name_and_switch_image_name[1].to_string(),
-            enable_hover_click_image: [enable_hover_click_image_and_use_overlay[0], enable_hover_click_image_and_use_overlay[1]],
+            enable_hover_click_image: [
+                enable_hover_click_image_and_use_overlay[0],
+                enable_hover_click_image_and_use_overlay[1],
+            ],
             state: 0,
             use_overlay: enable_hover_click_image_and_use_overlay[2],
             overlay_color,
@@ -1074,89 +1418,173 @@ impl App {
     }
 
     #[allow(dead_code)]
-    pub fn switch(&mut self, name: &str, ui: &mut Ui, ctx: &egui::Context) {
+    pub fn switch(
+        &mut self,
+        name: &str,
+        ui: &mut Ui,
+        ctx: &egui::Context,
+        enable: bool,
+    ) -> [u32; 2] {
+        let mut activated = [0, 0];
         let id = self.track_resource("switch", name);
         let id2 = self.track_resource("image", &self.resource_switch[id].switch_image_name.clone());
         let id3;
-        let rect =
-            Rect::from_min_size(
-                Pos2::new(self.resource_image[id2].image_position[0], self.resource_image[id2].image_position[1]),
-                Vec2::new(self.resource_image[id2].image_size[0], self.resource_image[id2].image_size[1])
-            );
-        if let Some(mouse_pos) = ui.input(|i| i.pointer.hover_pos()) {
-            // 判断是否在矩形内
-            if rect.contains(mouse_pos) {
-                if ui.input(|i| i.pointer.button_down(self.resource_switch[id].click_method)) {
-                    self.resource_switch[id].last_time_clicked = true;
-                    if self.resource_switch[id].enable_hover_click_image[1] {
-                        if self.resource_switch[id].use_overlay {
-                            if self.resource_switch[id].enable_hover_click_image[0] {
-                                self.resource_image[id2].overlay_color = self.resource_switch[id].overlay_color[(self.resource_switch[id].state + 2) as usize];
-                            } else {
-                                self.resource_image[id2].overlay_color = self.resource_switch[id].overlay_color[(self.resource_switch[id].state + 1) as usize];
-                            };
-                        } else {
-                            if self.resource_switch[id].enable_hover_click_image[0] {
-                                id3 = self.track_resource("image_texture", &self.resource_switch[id].switch_texture_name[(self.resource_switch[id].state + 2) as usize].clone());
-                            } else {
-                                id3 = self.track_resource("image_texture", &self.resource_switch[id].switch_texture_name[(self.resource_switch[id].state + 1) as usize].clone());
-                            };
-                            self.resource_image[id2].image_texture = self.resource_image_texture[id3].texture.clone();
-                        };
-                    } else if !self.resource_switch[id].enable_hover_click_image[0]{
-                        if self.resource_switch[id].use_overlay {
-                            self.resource_image[id2].overlay_color = self.resource_switch[id].overlay_color[self.resource_switch[id].state as usize];
-                        } else {
-                            id3 = self.track_resource("image_texture", &self.resource_switch[id].switch_texture_name[self.resource_switch[id].state as usize].clone());
-                            self.resource_image[id2].image_texture = self.resource_image_texture[id3].texture.clone();
-                        };
-                    };
-                } else {
-                    if self.resource_switch[id].last_time_clicked {
-                        let mut count = 1;
-                        if self.resource_switch[id].enable_hover_click_image[0] {
-                            count += 1;
-                        };
+        let rect = Rect::from_min_size(
+            Pos2::new(
+                self.resource_image[id2].image_position[0],
+                self.resource_image[id2].image_position[1],
+            ),
+            Vec2::new(
+                self.resource_image[id2].image_size[0],
+                self.resource_image[id2].image_size[1],
+            ),
+        );
+        if enable {
+            if let Some(mouse_pos) = ui.input(|i| i.pointer.hover_pos()) {
+                // 判断是否在矩形内
+                if rect.contains(mouse_pos) {
+                    if ui.input(|i| i.pointer.button_down(self.resource_switch[id].click_method)) {
+                        self.resource_switch[id].last_time_clicked = true;
                         if self.resource_switch[id].enable_hover_click_image[1] {
-                            count += 1;
+                            if self.resource_switch[id].use_overlay {
+                                if self.resource_switch[id].enable_hover_click_image[0] {
+                                    self.resource_image[id2].overlay_color =
+                                        self.resource_switch[id].overlay_color
+                                            [(self.resource_switch[id].state + 2) as usize];
+                                } else {
+                                    self.resource_image[id2].overlay_color =
+                                        self.resource_switch[id].overlay_color
+                                            [(self.resource_switch[id].state + 1) as usize];
+                                };
+                            } else {
+                                if self.resource_switch[id].enable_hover_click_image[0] {
+                                    id3 = self.track_resource(
+                                        "image_texture",
+                                        &self.resource_switch[id].switch_texture_name
+                                            [(self.resource_switch[id].state + 2) as usize]
+                                            .clone(),
+                                    );
+                                } else {
+                                    id3 = self.track_resource(
+                                        "image_texture",
+                                        &self.resource_switch[id].switch_texture_name
+                                            [(self.resource_switch[id].state + 1) as usize]
+                                            .clone(),
+                                    );
+                                };
+                                self.resource_image[id2].image_texture =
+                                    self.resource_image_texture[id3].texture.clone();
+                            };
+                        } else if !self.resource_switch[id].enable_hover_click_image[0] {
+                            if self.resource_switch[id].use_overlay {
+                                self.resource_image[id2].overlay_color = self.resource_switch[id]
+                                    .overlay_color
+                                    [self.resource_switch[id].state as usize];
+                            } else {
+                                id3 = self.track_resource(
+                                    "image_texture",
+                                    &self.resource_switch[id].switch_texture_name
+                                        [self.resource_switch[id].state as usize]
+                                        .clone(),
+                                );
+                                self.resource_image[id2].image_texture =
+                                    self.resource_image_texture[id3].texture.clone();
+                            };
                         };
-                        if self.resource_switch[id].use_overlay {
-                            if self.resource_switch[id].state < (self.resource_switch[id].overlay_color.len() / count - 1) as u32 {
+                    } else {
+                        if self.resource_switch[id].last_time_clicked {
+                            let mut count = 1;
+                            if self.resource_switch[id].enable_hover_click_image[0] {
+                                count += 1;
+                            };
+                            if self.resource_switch[id].enable_hover_click_image[1] {
+                                count += 1;
+                            };
+                            if self.resource_switch[id].use_overlay {
+                                if self.resource_switch[id].state
+                                    < (self.resource_switch[id].overlay_color.len() / count - 1)
+                                        as u32
+                                {
+                                    self.resource_switch[id].state += 1;
+                                } else {
+                                    self.resource_switch[id].state = 0;
+                                };
+                            } else if self.resource_switch[id].state
+                                < (self.resource_switch[id].switch_texture_name.len() / count - 1)
+                                    as u32
+                            {
                                 self.resource_switch[id].state += 1;
                             } else {
                                 self.resource_switch[id].state = 0;
                             };
-                        } else if self.resource_switch[id].state < (self.resource_switch[id].switch_texture_name.len() / count - 1) as u32 {
-                                self.resource_switch[id].state += 1;
+                            activated[0] = 1;
+                            self.resource_switch[id].last_time_clicked = false;
+                        };
+                        if self.resource_switch[id].enable_hover_click_image[0] {
+                            if self.resource_switch[id].use_overlay {
+                                self.resource_image[id2].overlay_color = self.resource_switch[id]
+                                    .overlay_color
+                                    [(self.resource_switch[id].state + 1) as usize];
                             } else {
-                                self.resource_switch[id].state = 0;
+                                id3 = self.track_resource(
+                                    "image_texture",
+                                    &self.resource_switch[id].switch_texture_name
+                                        [(self.resource_switch[id].state + 1) as usize]
+                                        .clone(),
+                                );
+                                self.resource_image[id2].image_texture =
+                                    self.resource_image_texture[id3].texture.clone();
                             };
-                        self.resource_switch[id].last_time_clicked = false;
+                        } else if self.resource_switch[id].use_overlay {
+                            self.resource_image[id2].overlay_color = self.resource_switch[id]
+                                .overlay_color
+                                [self.resource_switch[id].state as usize];
+                        } else {
+                            id3 = self.track_resource(
+                                "image_texture",
+                                &self.resource_switch[id].switch_texture_name
+                                    [self.resource_switch[id].state as usize]
+                                    .clone(),
+                            );
+                            self.resource_image[id2].image_texture =
+                                self.resource_image_texture[id3].texture.clone();
+                        };
                     };
-                    if self.resource_switch[id].enable_hover_click_image[0] {
-                        if self.resource_switch[id].use_overlay {
-                            self.resource_image[id2].overlay_color = self.resource_switch[id].overlay_color[(self.resource_switch[id].state + 1) as usize];
-                        } else {
-                            id3 = self.track_resource("image_texture", &self.resource_switch[id].switch_texture_name[(self.resource_switch[id].state + 1) as usize].clone());
-                            self.resource_image[id2].image_texture = self.resource_image_texture[id3].texture.clone();
-                        };
-                    } else if self.resource_switch[id].use_overlay {
-                            self.resource_image[id2].overlay_color = self.resource_switch[id].overlay_color[self.resource_switch[id].state as usize];
-                        } else {
-                            id3 = self.track_resource("image_texture", &self.resource_switch[id].switch_texture_name[self.resource_switch[id].state as usize].clone());
-                            self.resource_image[id2].image_texture = self.resource_image_texture[id3].texture.clone();
-                        };
-                };
-            } else {
-                self.resource_switch[id].last_time_clicked = false;
-                if self.resource_switch[id].use_overlay {
-                    self.resource_image[id2].overlay_color = self.resource_switch[id].overlay_color[self.resource_switch[id].state as usize];
                 } else {
-                    id3 = self.track_resource("image_texture", &self.resource_switch[id].switch_texture_name[self.resource_switch[id].state as usize].clone());
-                    self.resource_image[id2].image_texture = self.resource_image_texture[id3].texture.clone();
+                    self.resource_switch[id].last_time_clicked = false;
+                    if self.resource_switch[id].use_overlay {
+                        self.resource_image[id2].overlay_color = self.resource_switch[id]
+                            .overlay_color[self.resource_switch[id].state as usize];
+                    } else {
+                        id3 = self.track_resource(
+                            "image_texture",
+                            &self.resource_switch[id].switch_texture_name
+                                [self.resource_switch[id].state as usize]
+                                .clone(),
+                        );
+                        self.resource_image[id2].image_texture =
+                            self.resource_image_texture[id3].texture.clone();
+                    };
                 };
             };
+        } else {
+            self.resource_switch[id].last_time_clicked = false;
+            if self.resource_switch[id].use_overlay {
+                self.resource_image[id2].overlay_color = self.resource_switch[id]
+                    .overlay_color[self.resource_switch[id].state as usize];
+            } else {
+                id3 = self.track_resource(
+                    "image_texture",
+                    &self.resource_switch[id].switch_texture_name
+                        [self.resource_switch[id].state as usize]
+                        .clone(),
+                );
+                self.resource_image[id2].image_texture =
+                    self.resource_image_texture[id3].texture.clone();
+            };
         };
-        self.image(ctx, &self.resource_switch[id].switch_image_name.clone(), ui);
+        self.image(ui, &self.resource_switch[id].switch_image_name.clone(), ctx);
+        activated[1] = self.resource_switch[id].state;
+        activated
     }
 }
