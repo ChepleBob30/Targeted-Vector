@@ -1,0 +1,40 @@
+{
+  "game_text": {
+    "organize": [
+      " 必达\n 制作",
+      " Binder\n Presents"
+    ],
+    "connect_mouse": [
+      " 请连接鼠标\n 以获得最佳游戏体验",
+      " Please connect mouse\n to get the best experience"
+    ],
+    "account_name": [
+      "账户名",
+      "Account name"
+    ],
+    "account_password": [
+      "密码",
+      "Password"
+    ],
+    "reg_account": [
+      "注册账户",
+      "Register an account"
+    ],
+    "welcome": [
+      "欢迎来到靶向载体",
+      "Welcome to Targeted Vector"
+    ],
+    "intro": [
+      "这是一个简单的射击游戏。\n请按\"继续\"键以开始注册账户。",
+      "This is a simple shooting game.\nPlease press the \"Continue\" button to start registering an account."
+    ],
+    "cancel": [
+      "取消",
+      "Cancel"
+    ],
+    "continue": [
+      "继续",
+      "Continue"
+    ]
+  }
+}
