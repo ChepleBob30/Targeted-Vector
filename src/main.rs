@@ -40,7 +40,7 @@ fn main() {
         include_bytes!("../Resources/assets/images/icon.png"),
         image::ImageFormat::Png,
     )
-        .unwrap();
+    .unwrap();
     let rgba_data = img.into_rgba8();
     let (w, h) = (rgba_data.width(), rgba_data.height());
     let raw_data: Vec<u8> = rgba_data.into_raw();

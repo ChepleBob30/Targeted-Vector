@@ -6,13 +6,13 @@ use eframe::epaint::Stroke;
 use egui::{Color32, FontId, Frame, PointerButton, Pos2, Ui, Vec2};
 use json::{object, JsonValue};
 use rodio::{Decoder, OutputStream};
+use std::collections::HashMap;
 use std::fs;
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::Path;
 use std::path::PathBuf;
 use std::time::Instant;
-use std::collections::HashMap;
 use walkdir::WalkDir;
 
 /// 在 macOS 上搜索指定 .app 应用的绝对路径
@@ -106,6 +106,16 @@ pub fn copy_and_reformat_json<P: AsRef<Path>>(src: P, dest: P) -> anyhow::Result
     create_pretty_json(dest, parsed)?;
 
     Ok(())
+}
+
+pub fn check_file_exists<P: AsRef<Path>>(path: P) -> bool {
+    let path_ref = path.as_ref();
+    if path_ref.exists() {
+        true // 文件已存在时直接返回，不执行写入
+    } else {
+        // 文件不存在时，返回 false
+        false
+    }
 }
 
 // 通用 JSON 写入函数
@@ -263,7 +273,8 @@ impl GameText {
         let mut parsed = HashMap::new();
         for (key, val) in value["game_text"].entries() {
             if let JsonValue::Array(arr) = val {
-                let str_vec: Vec<String> = arr.iter()
+                let str_vec: Vec<String> = arr
+                    .iter()
                     .filter_map(|v| v.as_str().map(String::from))
                     .collect();
                 parsed.insert(key.to_string(), str_vec);
@@ -275,8 +286,15 @@ impl GameText {
 }
 
 #[allow(dead_code)]
-pub trait RustConstructorResource {}
+pub trait RustConstructorResource {
+    fn name(&self) -> &str;
+}
 
+impl RustConstructorResource for PageData {
+    fn name(&self) -> &str {
+        &self.name
+    }
+}
 #[derive(Clone)]
 pub struct PageData {
     pub name: String,
@@ -293,14 +311,22 @@ pub struct Timer {
     pub split_time: Vec<SplitTime>,
 }
 
-impl RustConstructorResource for ImageTexture {}
+impl RustConstructorResource for ImageTexture {
+    fn name(&self) -> &str {
+        &self.name
+    }
+}
 #[derive(Clone)]
 pub struct ImageTexture {
     pub name: String,
     pub texture: Option<egui::TextureHandle>,
 }
 
-impl RustConstructorResource for CustomRect {}
+impl RustConstructorResource for CustomRect {
+    fn name(&self) -> &str {
+        &self.name
+    }
+}
 #[derive(Clone)]
 pub struct CustomRect {
     pub name: String,
@@ -316,7 +342,11 @@ pub struct CustomRect {
     pub origin_position: [f32; 2],
 }
 
-impl RustConstructorResource for Image {}
+impl RustConstructorResource for Image {
+    fn name(&self) -> &str {
+        &self.name
+    }
+}
 #[derive(Clone)]
 pub struct Image {
     pub name: String,
@@ -332,7 +362,11 @@ pub struct Image {
     pub origin_position: [f32; 2],
 }
 
-impl RustConstructorResource for Text {}
+impl RustConstructorResource for Text {
+    fn name(&self) -> &str {
+        &self.name
+    }
+}
 #[derive(Clone)]
 pub struct Text {
     pub name: String,
@@ -350,7 +384,11 @@ pub struct Text {
     pub origin_position: [f32; 2],
 }
 
-impl RustConstructorResource for ScrollBackground {}
+impl RustConstructorResource for ScrollBackground {
+    fn name(&self) -> &str {
+        &self.name
+    }
+}
 #[derive(Clone)]
 pub struct ScrollBackground {
     pub name: String,
@@ -362,20 +400,33 @@ pub struct ScrollBackground {
     pub resume_point: f32,
 }
 
+impl RustConstructorResource for Variable {
+    fn name(&self) -> &str {
+        &self.name
+    }
+}
 #[derive(Clone)]
 pub struct Variable {
     pub name: String,
     pub value: Value,
 }
 
-impl RustConstructorResource for SplitTime {}
+impl RustConstructorResource for SplitTime {
+    fn name(&self) -> &str {
+        &self.name
+    }
+}
 #[derive(Clone)]
 pub struct SplitTime {
     pub name: String,
     pub time: [f32; 2],
 }
 
-impl RustConstructorResource for Switch {}
+impl RustConstructorResource for Switch {
+    fn name(&self) -> &str {
+        &self.name
+    }
+}
 #[derive(Clone)]
 #[allow(dead_code)]
 pub struct Switch {
@@ -396,10 +447,10 @@ pub struct App {
     pub config: Config,
     pub game_text: GameText,
     pub frame: Frame,
-    pub page_windows_account: u32,
+    pub page_windows_amount: u32,
     pub page_id: i32,
     pub page: String,
-    pub page_status: Vec<PageData>,
+    pub resource_page: Vec<PageData>,
     pub resource_image: Vec<Image>,
     pub resource_text: Vec<Text>,
     pub resource_rect: Vec<CustomRect>,
@@ -411,6 +462,40 @@ pub struct App {
     pub resource_switch: Vec<Switch>,
 }
 
+/// The method to get the index of the resource in the vector.
+/// # Arguments
+/// * `resource_list` - target vector.
+/// * `resource_name` - target resource name.
+/// * `error_log` - if method didn't find your resource, it will print the error message.
+/// # Returns
+/// your resource's index.
+/// # Panics
+/// if resource doesn't exist, it will panic.
+/// # Examples
+/// ```
+/// track_resource(self.resource_image, "title_image", "Image_Vector");
+/// ```
+pub fn track_resource<T: RustConstructorResource>(
+    resource_list: Vec<T>,
+    resource_name: &str,
+    error_log: &str,
+) -> usize {
+    let mut id: i32 = -1;
+    for (i, _a) in resource_list.iter().enumerate() {
+        if resource_list[i].name() == resource_name {
+            id = i as i32;
+            break;
+        };
+    }
+    if id == -1 {
+        panic!(
+            "RustConstructor Error[Track load failed]: \"{}\" does not have a resource \"{}\"!",
+            error_log, resource_name
+        );
+    }
+    id as usize
+}
+
 impl App {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         load_fonts(&cc.egui_ctx);
@@ -419,7 +504,9 @@ impl App {
             launch_path: "".to_string(),
             language: 0,
         };
-        let mut game_text = GameText { game_text: HashMap::new() };
+        let mut game_text = GameText {
+            game_text: HashMap::new(),
+        };
         // 写入 JSON 文件
         // let json_value = config.to_json_value();
         // write_to_json("Resources/config/Preferences.json", json_value)
@@ -439,12 +526,12 @@ impl App {
             config,
             game_text,
             frame: Frame {
-              ..Default::default()
+                ..Default::default()
             },
-            page_windows_account: 0,
+            page_windows_amount: 0,
             page_id: 0,
             page: "Launch".to_string(),
-            page_status: vec![
+            resource_page: vec![
                 PageData {
                     name: "Launch".to_string(),
                     forced_update: true,
@@ -475,13 +562,14 @@ impl App {
     }
 
     pub fn switch_page(&mut self, page: &str) {
-        let id = self.track_resource("page", page);
-        self.page = self.page_status[id].name.to_string();
+        self.page = self.resource_page[track_resource(self.resource_page.clone(), page, "page")]
+            .name
+            .to_string();
     }
 
     pub fn launch_page_preload(&mut self, ctx: &egui::Context) {
         let game_text = self.game_text.game_text.clone();
-        for i in 0..self.page_status.len() {
+        for i in 0..self.resource_page.len() {
             if i == 0 {
                 self.add_image_texture(
                     "RC_Logo",
@@ -712,7 +800,7 @@ impl App {
     pub fn new_page_update(&mut self, page_id: i32) {
         self.renew_timer();
         self.page_id = page_id;
-        self.page_status[page_id as usize].change_page_updated = true;
+        self.resource_page[page_id as usize].change_page_updated = true;
         self.timer.split_time = vec![];
     }
 
@@ -724,8 +812,8 @@ impl App {
     }
 
     pub fn split_time(&mut self, name: &str) -> [f32; 2] {
-        let id = self.track_resource("split_time", name);
-        self.timer.split_time[id].time
+        self.timer.split_time[track_resource(self.timer.split_time.clone(), name, "split_time")]
+            .time
     }
 
     pub fn renew_timer(&mut self) {
@@ -766,7 +854,7 @@ impl App {
     }
 
     pub fn rect(&mut self, ui: &mut Ui, name: &str, ctx: &egui::Context) {
-        let id = self.track_resource("rect", name);
+        let id = track_resource(self.resource_rect.clone(), name, "rect");
         self.resource_rect[id].position[0] = match self.resource_rect[id].x_grid[1] {
             0 => self.resource_rect[id].position[0],
             _ => {
@@ -859,7 +947,7 @@ impl App {
     }
 
     pub fn text(&mut self, ui: &mut Ui, name: &str, ctx: &egui::Context) {
-        let id = self.track_resource("text", name);
+        let id = track_resource(self.resource_text.clone(), name, "text");
         // 计算文本大小
         let galley = ui.fonts(|f| {
             f.layout(
@@ -942,92 +1030,6 @@ impl App {
         buffer
     }
 
-    pub fn track_resource(&mut self, resource_list_name: &str, resource_name: &str) -> usize {
-        let mut id: i32 = -1;
-        match resource_list_name.to_lowercase().as_str() {
-            "image" => {
-                for i in 0..self.resource_image.len() {
-                    if self.resource_image[i].name == resource_name {
-                        id = i as i32;
-                        break;
-                    };
-                }
-            }
-            "text" => {
-                for i in 0..self.resource_text.len() {
-                    if self.resource_text[i].name == resource_name {
-                        id = i as i32;
-                        break;
-                    };
-                }
-            }
-            "rect" => {
-                for i in 0..self.resource_rect.len() {
-                    if self.resource_rect[i].name == resource_name {
-                        id = i as i32;
-                        break;
-                    };
-                }
-            }
-            "scroll_background" => {
-                for i in 0..self.resource_scroll_background.len() {
-                    if self.resource_scroll_background[i].name == resource_name {
-                        id = i as i32;
-                        break;
-                    };
-                }
-            }
-            "split_time" => {
-                for i in 0..self.timer.split_time.len() {
-                    if self.timer.split_time[i].name == resource_name {
-                        id = i as i32;
-                        break;
-                    };
-                }
-            }
-            "image_texture" => {
-                for i in 0..self.resource_image_texture.len() {
-                    if self.resource_image_texture[i].name == resource_name {
-                        id = i as i32;
-                        break;
-                    };
-                }
-            }
-            "switch" => {
-                for i in 0..self.resource_switch.len() {
-                    if self.resource_switch[i].name == resource_name {
-                        id = i as i32;
-                        break;
-                    };
-                }
-            }
-            "page" => {
-                for i in 0..self.page_status.len() {
-                    if self.page_status[i].name == resource_name {
-                        id = i as i32;
-                        break;
-                    };
-                }
-            }
-            "variables" => {
-                for i in 0..self.variables.len() {
-                    if self.variables[i].name == resource_name {
-                        id = i as i32;
-                        break;
-                    };
-                }
-            }
-            _ => panic!("\"{}\"资源列表不存在!", resource_list_name),
-        };
-        if id == -1 {
-            panic!(
-                "\"{}\"中不存在资源\"{}\"!",
-                resource_list_name, resource_name
-            );
-        }
-        id as usize
-    }
-
     pub fn add_var<T: Into<Value>>(&mut self, name: &str, value: T) {
         self.variables.push(Variable {
             name: name.to_string(),
@@ -1037,65 +1039,60 @@ impl App {
 
     #[allow(dead_code)]
     pub fn modify_var<T: Into<Value>>(&mut self, name: &str, value: T) {
-        let id = self.track_resource("variables", name);
-        self.variables[id].value = value.into();
+        let id = self.variables.clone();
+        self.variables[track_resource(id, name, "variables")].value = value.into();
     }
 
     #[allow(dead_code)]
     pub fn var(&mut self, name: &str) -> Value {
-        let id = self.track_resource("variables", name);
-        self.variables[id].clone().value
+        self.variables[track_resource(self.variables.clone(), name, "variables")]
+            .clone()
+            .value
     }
 
     pub fn var_i(&mut self, name: &str) -> i32 {
-        let id = self.track_resource("variables", name);
-        match &self.variables[id].value {
+        match &self.variables[track_resource(self.variables.clone(), name, "variables")].value {
             // 直接访问 value 字段
             Value::Int(i) => *i,
-            _ => panic!("变量 '{}' 不是 i32 类型", name),
+            _ => panic!("RustConstructor Error[Variable load failed]: The variable \"{}\" is not of type i32", name),
         }
     }
 
     #[allow(dead_code)]
     pub fn var_u(&mut self, name: &str) -> u32 {
-        let id = self.track_resource("variables", name);
-        match &self.variables[id].value {
+        match &self.variables[track_resource(self.variables.clone(), name, "variables")].value {
             Value::UInt(u) => *u,
-            _ => panic!("变量 '{}' 不是 u32 类型", name),
+            _ => panic!("RustConstructor Error[Variable load failed]: The variable \"{}\" is not of type u32", name),
         }
     }
 
     #[allow(dead_code)]
     pub fn var_f(&mut self, name: &str) -> f32 {
-        let id = self.track_resource("variables", name);
-        match &self.variables[id].value {
+        match &self.variables[track_resource(self.variables.clone(), name, "variables")].value {
             Value::Float(f) => *f,
-            _ => panic!("变量 '{}' 不是 f32 类型", name),
+            _ => panic!("RustConstructor Error[Variable load failed]: The variable \"{}\" is not of type f32", name),
         }
     }
 
     pub fn var_b(&mut self, name: &str) -> bool {
-        let id = self.track_resource("variables", name);
-        match &self.variables[id].value {
+        match &self.variables[track_resource(self.variables.clone(), name, "variables")].value {
             Value::Bool(b) => *b,
-            _ => panic!("变量 '{}' 不是 bool 类型", name),
+            _ => panic!("RustConstructor Error[Variable load failed]: The variable \"{}\" is not of type bool", name),
         }
     }
 
     #[allow(dead_code)]
     pub fn var_v(&mut self, name: &str) -> Vec<Value> {
-        let id = self.track_resource("variables", name);
-        match &self.variables[id].value {
+        match &self.variables[track_resource(self.variables.clone(), name, "variables")].value {
             Value::Vec(v) => v.clone(),
-            _ => panic!("变量 '{}' 不是 Vec 类型", name),
+            _ => panic!("RustConstructor Error[Variable load failed]: The variable \"{}\" is not of type Vec", name),
         }
     }
 
     pub fn var_s(&mut self, name: &str) -> String {
-        let id = self.track_resource("variables", name);
-        match &self.variables[id].value {
+        match &self.variables[track_resource(self.variables.clone(), name, "variables")].value {
             Value::String(s) => s.clone(),
-            _ => panic!("变量 '{}' 不是 String 类型", name),
+            _ => panic!("RustConstructor Error[Variable load failed]: The variable \"{}\" is not of type String", name),
         }
     }
 
@@ -1110,7 +1107,7 @@ impl App {
     ) {
         let mut image_id = vec![];
         for i in image_name.clone().into_iter() {
-            image_id.push(self.track_resource("image", &i));
+            image_id.push(track_resource(self.resource_image.clone(), &i, "image"));
             continue;
         }
         for (count, _i) in image_id.clone().into_iter().enumerate() {
@@ -1164,7 +1161,11 @@ impl App {
     }
 
     pub fn scroll_background(&mut self, ui: &mut Ui, name: &str, ctx: &egui::Context) {
-        let id = self.track_resource("scroll_background", name);
+        let id = track_resource(
+            self.resource_scroll_background.clone(),
+            name,
+            "scroll_background",
+        );
         let mut id2;
         for i in 0..self.resource_scroll_background[id].image_name.len() {
             self.image(
@@ -1174,9 +1175,10 @@ impl App {
             );
         }
         for i in 0..self.resource_scroll_background[id].image_name.len() {
-            id2 = self.track_resource(
-                "image",
+            id2 = track_resource(
+                self.resource_image.clone(),
                 &self.resource_scroll_background[id].image_name[i].clone(),
+                "image",
             );
             if self.resource_scroll_background[id].horizontal_or_vertical {
                 if self.resource_scroll_background[id].left_and_top_or_right_and_bottom {
@@ -1262,8 +1264,9 @@ impl App {
                 texture: image_texture,
             });
         } else {
-            let id = self.track_resource("image_texture", name);
-            self.resource_image_texture[id].texture = image_texture;
+            let id = self.resource_image_texture.clone();
+            self.resource_image_texture[track_resource(id, name, "image_texture")].texture =
+                image_texture;
         };
     }
 
@@ -1276,10 +1279,15 @@ impl App {
         alpha_and_overlay_color: [u8; 5],
         image_texture_name: &str,
     ) {
-        let id = self.track_resource("image_texture", image_texture_name);
         self.resource_image.push(Image {
             name: name.to_string(),
-            image_texture: self.resource_image_texture[id].texture.clone(),
+            image_texture: self.resource_image_texture[track_resource(
+                self.resource_image_texture.clone(),
+                image_texture_name,
+                "image_texture",
+            )]
+            .texture
+            .clone(),
             image_position: [position_size[0], position_size[1]],
             image_size: [position_size[2], position_size[3]],
             x_grid: [grid[0], grid[1]],
@@ -1303,7 +1311,7 @@ impl App {
     }
 
     pub fn image(&mut self, ui: &Ui, name: &str, ctx: &egui::Context) {
-        let id = self.track_resource("image", name);
+        let id = track_resource(self.resource_image.clone(), name, "image");
         self.resource_image[id].image_position[0] = match self.resource_image[id].x_grid[1] {
             0 => self.resource_image[id].image_position[0],
             _ => {
@@ -1387,16 +1395,17 @@ impl App {
         if enable_hover_click_image_and_use_overlay[2] {
             if overlay_color.len() as u32 != count * switch_amounts_state {
                 panic!(
-                    "\"{}\"开关缺少/多出{}个资源！",
+                    "RustConstructor Error[Switch load failed]: \"{}\" switch is missing/extra {} resources!",
                     name_and_switch_image_name[0],
                     count * switch_amounts_state - overlay_color.len() as u32
                 );
             };
-            let id = self.track_resource("image", name_and_switch_image_name[1]);
-            self.resource_image[id].use_overlay_color = true;
+            let id = self.resource_image.clone();
+            self.resource_image[track_resource(id, name_and_switch_image_name[1], "image")]
+                .use_overlay_color = true;
         } else if switch_texture_name.len() as u32 != count * switch_amounts_state {
             panic!(
-                "\"{}\"开关缺少/多出{}个资源！",
+                "RustConstructor Error[Switch load failed]: \"{}\" switch is missing/extra {} resources!",
                 name_and_switch_image_name[0],
                 count * switch_amounts_state - switch_texture_name.len() as u32
             );
@@ -1426,8 +1435,12 @@ impl App {
         enable: bool,
     ) -> [u32; 2] {
         let mut activated = [0, 0];
-        let id = self.track_resource("switch", name);
-        let id2 = self.track_resource("image", &self.resource_switch[id].switch_image_name.clone());
+        let id = track_resource(self.resource_switch.clone(), name, "switch");
+        let id2 = track_resource(
+            self.resource_image.clone(),
+            &self.resource_switch[id].switch_image_name.clone(),
+            "image",
+        );
         let id3;
         let rect = Rect::from_min_size(
             Pos2::new(
@@ -1458,18 +1471,20 @@ impl App {
                                 };
                             } else {
                                 if self.resource_switch[id].enable_hover_click_image[0] {
-                                    id3 = self.track_resource(
-                                        "image_texture",
+                                    id3 = track_resource(
+                                        self.resource_image_texture.clone(),
                                         &self.resource_switch[id].switch_texture_name
                                             [(self.resource_switch[id].state + 2) as usize]
                                             .clone(),
+                                        "image_texture",
                                     );
                                 } else {
-                                    id3 = self.track_resource(
-                                        "image_texture",
+                                    id3 = track_resource(
+                                        self.resource_image_texture.clone(),
                                         &self.resource_switch[id].switch_texture_name
                                             [(self.resource_switch[id].state + 1) as usize]
                                             .clone(),
+                                        "image_texture",
                                     );
                                 };
                                 self.resource_image[id2].image_texture =
@@ -1481,11 +1496,12 @@ impl App {
                                     .overlay_color
                                     [self.resource_switch[id].state as usize];
                             } else {
-                                id3 = self.track_resource(
-                                    "image_texture",
+                                id3 = track_resource(
+                                    self.resource_image_texture.clone(),
                                     &self.resource_switch[id].switch_texture_name
                                         [self.resource_switch[id].state as usize]
                                         .clone(),
+                                    "image_texture",
                                 );
                                 self.resource_image[id2].image_texture =
                                     self.resource_image_texture[id3].texture.clone();
@@ -1526,11 +1542,12 @@ impl App {
                                     .overlay_color
                                     [(self.resource_switch[id].state + 1) as usize];
                             } else {
-                                id3 = self.track_resource(
-                                    "image_texture",
+                                id3 = track_resource(
+                                    self.resource_image_texture.clone(),
                                     &self.resource_switch[id].switch_texture_name
                                         [(self.resource_switch[id].state + 1) as usize]
                                         .clone(),
+                                    "image_texture",
                                 );
                                 self.resource_image[id2].image_texture =
                                     self.resource_image_texture[id3].texture.clone();
@@ -1540,11 +1557,12 @@ impl App {
                                 .overlay_color
                                 [self.resource_switch[id].state as usize];
                         } else {
-                            id3 = self.track_resource(
-                                "image_texture",
+                            id3 = track_resource(
+                                self.resource_image_texture.clone(),
                                 &self.resource_switch[id].switch_texture_name
                                     [self.resource_switch[id].state as usize]
                                     .clone(),
+                                "image_texture",
                             );
                             self.resource_image[id2].image_texture =
                                 self.resource_image_texture[id3].texture.clone();
@@ -1556,11 +1574,12 @@ impl App {
                         self.resource_image[id2].overlay_color = self.resource_switch[id]
                             .overlay_color[self.resource_switch[id].state as usize];
                     } else {
-                        id3 = self.track_resource(
-                            "image_texture",
+                        id3 = track_resource(
+                            self.resource_image_texture.clone(),
                             &self.resource_switch[id].switch_texture_name
                                 [self.resource_switch[id].state as usize]
                                 .clone(),
+                            "image_texture",
                         );
                         self.resource_image[id2].image_texture =
                             self.resource_image_texture[id3].texture.clone();
@@ -1570,14 +1589,15 @@ impl App {
         } else {
             self.resource_switch[id].last_time_clicked = false;
             if self.resource_switch[id].use_overlay {
-                self.resource_image[id2].overlay_color = self.resource_switch[id]
-                    .overlay_color[self.resource_switch[id].state as usize];
+                self.resource_image[id2].overlay_color =
+                    self.resource_switch[id].overlay_color[self.resource_switch[id].state as usize];
             } else {
-                id3 = self.track_resource(
-                    "image_texture",
+                id3 = track_resource(
+                    self.resource_image_texture.clone(),
                     &self.resource_switch[id].switch_texture_name
                         [self.resource_switch[id].state as usize]
                         .clone(),
+                    "image_texture",
                 );
                 self.resource_image[id2].image_texture =
                     self.resource_image_texture[id3].texture.clone();
