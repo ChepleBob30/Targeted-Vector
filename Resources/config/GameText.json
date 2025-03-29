@@ -35,6 +35,41 @@
     "continue": [
       "继续",
       "Continue"
+<<<<<<< HEAD
+=======
+    ],
+    "reg_account_name": [
+      "请输入账户名（20字以内）",
+      "Please enter your account name (within 20 characters)"
+    ],
+    "reg_account_password": [
+      "请输入密码（20字以内）",
+      "Please enter your password (within 20 characters)"
+    ],
+    "reg_account_check_password": [
+      "请再次输入密码",
+      "Please re-enter your password"
+    ],
+    "reg_check_password_error": [
+      "密码不正确",
+      "Password incorrect"
+    ],
+    "reg_name_error": [
+      "不能使用这个名称（不允许使用/已被占用）",
+      "This name cannot be used (not allowed/already occupied)"
+    ],
+    "reg_success": [
+      "注册成功。",
+      "Registration is successful."
+    ],
+    "re_reg": [
+      "重新注册",
+      "Re-reg"
+    ],
+    "reg_complete": [
+      "完成",
+      "Complete"
+>>>>>>> 5841b2cde610acb25eeeae2e8747959d42ca8ea9
     ]
   }
 }
