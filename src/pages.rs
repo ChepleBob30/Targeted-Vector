@@ -1,5 +1,8 @@
 //! pages.rs is the core part of the page of the Targeted Vector, mainly the page content.
-use crate::function::{check_file_exists, create_pretty_json, read_from_json, track_resource, value_to_bool, App, User, Value};
+use crate::function::{
+    check_file_exists, create_pretty_json, read_from_json, track_resource, value_to_bool, App,
+    User, Value,
+};
 use chrono::{Local, Timelike};
 use eframe::egui;
 use eframe::epaint::Rounding;
@@ -50,9 +53,8 @@ impl eframe::App for App {
         self.update_timer();
         match &*self.page.clone() {
             "Launch" => {
-                if !self.resource_page[track_resource(self.resource_page.clone(), "Launch", "page")].change_page_updated {
+                if !self.check_updated(&self.page.clone()) {
                     self.launch_page_preload(ctx);
-                    self.new_page_update(track_resource(self.resource_page.clone(), "Launch", "page") as i32);
                     self.add_var("progress", 0);
                     self.add_split_time("0");
                 };
@@ -174,13 +176,12 @@ impl eframe::App for App {
                     "ScrollWallpaper",
                     "scroll_background",
                 );
-                if !self.resource_page[track_resource(self.resource_page.clone(), "Login", "page")].change_page_updated {
+                if !self.check_updated(&self.page.clone()) {
                     self.variables.remove(track_resource(
                         self.variables.clone(),
                         "progress",
                         "variables",
                     ));
-                    self.new_page_update(track_resource(self.resource_page.clone(), "Login", "page") as i32);
                     self.add_var("title_float_status", true);
                     self.add_var("account_name_str", "".to_string());
                     self.add_var("account_password_str", "".to_string());
@@ -194,6 +195,7 @@ impl eframe::App for App {
                     self.add_var("reg_enable_name_error_message", false);
                     self.add_var("login_enable_name_error_message", false);
                     self.add_var("login_enable_password_error_message", false);
+                    self.add_var("last_window_size", vec![1280.0, 720.0]);
                     self.resource_scroll_background[scroll_background].resume_point =
                         ctx.available_rect().width();
                     for i in 0..self.resource_scroll_background[scroll_background]
@@ -216,13 +218,13 @@ impl eframe::App for App {
                 };
                 let mut input1 = self.var_s("account_name_str");
                 let mut input2 = self.var_s("account_password_str");
-                let window_free = !value_to_bool(self.page_windows_amount as i32);
+                let window_free = !value_to_bool(self.var_b("open_reg_window") as i32);
                 let mut input3 = self.var_s("reg_account_name_str");
                 let mut input4 = self.var_s("reg_account_password_str");
                 let mut input5 = self.var_s("reg_account_check_password_str");
                 egui::CentralPanel::default().show(ctx, |ui| {
-                    if self.last_window_size[0] != ctx.available_rect().width()
-                        || self.last_window_size[1] != ctx.available_rect().height()
+                    if self.var_decode_f(self.clone().var_v("last_window_size")[0].clone()) != ctx.available_rect().width()
+                        || self.var_decode_f(self.clone().var_v("last_window_size")[1].clone()) != ctx.available_rect().height()
                     {
                         self.resource_scroll_background[scroll_background].resume_point =
                             ctx.available_rect().width();
@@ -253,6 +255,18 @@ impl eframe::App for App {
                             ctx.available_rect().height() / 8_f32 * 6_f32,
                         ))
                         .show(ui.ctx(), |ui| {
+                            if window_free {
+                                egui::ComboBox::from_label("")
+                                .selected_text(game_text["language"][self.config.language as usize].clone())
+                                .width(200_f32)
+                                .close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside)
+                                .show_ui(ui, |ui| {
+                                    let lang = self.config.language;
+                                    ui.selectable_value(&mut self.config.language, 0, format!("{}({})", game_text["language"][0].clone(), game_text[&format!("{}_language", lang)][0].clone()));
+                                    ui.selectable_value(&mut self.config.language, 1, format!("{}({})", game_text["language"][1].clone(), game_text[&format!("{}_language", lang)][1].clone()));
+                                }
+                            );
+                            };
                             ui.add(
                                 egui::TextEdit::singleline(&mut input1)
                                     .cursor_at_end(true)
@@ -279,14 +293,17 @@ impl eframe::App for App {
                                 ui.colored_label(egui::Color32::RED, game_text["login_password_error"][self.config.language as usize].clone());
                             };
                         });
-                    if self.switch("Power", ui, ctx, window_free)[0] == 0 {
+                    if self.switch("Power", ui, ctx, window_free)[0] != 5 {
                         exit(0);
                     };
-                    if self.switch("Login", ui, ctx, window_free)[0] == 0 {
+                    if self.switch("Login", ui, ctx, window_free)[0] != 5 {
                         if check_file_exists(format!("Resources/config/user_{}.json", input1.replace(" ", "").replace("/", "").replace("\\", ""))) {
                             let mut user = User {
+                                version: 3,
                                 name: "".to_string(),
                                 password: "".to_string(),
+                                language: 0,
+                                wallpaper: "".to_string(),
                             };
                             if let Ok(json_value) = read_from_json(format!("Resources/config/user_{}.json", input1.replace(" ", "").replace("/", "").replace("\\", ""))) {
                                 if let Some(read_user) = User::from_json_value(&json_value) {
@@ -297,13 +314,13 @@ impl eframe::App for App {
                                 self.login_user_name = user.name;
                                 self.modify_var("login_enable_password_error_message", false);
                                 self.switch_page("Home_Page");
+                                self.add_var("dock_active_status", false);
                             };
                             self.modify_var("login_enable_password_error_message", user.password != input2);
                         };
                         self.modify_var("login_enable_name_error_message", !check_file_exists(format!("Resources/config/user_{}.json", input1.replace(" ", "").replace("/", "").replace("\\", ""))));
                     };
-                    if self.switch("Register", ui, ctx, window_free)[0] == 0 {
-                        self.page_windows_amount += 1;
+                    if self.switch("Register", ui, ctx, window_free)[0] != 5 {
                         self.modify_var("reg_status", Value::UInt(0));
                         self.modify_var("open_reg_window", true);
                     };
@@ -366,7 +383,6 @@ impl eframe::App for App {
                                 };
                                     if self.var_u("reg_status") == 0 {
                                         if ui.button(game_text["cancel"][self.config.language as usize].clone()).clicked() {
-                                            self.page_windows_amount -= 1;
                                             self.modify_var("open_reg_window", false);
                                         };
                                         if ui.button(game_text["continue"][self.config.language as usize].clone()).clicked() {
@@ -381,15 +397,16 @@ impl eframe::App for App {
                                         if ui.button(game_text["continue"][self.config.language as usize].clone()).clicked() {
                                             self.modify_var("reg_enable_password_error_message", input4 != input5);
                                             self.modify_var("reg_enable_name_error_message", input3.replace(" ", "").replace("/", "").replace("\\", "").is_empty() || check_file_exists(format!("Resources/config/user_{}.json", input3.replace(" ", "").replace("/", "")).replace("\\", "")));
-                                            if input4 == input5 {
-                                                if !check_file_exists(format!("Resources/config/user_{}.json", input3.replace(" ", "").replace("/", "")).replace("\\", "")) && !input3.replace(" ", "").replace("/", "").replace("\\", "").is_empty() {
+                                            if input4 == input5 && !check_file_exists(format!("Resources/config/user_{}.json", input3.replace(" ", "").replace("/", "")).replace("\\", "")) && !input3.replace(" ", "").replace("/", "").replace("\\", "").is_empty(){
                                                     let user_data = object! {
+                                                        "version": 3,
                                                         "name": input3.replace(" ", "").replace("/", "").replace("\\", "").clone(),
-                                                        "password": input4.clone()
+                                                        "password": input4.clone(),
+                                                        "language": 0,
+                                                        "wallpaper": "Resources/assets/images/wallpaper.jpg".to_string(),
                                                     };
                                                     let _ = create_pretty_json(format!("Resources/config/user_{}.json", input3.replace(" ", "").replace("/", "").replace("\\", "")), user_data);
                                                     self.modify_var("reg_status", Value::UInt(2));
-                                                };
                                             };
                                         };
                                         if self.var_b("reg_enable_password_error_message") {
@@ -403,7 +420,6 @@ impl eframe::App for App {
                                             self.modify_var("reg_status", Value::UInt(0));
                                         };
                                         if ui.button(game_text["reg_complete"][self.config.language as usize].clone()).clicked() {
-                                            self.page_windows_amount -= 1;
                                             self.modify_var("open_reg_window", false);
                                         };
                                     };
@@ -428,11 +444,13 @@ impl eframe::App for App {
                         self.modify_var("title_float_status", true);
                     };
                 });
-                self.last_window_size =
-                    [ctx.available_rect().width(), ctx.available_rect().height()];
-            },
+                self.modify_var(
+                    "last_window_size",
+                    vec![ctx.available_rect().width(), ctx.available_rect().height()],
+                );
+            }
             "Home_Page" => {
-                if !self.resource_page[track_resource(self.resource_page.clone(), "Home_Page", "page")].change_page_updated {
+                if !self.check_updated(&self.page.clone()) {
                     self.variables.remove(track_resource(
                         self.variables.clone(),
                         "title_float_status",
@@ -498,24 +516,28 @@ impl eframe::App for App {
                         "login_enable_password_error_message",
                         "variables",
                     ));
-                    self.new_page_update(track_resource(self.resource_page.clone(), "Home_Page", "page") as i32);
                 };
-            },
+                egui::CentralPanel::default().show(ctx, |ui| {
+                    ui.label("这是一个未完工的首页！");
+                    self.dock(ctx, ui);
+                });
+            }
+            "Home_Setting" => {
+                self.check_updated(&self.page.clone());
+                egui::CentralPanel::default().show(ctx, |ui| {
+                    ui.label("这是一个未完工的设置页面！");
+                    self.dock(ctx, ui);
+                });
+            }
             _ => panic!(
                 "RustConstructor Error[Page load failed]: Page not found: \"{}\"",
                 self.page
             ),
         };
-        let check_is_home = self.page.find("Home_");
-        if let Some(_) = check_is_home {
-            egui::CentralPanel::default().show(ctx, |ui| {
-                if self.switch("Home", ui, ctx, true)[0] == 0 {
-                    exit(0);
-                };
-                self.switch("Settings", ui, ctx, true);
-            });
-        };
-        if self.resource_page[self.page_id as usize].forced_update {
+        if self.resource_page
+            [track_resource(self.resource_page.clone(), &self.page.clone(), "page")]
+        .forced_update
+        {
             // 请求重新绘制界面
             ctx.request_repaint();
         };

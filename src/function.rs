@@ -189,7 +189,7 @@ fn load_fonts(ctx: &egui::Context) {
 #[derive(Debug, Clone)]
 pub struct Config {
     pub launch_path: String,
-    pub language: i8,
+    pub language: u8,
 }
 
 #[allow(dead_code)]
@@ -204,7 +204,7 @@ impl Config {
     fn from_json_value(value: &JsonValue) -> Option<Config> {
         Some(Config {
             launch_path: value["launch_path"].as_str()?.to_string(),
-            language: value["language"].as_i8()?,
+            language: value["language"].as_u8()?,
         })
     }
 }
@@ -241,23 +241,22 @@ impl GameText {
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct User {
+    pub version: u8,
     pub name: String,
     pub password: String,
+    pub language: u8,
+    pub wallpaper: String,
 }
 
 #[allow(dead_code)]
 impl User {
-    pub fn to_json_value(&self) -> JsonValue {
-        object! {
-            name: self.name.clone(),
-            password: self.password.clone()
-        }
-    }
-
     pub fn from_json_value(value: &JsonValue) -> Option<User> {
         Some(User {
+            version: value["version"].as_u8()?,
             name: value["name"].as_str()?.to_string(),
             password: value["password"].as_str()?.to_string(),
+            language: value["language"].as_u8()?,
+            wallpaper: value["wallpaper"].as_str()?.to_string(),
         })
     }
 }
@@ -352,6 +351,7 @@ impl RustConstructorResource for PageData {
         &self.name
     }
 }
+
 #[derive(Clone)]
 pub struct PageData {
     pub name: String,
@@ -373,6 +373,7 @@ impl RustConstructorResource for ImageTexture {
         &self.name
     }
 }
+
 #[derive(Clone)]
 pub struct ImageTexture {
     pub name: String,
@@ -384,6 +385,7 @@ impl RustConstructorResource for CustomRect {
         &self.name
     }
 }
+
 #[derive(Clone)]
 pub struct CustomRect {
     pub name: String,
@@ -404,6 +406,7 @@ impl RustConstructorResource for Image {
         &self.name
     }
 }
+
 #[derive(Clone)]
 pub struct Image {
     pub name: String,
@@ -424,6 +427,7 @@ impl RustConstructorResource for Text {
         &self.name
     }
 }
+
 #[derive(Clone)]
 pub struct Text {
     pub name: String,
@@ -446,6 +450,7 @@ impl RustConstructorResource for ScrollBackground {
         &self.name
     }
 }
+
 #[derive(Clone)]
 pub struct ScrollBackground {
     pub name: String,
@@ -462,6 +467,7 @@ impl RustConstructorResource for Variable {
         &self.name
     }
 }
+
 #[derive(Clone, Debug)]
 pub struct Variable {
     pub name: String,
@@ -473,6 +479,7 @@ impl RustConstructorResource for SplitTime {
         &self.name
     }
 }
+
 #[derive(Clone)]
 pub struct SplitTime {
     pub name: String,
@@ -484,6 +491,7 @@ impl RustConstructorResource for Switch {
         &self.name
     }
 }
+
 #[derive(Clone)]
 #[allow(dead_code)]
 pub struct Switch {
@@ -506,8 +514,6 @@ pub struct App {
     pub game_text: GameText,
     pub login_user_name: String,
     pub frame: Frame,
-    pub page_windows_amount: u32,
-    pub page_id: i32,
     pub page: String,
     pub resource_page: Vec<PageData>,
     pub resource_image: Vec<Image>,
@@ -515,7 +521,6 @@ pub struct App {
     pub resource_rect: Vec<CustomRect>,
     pub resource_scroll_background: Vec<ScrollBackground>,
     pub timer: Timer,
-    pub last_window_size: [f32; 2],
     pub variables: Vec<Variable>,
     pub resource_image_texture: Vec<ImageTexture>,
     pub resource_switch: Vec<Switch>,
@@ -554,8 +559,6 @@ impl App {
             frame: Frame {
                 ..Default::default()
             },
-            page_windows_amount: 0,
-            page_id: 0,
             page: "Launch".to_string(),
             resource_page: vec![
                 PageData {
@@ -570,9 +573,14 @@ impl App {
                 },
                 PageData {
                     name: "Home_Page".to_string(),
-                    forced_update: false,
+                    forced_update: true,
                     change_page_updated: false,
-                }
+                },
+                PageData {
+                    name: "Home_Setting".to_string(),
+                    forced_update: true,
+                    change_page_updated: false,
+                },
             ],
             resource_image: vec![],
             resource_text: vec![],
@@ -585,7 +593,6 @@ impl App {
                 now_time: 0.0,
                 split_time: vec![],
             },
-            last_window_size: [0.0, 0.0],
             variables: vec![],
             resource_image_texture: vec![],
             resource_switch: vec![],
@@ -859,7 +866,13 @@ impl App {
                     [false, true, true],
                     1,
                     vec![[255, 255, 255, 255], [200, 200, 200, 255]],
-                    vec![PointerButton::Primary, PointerButton::Secondary, PointerButton::Middle, PointerButton::Extra1, PointerButton::Extra2],
+                    vec![
+                        PointerButton::Primary,
+                        PointerButton::Secondary,
+                        PointerButton::Middle,
+                        PointerButton::Extra1,
+                        PointerButton::Extra2,
+                    ],
                 );
                 self.add_switch(
                     ["Register", "Register"],
@@ -867,7 +880,13 @@ impl App {
                     [false, true, true],
                     1,
                     vec![[255, 255, 255, 255], [200, 200, 200, 255]],
-                    vec![PointerButton::Primary, PointerButton::Secondary, PointerButton::Middle, PointerButton::Extra1, PointerButton::Extra2],
+                    vec![
+                        PointerButton::Primary,
+                        PointerButton::Secondary,
+                        PointerButton::Middle,
+                        PointerButton::Extra1,
+                        PointerButton::Extra2,
+                    ],
                 );
                 self.add_switch(
                     ["Login", "Login"],
@@ -875,7 +894,13 @@ impl App {
                     [false, true, true],
                     1,
                     vec![[255, 255, 255, 255], [200, 200, 200, 255]],
-                    vec![PointerButton::Primary, PointerButton::Secondary, PointerButton::Middle, PointerButton::Extra1, PointerButton::Extra2],
+                    vec![
+                        PointerButton::Primary,
+                        PointerButton::Secondary,
+                        PointerButton::Middle,
+                        PointerButton::Extra1,
+                        PointerButton::Extra2,
+                    ],
                 );
             } else if i == 2 {
                 self.add_image_texture(
@@ -893,7 +918,7 @@ impl App {
                     ctx,
                 );
                 self.add_image(
-                    "Home",
+                    "Home_Home",
                     [0_f32, -20_f32, 50_f32, 50_f32],
                     [1, 3, 1, 1],
                     [true, false, true, false, false],
@@ -901,7 +926,7 @@ impl App {
                     "Home",
                 );
                 self.add_image(
-                    "Settings",
+                    "Home_Settings",
                     [0_f32, -20_f32, 50_f32, 50_f32],
                     [2, 3, 1, 1],
                     [true, false, true, false, false],
@@ -909,30 +934,122 @@ impl App {
                     "Settings",
                 );
                 self.add_switch(
-                    ["Home", "Home"],
+                    ["Home_Home", "Home_Home"],
                     vec![],
                     [true, true, true],
                     1,
-                    vec![[255, 255, 255, 255], [200, 200, 200, 255], [150, 150, 150, 255]],
+                    vec![
+                        [255, 255, 255, 255],
+                        [180, 180, 180, 255],
+                        [150, 150, 150, 255],
+                    ],
                     vec![PointerButton::Primary],
                 );
                 self.add_switch(
-                    ["Settings", "Settings"],
+                    ["Home_Settings", "Home_Settings"],
                     vec![],
                     [true, true, true],
                     1,
-                    vec![[255, 255, 255, 255], [200, 200, 200, 255], [150, 150, 150, 255]],
+                    vec![
+                        [255, 255, 255, 255],
+                        [180, 180, 180, 255],
+                        [150, 150, 150, 255],
+                    ],
                     vec![PointerButton::Primary],
+                );
+                self.add_rect(
+                    "Dock_Background",
+                    [
+                        0_f32,
+                        -10_f32,
+                        ctx.available_rect().width() - 100_f32,
+                        70_f32,
+                        20_f32,
+                    ],
+                    [1, 2, 1, 1],
+                    [true, false, true, false],
+                    [150, 150, 150, 160, 255, 255, 255, 255],
+                    0.0,
                 );
             };
         }
     }
 
-    pub fn new_page_update(&mut self, page_id: i32) {
+    pub fn check_updated(&mut self, name: &str) -> bool {
+        if self.resource_page[track_resource(self.resource_page.clone(), name, "page")]
+            .change_page_updated
+        {
+            true
+        } else {
+            self.new_page_update(name);
+            false
+        }
+    }
+
+    pub fn new_page_update(&mut self, name: &str) {
         self.renew_timer();
-        self.page_id = page_id;
-        self.resource_page[page_id as usize].change_page_updated = true;
+        let page = self.resource_page.clone();
+        self.resource_page[track_resource(page, name, "page")].change_page_updated = true;
         self.timer.split_time = vec![];
+    }
+
+    pub fn dock(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
+        let id = track_resource(self.resource_rect.clone(), "Dock_Background", "rect");
+        if let Some(mouse_pos) = ui.input(|i| i.pointer.hover_pos()) {
+            let rect = egui::Rect::from_min_size(
+                egui::Pos2::new(0_f32, ctx.available_rect().height() - 80_f32),
+                egui::Vec2::new(ctx.available_rect().width(), 80_f32),
+            );
+            self.modify_var("dock_active_status", rect.contains(mouse_pos));
+            let image = self.resource_image.clone();
+            if self.var_b("dock_active_status") {
+                for _ in 0..5 {
+                    if self.resource_rect[id].origin_position[1] > -10_f32 {
+                        for i in 0..self.resource_switch.len() {
+                            if self.resource_switch[i].name.contains("Home_") {
+                                self.resource_image[track_resource(
+                                    image.clone(),
+                                    &self.resource_switch[i].switch_image_name,
+                                    "image",
+                                )]
+                                .origin_position[1] -= 1_f32;
+                            };
+                        }
+                        self.resource_rect[id].origin_position[1] -= 1_f32;
+                    } else {
+                        break;
+                    };
+                }
+            } else if !self.var_b("dock_active_status") {
+                for _ in 0..5 {
+                    if self.resource_rect[id].origin_position[1] < 80_f32 {
+                        for i in 0..self.resource_switch.len() {
+                            if self.resource_switch[i].name.contains("Home_") {
+                                self.resource_image[track_resource(
+                                    image.clone(),
+                                    &self.resource_switch[i].switch_image_name,
+                                    "image",
+                                )]
+                                .origin_position[1] += 1_f32;
+                            };
+                        }
+                        self.resource_rect[id].origin_position[1] += 1_f32;
+                    } else {
+                        break;
+                    };
+                }
+            };
+            self.rect(ui, "Dock_Background", ctx);
+            if self.switch("Home_Home", ui, ctx, true)[0] != 5 {
+                self.new_page_update("Home_Page");
+                self.switch_page("Home_Page");
+            };
+            if self.switch("Home_Settings", ui, ctx, true)[0] != 5 {
+                self.new_page_update("Home_Setting");
+                self.switch_page("Home_Setting");
+            };
+        };
+        self.resource_rect[id].size[0] = ctx.available_rect().width() - 100_f32;
     }
 
     pub fn add_split_time(&mut self, name: &str) {
@@ -1212,7 +1329,6 @@ impl App {
         }
     }
 
-    #[allow(dead_code)]
     pub fn var_v(&mut self, name: &str) -> Vec<Value> {
         match &self.variables[track_resource(self.variables.clone(), name, "variables")].value {
             Value::Vec(v) => v.clone(),
@@ -1224,6 +1340,70 @@ impl App {
         match &self.variables[track_resource(self.variables.clone(), name, "variables")].value {
             Value::String(s) => s.clone(),
             _ => panic!("RustConstructor Error[Variable load failed]: The variable \"{}\" is not of type String", name),
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn var_decode_b(&mut self, target: Value) -> bool {
+        match target {
+            Value::Bool(b) => {
+                // 处理布尔值
+                b
+            }
+            _ => {
+                panic!("RustConstructor Error[Variable decode failed]: The variable should be of type bool");
+            }
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn var_decode_i(&mut self, target: Value) -> i32 {
+        match target {
+            Value::Int(i) => {
+                // 处理i32整型
+                i
+            }
+            _ => {
+                panic!("RustConstructor Error[Variable decode failed]: The variable should be of type i32");
+            }
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn var_decode_u(&mut self, target: Value) -> u32 {
+        match target {
+            Value::UInt(u) => {
+                // 处理u32无符号整型
+                u
+            }
+            _ => {
+                panic!("RustConstructor Error[Variable decode failed]: The variable should be of type u32");
+            }
+        }
+    }
+
+    pub fn var_decode_f(&mut self, target: Value) -> f32 {
+        match target {
+            Value::Float(f) => {
+                // 处理浮点数
+                f
+            }
+            _ => {
+                panic!("RustConstructor Error[Variable decode failed]: The variable should be of type f32");
+            }
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn var_decode_s(&mut self, target: Value) -> String {
+        match target {
+            Value::String(s) => {
+                // 处理字符串
+                s
+            }
+            _ => {
+                panic!("RustConstructor Error[Variable decode failed]: The variable should be of type String");
+            }
         }
     }
 
@@ -1591,13 +1771,16 @@ impl App {
                     let mut clicked = vec![];
                     let mut active = false;
                     for u in 0..self.resource_switch[id].click_method.len() as u32 {
-                        clicked.push(ui.input(|i| i.pointer.button_down(self.resource_switch[id].click_method[u as usize])));
+                        clicked.push(ui.input(|i| {
+                            i.pointer
+                                .button_down(self.resource_switch[id].click_method[u as usize])
+                        }));
                         if clicked[u as usize] {
                             active = true;
                             self.resource_switch[id].last_time_clicked_index = u as usize;
                             break;
                         };
-                    };
+                    }
                     if active {
                         self.resource_switch[id].last_time_clicked = true;
                         if self.resource_switch[id].enable_hover_click_image[1] {
@@ -1675,7 +1858,7 @@ impl App {
                             } else {
                                 self.resource_switch[id].state = 0;
                             };
-                            activated[0] = self.resource_switch[id].last_time_clicked_index as usize;
+                            activated[0] = self.resource_switch[id].last_time_clicked_index;
                             self.resource_switch[id].last_time_clicked = false;
                         };
                         if self.resource_switch[id].enable_hover_click_image[0] {
