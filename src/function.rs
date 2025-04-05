@@ -4,15 +4,20 @@ use eframe::emath::Rect;
 use eframe::epaint::textures::TextureOptions;
 use eframe::epaint::Stroke;
 use egui::{Color32, FontId, Frame, PointerButton, Pos2, Ui, Vec2};
-use json::{object, JsonValue};
-use rodio::{Decoder, OutputStream};
+use json::JsonValue;
+// use rodio::{Decoder, OutputStream};
+use kira::manager::backend::cpal;
+use kira::manager::AudioManager;
+use kira::sound::static_sound::StaticSoundData;
 use std::collections::HashMap;
 use std::fs;
 use std::fs::File;
-use std::io::{BufReader, Read};
+use std::io::Read;
 use std::path::Path;
 use std::path::PathBuf;
+use std::process::exit;
 use std::time::Instant;
+use std::vec::Vec;
 use walkdir::WalkDir;
 
 /// 在 macOS 上搜索指定 .app 应用的绝对路径
@@ -139,30 +144,14 @@ pub fn read_from_json<P: AsRef<Path>>(path: P) -> anyhow::Result<JsonValue> {
     json::parse(&content).with_context(|| format!("解析 JSON 失败: {}", path.as_ref().display()))
 }
 
-pub fn wav_player(wav_path: String) -> anyhow::Result<f64> {
-    // 打开 WAV 文件
-    let reader = hound::WavReader::open(&wav_path).context("无法打开 WAV 文件")?;
+pub fn kira_play_wav(path: &str) -> anyhow::Result<f64> {
+    let mut manager: kira::manager::AudioManager<cpal::CpalBackend> =
+        AudioManager::new(kira::manager::AudioManagerSettings::default())?;
+    let sound_data = StaticSoundData::from_file(path, Default::default())?;
+    let duration = sound_data.duration().as_secs_f64();
 
-    // 获取 WAV 文件的规格
-    let spec = reader.spec();
-    let sample_rate = spec.sample_rate as f64;
-    let total_samples = reader.len() as f64;
-
-    // 计算时长（秒）
-    let duration = total_samples / sample_rate;
-
-    // 打开文件并创建解码器
-    let file = BufReader::new(File::open(&wav_path).context("无法打开文件")?);
-    let source = Decoder::new(file).context("无法解码音频文件")?;
-
-    // 获取默认物理声音设备的输出流句柄
-    let (_stream, stream_handle) = OutputStream::try_default().context("无法获取默认输出流")?;
-
-    // 创建一个新的 Sink 来管理播放
-    let sink = rodio::Sink::try_new(&stream_handle).context("无法创建 Sink")?;
-    sink.append(source);
-
-    sink.sleep_until_end(); // 等待音频播放结束
+    manager.play(sound_data)?;
+    std::thread::sleep(std::time::Duration::from_secs_f64(duration));
     Ok(duration)
 }
 
@@ -190,22 +179,26 @@ fn load_fonts(ctx: &egui::Context) {
 pub struct Config {
     pub launch_path: String,
     pub language: u8,
+    pub login_user_name: String,
+    pub amount_languages: u8,
 }
 
-#[allow(dead_code)]
 impl Config {
-    fn to_json_value(&self) -> JsonValue {
-        object! {
-            launch_path: self.launch_path.clone(),
-            language: self.language
-        }
-    }
-
-    fn from_json_value(value: &JsonValue) -> Option<Config> {
+    pub fn from_json_value(value: &JsonValue) -> Option<Config> {
         Some(Config {
             launch_path: value["launch_path"].as_str()?.to_string(),
             language: value["language"].as_u8()?,
+            login_user_name: value["login_user_name"].as_str()?.to_string(),
+            amount_languages: value["amount_languages"].as_u8()?,
         })
+    }
+    pub fn to_json_value(&self) -> JsonValue {
+        json::object! {
+            launch_path: self.launch_path.clone(),
+            language: self.language,
+            login_user_name: self.login_user_name.clone(),
+            amount_languages: self.amount_languages,
+        }
     }
 }
 
@@ -258,6 +251,16 @@ impl User {
             language: value["language"].as_u8()?,
             wallpaper: value["wallpaper"].as_str()?.to_string(),
         })
+    }
+
+    pub fn to_json_value(&self) -> JsonValue {
+        json::object! {
+            version: self.version,
+            name: self.name.clone(),
+            password: self.password.clone(),
+            language: self.language,
+            wallpaper: self.wallpaper.clone(),
+        }
     }
 }
 
@@ -317,10 +320,6 @@ impl From<String> for Value {
 /// your resource's index.
 /// # Panics
 /// if resource doesn't exist, it will panic.
-/// # Examples
-/// ```
-/// track_resource(self.resource_image, "title_image", "Image_Vector");
-/// ```
 pub fn track_resource<T: RustConstructorResource>(
     resource_list: Vec<T>,
     resource_name: &str,
@@ -344,22 +343,38 @@ pub fn track_resource<T: RustConstructorResource>(
 
 pub trait RustConstructorResource {
     fn name(&self) -> &str;
+
+    fn expose_type(&self) -> &str;
+
+    fn reg_render_resource(&self, render_list: &mut Vec<RenderResource>);
 }
 
 impl RustConstructorResource for PageData {
     fn name(&self) -> &str {
         &self.name
     }
+
+    fn expose_type(&self) -> &str {
+        &self.discern_type
+    }
+
+    fn reg_render_resource(&self, render_list: &mut Vec<RenderResource>) {
+        render_list.push(RenderResource {
+            discern_type: self.expose_type().to_string(),
+            name: self.name.to_string(),
+        });
+    }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct PageData {
+    pub discern_type: String,
     pub name: String,
     pub forced_update: bool,
     pub change_page_updated: bool,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Timer {
     pub start_time: f32,
     pub total_time: f32,
@@ -372,22 +387,47 @@ impl RustConstructorResource for ImageTexture {
     fn name(&self) -> &str {
         &self.name
     }
+
+    fn expose_type(&self) -> &str {
+        &self.discern_type
+    }
+
+    fn reg_render_resource(&self, render_list: &mut Vec<RenderResource>) {
+        render_list.push(RenderResource {
+            discern_type: self.expose_type().to_string(),
+            name: self.name.to_string(),
+        });
+    }
 }
 
 #[derive(Clone)]
 pub struct ImageTexture {
+    pub discern_type: String,
     pub name: String,
     pub texture: Option<egui::TextureHandle>,
+    pub cite_path: String,
 }
 
 impl RustConstructorResource for CustomRect {
     fn name(&self) -> &str {
         &self.name
     }
+
+    fn expose_type(&self) -> &str {
+        &self.discern_type
+    }
+
+    fn reg_render_resource(&self, render_list: &mut Vec<RenderResource>) {
+        render_list.push(RenderResource {
+            discern_type: self.expose_type().to_string(),
+            name: self.name.to_string(),
+        });
+    }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CustomRect {
+    pub discern_type: String,
     pub name: String,
     pub position: [f32; 2],
     pub size: [f32; 2],
@@ -405,10 +445,22 @@ impl RustConstructorResource for Image {
     fn name(&self) -> &str {
         &self.name
     }
+
+    fn expose_type(&self) -> &str {
+        &self.discern_type
+    }
+
+    fn reg_render_resource(&self, render_list: &mut Vec<RenderResource>) {
+        render_list.push(RenderResource {
+            discern_type: self.expose_type().to_string(),
+            name: self.name.to_string(),
+        });
+    }
 }
 
 #[derive(Clone)]
 pub struct Image {
+    pub discern_type: String,
     pub name: String,
     pub image_texture: Option<egui::TextureHandle>,
     pub image_position: [f32; 2],
@@ -420,16 +472,29 @@ pub struct Image {
     pub overlay_color: [u8; 4],
     pub use_overlay_color: bool,
     pub origin_position: [f32; 2],
+    pub cite_texture: String,
 }
 
 impl RustConstructorResource for Text {
     fn name(&self) -> &str {
         &self.name
     }
+
+    fn expose_type(&self) -> &str {
+        &self.discern_type
+    }
+
+    fn reg_render_resource(&self, render_list: &mut Vec<RenderResource>) {
+        render_list.push(RenderResource {
+            discern_type: self.expose_type().to_string(),
+            name: self.name.to_string(),
+        });
+    }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Text {
+    pub discern_type: String,
     pub name: String,
     pub text_content: String,
     pub font_size: f32,
@@ -449,10 +514,22 @@ impl RustConstructorResource for ScrollBackground {
     fn name(&self) -> &str {
         &self.name
     }
+
+    fn expose_type(&self) -> &str {
+        &self.discern_type
+    }
+
+    fn reg_render_resource(&self, render_list: &mut Vec<RenderResource>) {
+        render_list.push(RenderResource {
+            discern_type: self.expose_type().to_string(),
+            name: self.name.to_string(),
+        });
+    }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ScrollBackground {
+    pub discern_type: String,
     pub name: String,
     pub image_name: Vec<String>,
     pub horizontal_or_vertical: bool,
@@ -466,10 +543,22 @@ impl RustConstructorResource for Variable {
     fn name(&self) -> &str {
         &self.name
     }
+
+    fn expose_type(&self) -> &str {
+        &self.discern_type
+    }
+
+    fn reg_render_resource(&self, render_list: &mut Vec<RenderResource>) {
+        render_list.push(RenderResource {
+            discern_type: self.expose_type().to_string(),
+            name: self.name.to_string(),
+        });
+    }
 }
 
 #[derive(Clone, Debug)]
 pub struct Variable {
+    pub discern_type: String,
     pub name: String,
     pub value: Value,
 }
@@ -478,10 +567,22 @@ impl RustConstructorResource for SplitTime {
     fn name(&self) -> &str {
         &self.name
     }
+
+    fn expose_type(&self) -> &str {
+        &self.discern_type
+    }
+
+    fn reg_render_resource(&self, render_list: &mut Vec<RenderResource>) {
+        render_list.push(RenderResource {
+            discern_type: self.expose_type().to_string(),
+            name: self.name.to_string(),
+        });
+    }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct SplitTime {
+    pub discern_type: String,
     pub name: String,
     pub time: [f32; 2],
 }
@@ -490,11 +591,23 @@ impl RustConstructorResource for Switch {
     fn name(&self) -> &str {
         &self.name
     }
+
+    fn expose_type(&self) -> &str {
+        &self.discern_type
+    }
+
+    fn reg_render_resource(&self, render_list: &mut Vec<RenderResource>) {
+        render_list.push(RenderResource {
+            discern_type: self.expose_type().to_string(),
+            name: self.name.to_string(),
+        });
+    }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 #[allow(dead_code)]
 pub struct Switch {
+    pub discern_type: String,
     pub name: String,
     pub switch_image_name: String,
     pub switch_texture_name: Vec<String>,
@@ -507,12 +620,19 @@ pub struct Switch {
     pub last_time_clicked_index: usize,
 }
 
+#[derive(Clone, Debug)]
+pub struct RenderResource {
+    pub discern_type: String,
+    pub name: String,
+}
+
 #[allow(dead_code)]
 #[derive(Clone)]
 pub struct App {
     pub config: Config,
     pub game_text: GameText,
-    pub login_user_name: String,
+    pub render_resource_list: Vec<RenderResource>,
+    pub login_user_config: User,
     pub frame: Frame,
     pub page: String,
     pub resource_page: Vec<PageData>,
@@ -524,6 +644,8 @@ pub struct App {
     pub variables: Vec<Variable>,
     pub resource_image_texture: Vec<ImageTexture>,
     pub resource_switch: Vec<Switch>,
+    pub frame_times: Vec<f32>,
+    pub last_frame_time: Option<f64>,
 }
 
 impl App {
@@ -533,15 +655,12 @@ impl App {
         let mut config = Config {
             launch_path: "".to_string(),
             language: 0,
+            login_user_name: "".to_string(),
+            amount_languages: 0,
         };
         let mut game_text = GameText {
             game_text: HashMap::new(),
         };
-        // 写入 JSON 文件
-        // let json_value = config.to_json_value();
-        // write_to_json("Resources/config/Preferences.json", json_value)
-        //     .expect("写入 JSON 文件失败");
-        // 读取 JSON 文件
         if let Ok(json_value) = read_from_json("Resources/config/Preferences.json") {
             if let Some(read_config) = Config::from_json_value(&json_value) {
                 config = read_config;
@@ -555,47 +674,60 @@ impl App {
         Self {
             config,
             game_text,
-            login_user_name: "".to_string(),
+            render_resource_list: Vec::new(),
+            login_user_config: User {
+                version: 0,
+                name: "".to_string(),
+                password: "".to_string(),
+                language: 0,
+                wallpaper: "".to_string(),
+            },
             frame: Frame {
                 ..Default::default()
             },
             page: "Launch".to_string(),
             resource_page: vec![
                 PageData {
+                    discern_type: "PageData".to_string(),
                     name: "Launch".to_string(),
                     forced_update: true,
                     change_page_updated: false,
                 },
                 PageData {
+                    discern_type: "PageData".to_string(),
                     name: "Login".to_string(),
                     forced_update: true,
                     change_page_updated: false,
                 },
                 PageData {
+                    discern_type: "PageData".to_string(),
                     name: "Home_Page".to_string(),
                     forced_update: true,
                     change_page_updated: false,
                 },
                 PageData {
+                    discern_type: "PageData".to_string(),
                     name: "Home_Setting".to_string(),
                     forced_update: true,
                     change_page_updated: false,
                 },
             ],
-            resource_image: vec![],
-            resource_text: vec![],
-            resource_rect: vec![],
-            resource_scroll_background: vec![],
+            resource_image: Vec::new(),
+            resource_text: Vec::new(),
+            resource_rect: Vec::new(),
+            resource_scroll_background: Vec::new(),
             timer: Timer {
                 start_time: 0.0,
                 total_time: 0.0,
                 timer: Instant::now(),
                 now_time: 0.0,
-                split_time: vec![],
+                split_time: Vec::new(),
             },
-            variables: vec![],
-            resource_image_texture: vec![],
-            resource_switch: vec![],
+            variables: Vec::new(),
+            resource_image_texture: Vec::new(),
+            resource_switch: Vec::new(),
+            frame_times: Vec::new(),
+            last_frame_time: None,
         }
     }
 
@@ -607,372 +739,398 @@ impl App {
 
     pub fn launch_page_preload(&mut self, ctx: &egui::Context) {
         let game_text = self.game_text.game_text.clone();
-        for i in 0..self.resource_page.len() {
-            if i == 0 {
-                self.add_image_texture(
-                    "RC_Logo",
-                    "Resources/assets/images/rc.png",
-                    [false, false],
-                    true,
-                    ctx,
-                );
-                self.add_image_texture(
-                    "Binder_Logo",
-                    "Resources/assets/images/binder.png",
-                    [false, false],
-                    true,
-                    ctx,
-                );
-                self.add_image_texture(
-                    "Mouse",
-                    "Resources/assets/images/mouse_white.png",
-                    [false, false],
-                    true,
-                    ctx,
-                );
-                self.add_image(
-                    "RC_Logo",
-                    [0_f32, 0_f32, 130_f32, 130_f32],
-                    [1, 2, 1, 2],
-                    [false, false, false, true, false],
-                    [0, 0, 0, 0, 0],
-                    "RC_Logo",
-                );
-                self.add_image(
-                    "Binder_Logo",
-                    [0_f32, 0_f32, 150_f32, 150_f32],
-                    [1, 2, 1, 2],
-                    [false, false, false, true, false],
-                    [0, 0, 0, 0, 0],
-                    "Binder_Logo",
-                );
-                self.add_image(
-                    "Mouse",
-                    [0_f32, 0_f32, 150_f32, 150_f32],
-                    [1, 2, 1, 2],
-                    [false, false, false, true, false],
-                    [0, 0, 0, 0, 0],
-                    "Mouse",
-                );
-                self.add_text(
-                    ["Powered", " Powered by\n Rust Constructor"],
-                    [0_f32, 0_f32, 40_f32, 1000_f32, 0.0],
-                    [255, 255, 255, 0, 0, 0, 0],
-                    [true, false, false, true],
-                    false,
-                    [1, 2, 1, 2],
-                );
-                self.add_text(
-                    [
-                        "Organize",
-                        &*game_text["organize"][self.config.language as usize].clone(),
-                    ],
-                    [0_f32, 0_f32, 40_f32, 1000_f32, 0.0],
-                    [255, 255, 255, 0, 0, 0, 0],
-                    [true, false, false, true],
-                    false,
-                    [1, 2, 1, 2],
-                );
-                self.add_text(
-                    [
-                        "Mouse",
-                        &*game_text["connect_mouse"][self.config.language as usize].clone(),
-                    ],
-                    [0_f32, 0_f32, 40_f32, 1000_f32, 0.0],
-                    [255, 255, 255, 0, 0, 0, 0],
-                    [true, false, false, true],
-                    false,
-                    [1, 2, 1, 2],
-                );
-                self.add_rect(
-                    "Background",
-                    [
-                        0_f32,
-                        0_f32,
-                        ctx.available_rect().width(),
-                        ctx.available_rect().height(),
-                        0_f32,
-                    ],
-                    [1, 2, 1, 2],
-                    [false, false, true, true],
-                    [0, 0, 0, 255, 255, 255, 255, 255],
-                    0.0,
-                );
-                let _ = std::thread::spawn(|| {
-                    let _ = wav_player("Resources/assets/sounds/Launch.wav".to_string());
-                });
-            } else if i == 1 {
-                if self.config.language == 0 {
-                    self.add_image_texture(
-                        "Title",
-                        "Resources/assets/images/zh_title.png",
-                        [false, false],
-                        true,
-                        ctx,
-                    );
-                    self.add_image(
-                        "Title",
-                        [0_f32, 0_f32, 510_f32, 150_f32],
-                        [1, 2, 1, 4],
-                        [true, true, true, true, false],
-                        [255, 0, 0, 0, 0],
-                        "Title",
-                    );
-                } else {
-                    self.add_image_texture(
-                        "Title",
-                        "Resources/assets/images/en_title.png",
-                        [false, false],
-                        true,
-                        ctx,
-                    );
-                    self.add_image(
-                        "Title",
-                        [0_f32, 0_f32, 900_f32, 130_f32],
-                        [1, 2, 1, 4],
-                        [true, true, true, true, false],
-                        [255, 0, 0, 0, 0],
-                        "Title",
-                    );
-                };
-                self.add_image_texture(
-                    "Background",
-                    "Resources/assets/images/wallpaper.jpg",
-                    [false, false],
-                    true,
-                    ctx,
-                );
-                self.add_image_texture(
-                    "Power",
-                    "Resources/assets/images/power.png",
-                    [false, false],
-                    true,
-                    ctx,
-                );
-                self.add_image_texture(
-                    "Register",
-                    "Resources/assets/images/register.png",
-                    [false, false],
-                    true,
-                    ctx,
-                );
-                self.add_image_texture(
-                    "Login",
-                    "Resources/assets/images/login.png",
-                    [false, false],
-                    true,
-                    ctx,
-                );
-                self.add_image_texture(
-                    "Gun_Logo",
-                    "Resources/assets/images/logo_gun.png",
-                    [false, false],
-                    true,
-                    ctx,
-                );
-                self.add_image_texture(
-                    "Reg_Complete",
-                    "Resources/assets/images/check.png",
-                    [false, false],
-                    true,
-                    ctx,
-                );
-                self.add_image(
-                    "Reg_Complete",
-                    [0_f32, 0_f32, 100_f32, 100_f32],
-                    [1, 2, 1, 2],
-                    [true, true, true, false, false],
-                    [255, 0, 0, 0, 0],
-                    "Reg_Complete",
-                );
-                self.add_image(
-                    "Gun_Logo",
-                    [0_f32, 0_f32, 100_f32, 100_f32],
-                    [1, 2, 1, 2],
-                    [true, true, true, false, false],
-                    [255, 0, 0, 0, 0],
-                    "Gun_Logo",
-                );
-                self.add_image(
-                    "Power",
-                    [-75_f32, 25_f32, 50_f32, 50_f32],
-                    [1, 2, 7, 8],
-                    [true, true, true, true, false],
-                    [255, 0, 0, 0, 0],
-                    "Power",
-                );
-                self.add_image(
-                    "Register",
-                    [75_f32, 25_f32, 50_f32, 50_f32],
-                    [1, 2, 7, 8],
-                    [true, true, true, true, false],
-                    [255, 0, 0, 0, 0],
-                    "Register",
-                );
-                self.add_image(
-                    "Login",
-                    [0_f32, 25_f32, 50_f32, 50_f32],
-                    [1, 2, 7, 8],
-                    [true, true, true, true, false],
-                    [255, 0, 0, 0, 0],
-                    "Login",
-                );
-                self.add_image(
-                    "Background",
-                    [
-                        0_f32,
-                        0_f32,
-                        ctx.available_rect().width(),
-                        ctx.available_rect().height(),
-                    ],
-                    [1, 0, 1, 0],
-                    [true, true, false, false, false],
-                    [255, 0, 0, 0, 0],
-                    "Background",
-                );
-                self.add_image(
-                    "Wallpaper1",
-                    [0_f32, 0_f32, 0_f32, 0_f32],
-                    [1, 0, 1, 0],
-                    [true, false, false, false, false],
-                    [255, 0, 0, 0, 0],
-                    "Background",
-                );
-                self.add_image(
-                    "Wallpaper2",
-                    [0_f32, 0_f32, 0_f32, 0_f32],
-                    [1, 0, 1, 0],
-                    [true, false, false, false, false],
-                    [255, 0, 0, 0, 0],
-                    "Background",
-                );
-                self.add_scroll_background(
-                    "ScrollWallpaper",
-                    vec!["Wallpaper1".to_string(), "Wallpaper2".to_string()],
-                    true,
-                    true,
-                    3,
-                    [
-                        ctx.available_rect().width(),
-                        ctx.available_rect().height(),
-                        0_f32,
-                        0_f32,
-                        -ctx.available_rect().width(),
-                    ],
-                );
-                self.add_switch(
-                    ["Power", "Power"],
-                    vec![],
-                    [false, true, true],
-                    1,
-                    vec![[255, 255, 255, 255], [200, 200, 200, 255]],
-                    vec![
-                        PointerButton::Primary,
-                        PointerButton::Secondary,
-                        PointerButton::Middle,
-                        PointerButton::Extra1,
-                        PointerButton::Extra2,
-                    ],
-                );
-                self.add_switch(
-                    ["Register", "Register"],
-                    vec![],
-                    [false, true, true],
-                    1,
-                    vec![[255, 255, 255, 255], [200, 200, 200, 255]],
-                    vec![
-                        PointerButton::Primary,
-                        PointerButton::Secondary,
-                        PointerButton::Middle,
-                        PointerButton::Extra1,
-                        PointerButton::Extra2,
-                    ],
-                );
-                self.add_switch(
-                    ["Login", "Login"],
-                    vec![],
-                    [false, true, true],
-                    1,
-                    vec![[255, 255, 255, 255], [200, 200, 200, 255]],
-                    vec![
-                        PointerButton::Primary,
-                        PointerButton::Secondary,
-                        PointerButton::Middle,
-                        PointerButton::Extra1,
-                        PointerButton::Extra2,
-                    ],
-                );
-            } else if i == 2 {
-                self.add_image_texture(
-                    "Home",
-                    "Resources/assets/images/home.png",
-                    [false, false],
-                    true,
-                    ctx,
-                );
-                self.add_image_texture(
-                    "Settings",
-                    "Resources/assets/images/settings.png",
-                    [false, false],
-                    true,
-                    ctx,
-                );
-                self.add_image(
-                    "Home_Home",
-                    [0_f32, -20_f32, 50_f32, 50_f32],
-                    [1, 3, 1, 1],
-                    [true, false, true, false, false],
-                    [255, 0, 0, 0, 0],
-                    "Home",
-                );
-                self.add_image(
-                    "Home_Settings",
-                    [0_f32, -20_f32, 50_f32, 50_f32],
-                    [2, 3, 1, 1],
-                    [true, false, true, false, false],
-                    [255, 0, 0, 0, 0],
-                    "Settings",
-                );
-                self.add_switch(
-                    ["Home_Home", "Home_Home"],
-                    vec![],
-                    [true, true, true],
-                    1,
-                    vec![
-                        [255, 255, 255, 255],
-                        [180, 180, 180, 255],
-                        [150, 150, 150, 255],
-                    ],
-                    vec![PointerButton::Primary],
-                );
-                self.add_switch(
-                    ["Home_Settings", "Home_Settings"],
-                    vec![],
-                    [true, true, true],
-                    1,
-                    vec![
-                        [255, 255, 255, 255],
-                        [180, 180, 180, 255],
-                        [150, 150, 150, 255],
-                    ],
-                    vec![PointerButton::Primary],
-                );
-                self.add_rect(
-                    "Dock_Background",
-                    [
-                        0_f32,
-                        -10_f32,
-                        ctx.available_rect().width() - 100_f32,
-                        70_f32,
-                        20_f32,
-                    ],
-                    [1, 2, 1, 1],
-                    [true, false, true, false],
-                    [150, 150, 150, 160, 255, 255, 255, 255],
-                    0.0,
-                );
-            };
-        }
+        self.add_image_texture(
+            "RC_Logo",
+            "Resources/assets/images/rc.png",
+            [false, false],
+            true,
+            ctx,
+        );
+        self.add_image_texture(
+            "Binder_Logo",
+            "Resources/assets/images/binder.png",
+            [false, false],
+            true,
+            ctx,
+        );
+        self.add_image_texture(
+            "Mouse",
+            "Resources/assets/images/mouse_white.png",
+            [false, false],
+            true,
+            ctx,
+        );
+        self.add_image(
+            "RC_Logo",
+            [-25_f32, 0_f32, 130_f32, 130_f32],
+            [1, 2, 1, 2],
+            [false, false, false, true, false],
+            [0, 0, 0, 0, 0],
+            "RC_Logo",
+        );
+        self.add_image(
+            "Binder_Logo",
+            [-25_f32, 0_f32, 150_f32, 150_f32],
+            [1, 2, 1, 2],
+            [false, false, false, true, false],
+            [0, 0, 0, 0, 0],
+            "Binder_Logo",
+        );
+        self.add_image(
+            "Mouse",
+            [-25_f32, 0_f32, 150_f32, 150_f32],
+            [1, 2, 1, 2],
+            [false, false, false, true, false],
+            [0, 0, 0, 0, 0],
+            "Mouse",
+        );
+        self.add_text(
+            [
+                "Powered",
+                &*game_text["powered"][self.config.language as usize].clone(),
+            ],
+            [25_f32, 0_f32, 40_f32, 1000_f32, 0.0],
+            [255, 255, 255, 0, 0, 0, 0],
+            [true, false, false, true],
+            false,
+            [1, 2, 1, 2],
+        );
+        self.add_text(
+            [
+                "Organize",
+                &*game_text["organize"][self.config.language as usize].clone(),
+            ],
+            [25_f32, 0_f32, 40_f32, 1000_f32, 0.0],
+            [255, 255, 255, 0, 0, 0, 0],
+            [true, false, false, true],
+            false,
+            [1, 2, 1, 2],
+        );
+        self.add_text(
+            [
+                "Mouse",
+                &*game_text["connect_mouse"][self.config.language as usize].clone(),
+            ],
+            [25_f32, 0_f32, 40_f32, 1000_f32, 0.0],
+            [255, 255, 255, 0, 0, 0, 0],
+            [true, false, false, true],
+            false,
+            [1, 2, 1, 2],
+        );
+        self.add_rect(
+            "Background",
+            [
+                0_f32,
+                0_f32,
+                ctx.available_rect().width(),
+                ctx.available_rect().height(),
+                0_f32,
+            ],
+            [1, 2, 1, 2],
+            [false, false, true, true],
+            [0, 0, 0, 255, 255, 255, 255, 255],
+            0.0,
+        );
+        let _ = std::thread::spawn(|| {
+            let _ = kira_play_wav("Resources/assets/sounds/Launch.wav");
+        });
+        for i in 0..self.config.amount_languages {
+            self.add_image_texture(
+                &format!("{}_Title", i),
+                &format!("Resources/assets/images/{}_title.png", i),
+                [false, false],
+                true,
+                ctx,
+            );
+            self.add_image(
+                &format!("{}_Title", i),
+                [0_f32, 0_f32, 510_f32, 150_f32],
+                [1, 2, 1, 4],
+                [true, true, true, true, false],
+                [255, 0, 0, 0, 0],
+                &format!("{}_Title", i),
+            );
+        };
+        let image = self.resource_image.clone();
+        self.resource_image[track_resource(image, "1_Title", "image")].image_size = [900_f32, 130_f32];
+        self.add_image_texture(
+            "Background",
+            "Resources/assets/images/wallpaper.jpg",
+            [false, false],
+            true,
+            ctx,
+        );
+        self.add_image_texture(
+            "Power",
+            "Resources/assets/images/power.png",
+            [false, false],
+            true,
+            ctx,
+        );
+        self.add_image_texture(
+            "Register",
+            "Resources/assets/images/register.png",
+            [false, false],
+            true,
+            ctx,
+        );
+        self.add_image_texture(
+            "Login",
+            "Resources/assets/images/login.png",
+            [false, false],
+            true,
+            ctx,
+        );
+        self.add_image_texture(
+            "Gun_Logo",
+            "Resources/assets/images/logo_gun.png",
+            [false, false],
+            true,
+            ctx,
+        );
+        self.add_image_texture(
+            "Reg_Complete",
+            "Resources/assets/images/check.png",
+            [false, false],
+            true,
+            ctx,
+        );
+        self.add_image(
+            "Reg_Complete",
+            [0_f32, 0_f32, 100_f32, 100_f32],
+            [1, 2, 1, 2],
+            [true, true, true, false, false],
+            [255, 0, 0, 0, 0],
+            "Reg_Complete",
+        );
+        self.add_image(
+            "Gun_Logo",
+            [0_f32, 0_f32, 100_f32, 100_f32],
+            [1, 2, 1, 2],
+            [true, true, true, false, false],
+            [255, 0, 0, 0, 0],
+            "Gun_Logo",
+        );
+        self.add_image(
+            "Power",
+            [-75_f32, 25_f32, 50_f32, 50_f32],
+            [1, 2, 7, 8],
+            [true, true, true, true, false],
+            [255, 0, 0, 0, 0],
+            "Power",
+        );
+        self.add_image(
+            "Register",
+            [75_f32, 25_f32, 50_f32, 50_f32],
+            [1, 2, 7, 8],
+            [true, true, true, true, false],
+            [255, 0, 0, 0, 0],
+            "Register",
+        );
+        self.add_image(
+            "Login",
+            [0_f32, 25_f32, 50_f32, 50_f32],
+            [1, 2, 7, 8],
+            [true, true, true, true, false],
+            [255, 0, 0, 0, 0],
+            "Login",
+        );
+        self.add_image(
+            "Background",
+            [
+                0_f32,
+                0_f32,
+                ctx.available_rect().width(),
+                ctx.available_rect().height(),
+            ],
+            [1, 0, 1, 0],
+            [true, true, false, false, false],
+            [255, 0, 0, 0, 0],
+            "Background",
+        );
+        self.add_image(
+            "Wallpaper1",
+            [0_f32, 0_f32, 0_f32, 0_f32],
+            [1, 0, 1, 0],
+            [true, false, false, false, false],
+            [255, 0, 0, 0, 0],
+            "Background",
+        );
+        self.add_image(
+            "Wallpaper2",
+            [0_f32, 0_f32, 0_f32, 0_f32],
+            [1, 0, 1, 0],
+            [true, false, false, false, false],
+            [255, 0, 0, 0, 0],
+            "Background",
+        );
+        self.add_scroll_background(
+            "ScrollWallpaper",
+            vec!["Wallpaper1".to_string(), "Wallpaper2".to_string()],
+            true,
+            true,
+            3,
+            [
+                ctx.available_rect().width(),
+                ctx.available_rect().height(),
+                0_f32,
+                0_f32,
+                -ctx.available_rect().width(),
+            ],
+        );
+        self.add_text(
+            ["Date", ""],
+            [0_f32, 20_f32, 30_f32, 1000_f32, 0.0],
+            [255, 255, 255, 255, 0, 0, 0],
+            [true, false, true, false],
+            false,
+            [1, 2, 1, 6],
+        );
+        self.add_text(
+            ["Time", ""],
+            [0_f32, 0_f32, 100_f32, 1000_f32, 0.0],
+            [255, 255, 255, 255, 0, 0, 0],
+            [true, true, true, false],
+            false,
+            [1, 2, 1, 6],
+        );
+        self.add_switch(
+            ["Power", "Power"],
+            vec![],
+            [false, true, true],
+            1,
+            vec![[255, 255, 255, 255], [200, 200, 200, 255]],
+            vec![
+                PointerButton::Primary,
+                PointerButton::Secondary,
+                PointerButton::Middle,
+                PointerButton::Extra1,
+                PointerButton::Extra2,
+            ],
+        );
+        self.add_switch(
+            ["Register", "Register"],
+            vec![],
+            [false, true, true],
+            1,
+            vec![[255, 255, 255, 255], [200, 200, 200, 255]],
+            vec![
+                PointerButton::Primary,
+                PointerButton::Secondary,
+                PointerButton::Middle,
+                PointerButton::Extra1,
+                PointerButton::Extra2,
+            ],
+        );
+        self.add_switch(
+            ["Login", "Login"],
+            vec![],
+            [false, true, true],
+            1,
+            vec![[255, 255, 255, 255], [200, 200, 200, 255]],
+            vec![
+                PointerButton::Primary,
+                PointerButton::Secondary,
+                PointerButton::Middle,
+                PointerButton::Extra1,
+                PointerButton::Extra2,
+            ],
+        );
+        self.add_image_texture(
+            "Home",
+            "Resources/assets/images/home.png",
+            [false, false],
+            true,
+            ctx,
+        );
+        self.add_image_texture(
+            "Settings",
+            "Resources/assets/images/settings.png",
+            [false, false],
+            true,
+            ctx,
+        );
+        self.add_image_texture(
+            "Logout",
+            "Resources/assets/images/logout.png",
+            [false, false],
+            true,
+            ctx,
+        );
+        self.add_image(
+            "Home_Home",
+            [0_f32, -20_f32, 50_f32, 50_f32],
+            [2, 4, 1, 1],
+            [true, false, true, false, false],
+            [255, 0, 0, 0, 0],
+            "Home",
+        );
+        self.add_image(
+            "Home_Settings",
+            [0_f32, -20_f32, 50_f32, 50_f32],
+            [3, 4, 1, 1],
+            [true, false, true, false, false],
+            [255, 0, 0, 0, 0],
+            "Settings",
+        );
+        self.add_image(
+            "Home_Power",
+            [0_f32, -20_f32, 50_f32, 50_f32],
+            [1, 4, 1, 1],
+            [true, false, true, false, false],
+            [255, 0, 0, 0, 0],
+            "Power",
+        );
+        self.add_switch(
+            ["Home_Home", "Home_Home"],
+            vec![],
+            [true, true, true],
+            1,
+            vec![
+                [255, 255, 255, 255],
+                [180, 180, 180, 255],
+                [150, 150, 150, 255],
+            ],
+            vec![PointerButton::Primary],
+        );
+        self.add_switch(
+            ["Home_Settings", "Home_Settings"],
+            vec![],
+            [true, true, true],
+            1,
+            vec![
+                [255, 255, 255, 255],
+                [180, 180, 180, 255],
+                [150, 150, 150, 255],
+            ],
+            vec![PointerButton::Primary],
+        );
+        self.add_switch(
+            ["Home_Power", "Home_Power"],
+            vec![],
+            [true, true, true],
+            1,
+            vec![
+                [255, 255, 255, 255],
+                [180, 180, 180, 255],
+                [150, 150, 150, 255],
+            ],
+            vec![PointerButton::Primary, PointerButton::Secondary],
+        );
+        self.add_rect(
+            "Dock_Background",
+            [
+                0_f32,
+                -10_f32,
+                ctx.available_rect().width() - 100_f32,
+                70_f32,
+                20_f32,
+            ],
+            [1, 2, 1, 1],
+            [true, false, true, false],
+            [100, 100, 100, 125, 255, 255, 255, 255],
+            0.0,
+        );
     }
 
     pub fn check_updated(&mut self, name: &str) -> bool {
@@ -1040,20 +1198,79 @@ impl App {
                 }
             };
             self.rect(ui, "Dock_Background", ctx);
-            if self.switch("Home_Home", ui, ctx, true)[0] != 5 {
+            if self.switch("Home_Home", ui, ctx, true)[0] == 0 {
                 self.new_page_update("Home_Page");
                 self.switch_page("Home_Page");
             };
-            if self.switch("Home_Settings", ui, ctx, true)[0] != 5 {
+            if self.switch("Home_Settings", ui, ctx, true)[0] == 0 {
                 self.new_page_update("Home_Setting");
                 self.switch_page("Home_Setting");
+            };
+            let id2 = track_resource(self.resource_image.clone(), "Home_Power", "switch");
+            let texture = self.resource_image_texture.clone();
+            match self.switch("Home_Power", ui, ctx, true)[0] {
+                0 => {
+                    let _ = write_to_json(
+                        format!("Resources/config/user_{}.json", self.config.login_user_name),
+                        self.login_user_config.to_json_value(),
+                    );
+                    if self.resource_image[id2].cite_texture == "Power" {
+                        let _ = write_to_json(
+                            "Resources/config/Preferences.json",
+                            self.config.to_json_value(),
+                        );
+                        exit(0);
+                    } else {
+                        self.config.login_user_name = "".to_string();
+                        self.switch_page("Login");
+                    }
+                }
+                1 => {
+                    if self.resource_image[id2].cite_texture == "Power" {
+                        self.resource_image[id2].image_texture = self.resource_image_texture
+                            [track_resource(texture, "Logout", "image_texture")]
+                        .texture
+                        .clone();
+                        self.resource_image[id2].cite_texture = "Logout".to_string();
+                    } else {
+                        self.resource_image[id2].image_texture = self.resource_image_texture
+                            [track_resource(texture, "Power", "image_texture")]
+                        .texture
+                        .clone();
+                        self.resource_image[id2].cite_texture = "Power".to_string();
+                    };
+                }
+                _ => {}
             };
         };
         self.resource_rect[id].size[0] = ctx.available_rect().width() - 100_f32;
     }
 
+    pub fn update_frame_stats(&mut self, ctx: &egui::Context) {
+        let current_time = ctx.input(|i| i.time);
+        if let Some(last) = self.last_frame_time {
+            let delta = (current_time - last) as f32;
+            self.frame_times.push(delta);
+            const MAX_SAMPLES: usize = 120;
+            if self.frame_times.len() > MAX_SAMPLES {
+                let remove_count = self.frame_times.len() - MAX_SAMPLES;
+                self.frame_times.drain(0..remove_count);
+            }
+        }
+        self.last_frame_time = Some(current_time);
+    }
+
+    pub fn current_fps(&self) -> f32 {
+        if self.frame_times.is_empty() {
+            0.0
+        } else {
+            1.0 / (self.frame_times.iter().sum::<f32>() / self.frame_times.len() as f32)
+        }
+    }
+
     pub fn add_split_time(&mut self, name: &str) {
         self.timer.split_time.push(SplitTime {
+            discern_type: "SplitTime".to_string(),
             name: name.to_string(),
             time: [self.timer.now_time, self.timer.total_time],
         });
@@ -1087,6 +1304,7 @@ impl App {
         border_width: f32,
     ) {
         self.resource_rect.push(CustomRect {
+            discern_type: "CustomRect".to_string(),
             name: name.to_string(),
             position: [position_size_and_rounding[0], position_size_and_rounding[1]],
             size: [position_size_and_rounding[2], position_size_and_rounding[3]],
@@ -1103,6 +1321,7 @@ impl App {
 
     pub fn rect(&mut self, ui: &mut Ui, name: &str, ctx: &egui::Context) {
         let id = track_resource(self.resource_rect.clone(), name, "rect");
+        self.resource_rect[id].reg_render_resource(&mut self.render_resource_list);
         self.resource_rect[id].position[0] = match self.resource_rect[id].x_grid[1] {
             0 => self.resource_rect[id].position[0],
             _ => {
@@ -1172,6 +1391,7 @@ impl App {
         grid: [u32; 4],
     ) {
         self.resource_text.push(Text {
+            discern_type: "Text".to_string(),
             name: name_and_content[0].to_string(),
             text_content: name_and_content[1].to_string(),
             font_size: position_font_size_wrap_width_rounding[2],
@@ -1196,6 +1416,7 @@ impl App {
 
     pub fn text(&mut self, ui: &mut Ui, name: &str, ctx: &egui::Context) {
         let id = track_resource(self.resource_text.clone(), name, "text");
+        self.resource_text[id].reg_render_resource(&mut self.render_resource_list);
         // 计算文本大小
         let galley = ui.fonts(|f| {
             f.layout(
@@ -1280,6 +1501,7 @@ impl App {
 
     pub fn add_var<T: Into<Value>>(&mut self, name: &str, value: T) {
         self.variables.push(Variable {
+            discern_type: "Variable".to_string(),
             name: name.to_string(),
             value: value.into(),
         });
@@ -1461,6 +1683,7 @@ impl App {
             self.resource_image[image_id[image_id.len() - 1]].image_position[1]
         };
         self.resource_scroll_background.push(ScrollBackground {
+            discern_type: "ScrollBackground".to_string(),
             name: name.to_string(),
             image_name,
             horizontal_or_vertical,
@@ -1477,6 +1700,7 @@ impl App {
             name,
             "scroll_background",
         );
+        self.resource_scroll_background[id].reg_render_resource(&mut self.render_resource_list);
         let mut id2;
         for i in 0..self.resource_scroll_background[id].image_name.len() {
             self.image(
@@ -1571,8 +1795,10 @@ impl App {
         let image_texture = Some(ctx.load_texture("", color_image, TextureOptions::LINEAR));
         if create_new_resource {
             self.resource_image_texture.push(ImageTexture {
+                discern_type: "ImageTexture".to_string(),
                 name: name.to_string(),
                 texture: image_texture,
+                cite_path: path.to_string(),
             });
         } else {
             let id = self.resource_image_texture.clone();
@@ -1591,6 +1817,7 @@ impl App {
         image_texture_name: &str,
     ) {
         self.resource_image.push(Image {
+            discern_type: "Image".to_string(),
             name: name.to_string(),
             image_texture: self.resource_image_texture[track_resource(
                 self.resource_image_texture.clone(),
@@ -1618,11 +1845,13 @@ impl App {
             ],
             use_overlay_color: center_display_and_use_overlay[4],
             origin_position: [position_size[0], position_size[1]],
+            cite_texture: image_texture_name.to_string(),
         });
     }
 
     pub fn image(&mut self, ui: &Ui, name: &str, ctx: &egui::Context) {
         let id = track_resource(self.resource_image.clone(), name, "image");
+        self.resource_image[id].reg_render_resource(&mut self.render_resource_list);
         self.resource_image[id].image_position[0] = match self.resource_image[id].x_grid[1] {
             0 => self.resource_image[id].image_position[0],
             _ => {
@@ -1722,6 +1951,7 @@ impl App {
             );
         };
         self.resource_switch.push(Switch {
+            discern_type: "Switch".to_string(),
             name: name_and_switch_image_name[0].to_string(),
             switch_texture_name,
             switch_image_name: name_and_switch_image_name[1].to_string(),
@@ -1748,6 +1978,7 @@ impl App {
     ) -> [usize; 2] {
         let mut activated = [5, 0];
         let id = track_resource(self.resource_switch.clone(), name, "switch");
+        self.resource_switch[id].reg_render_resource(&mut self.render_resource_list);
         let id2 = track_resource(
             self.resource_image.clone(),
             &self.resource_switch[id].switch_image_name.clone(),

@@ -1,6 +1,6 @@
 [package]
 name = "Targeted-Vector"
-version = "0.4.0-alpha.1"
+version = "0.5.0-alpha.1"
 edition = "2021"
 authors = ["ChepleBob <Cheple_Bob@outlook.com>"]
 description = "A simple shooting game."
@@ -17,8 +17,8 @@ path = "src/main.rs"
 identifier = "com.cheplebob.targetedvector"
 short_description = "A simple shooting game."
 name = "Targeted Vector"
-version = "0.4.0"
-short-version-string = "0.4"
+version = "0.5.0"
+short-version-string = "0.5"
 copyright = "© 2025 Binder"
 icon = ["Resources/assets/images/icon.icns"]  # 图标路径
 resources = [
@@ -30,12 +30,10 @@ resources = [
 egui = "0.30.0"
 eframe = "0.30.0"
 egui_extras = { version = "0.30.0", features = ["all_loaders"] }
-rodio = "0.20.1"
-hound = "3.5.1"
-anyhow = "1.0.95"
-image = "0.25.5"
+kira = { version = "0.8", features = ["cpal"] }
+anyhow = "1.0.97"
+image = "0.25.6"
 json = "0.12.4"
 walkdir = "2.5.0"
 whoami = "2.0.0-pre.0"
 chrono = "0.4.40"
-rfd = "0.15.2"

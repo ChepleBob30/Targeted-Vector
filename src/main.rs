@@ -1,4 +1,4 @@
-//! Targeted Vector v0.2.0-alpha.1
+//! Targeted Vector v0.5.0-alpha.1
 //! Developer: Cheple_Bob
 //! This is a rust shooter built on top of RustConstructor.
 //! Special Thanks:
@@ -7,10 +7,8 @@
 use egui::IconData;
 use function::App;
 use std::sync::Arc;
-
 mod function;
 mod pages;
-
 fn main() {
     // let mut config = Config { launch_path: "".to_string() };
     // // 读取 JSON 文件
@@ -60,8 +58,11 @@ fn main() {
         ..Default::default()
     };
     let _ = eframe::run_native(
-        "Targeted Vector",
-        options,
-        Box::new(|cc| Ok(Box::new(App::new(cc)))),
+    "Targeted Vector",
+    options,
+    Box::new(|cc: &eframe::CreationContext| -> Result<Box<dyn eframe::App>, Box<dyn std::error::Error + Send + Sync>> {
+        let app: App = App::new(cc);
+        Ok(Box::new(app))
+    }),
     );
 }

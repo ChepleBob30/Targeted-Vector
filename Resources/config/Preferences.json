@@ -1,4 +1,6 @@
 {
     "launch_path": "",
-    "language": 0
+    "language": 1,
+    "login_user_name": "",
+    "amount_languages": 2
 }
