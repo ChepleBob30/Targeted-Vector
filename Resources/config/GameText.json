@@ -109,20 +109,36 @@
       "Page"
     ],
     "debug_game_version": [
-      "靶向载体 v0.5.0-alpha.1",
-      "Targeted Vector v0.5.0-alpha.1"
+      "靶向载体 v0.6.0-alpha.1",
+      "Targeted Vector v0.6.0-alpha.1"
+    ],
+    "debug_game_now_time": [
+      "当前页面运行时间",
+      "Current page running time"
+    ],
+    "debug_game_total_time": [
+      "总运行时间",
+      "Total running time"
+    ],
+    "debug_game_second": [
+      "秒",
+      "s"
+    ],
+    "debug_game_millisecond": [
+      "毫秒",
+      "ms"
     ],
     "debug_fps": [
-      "帧数",
+      "每秒帧数",
       "FPS"
     ],
-    "debug_fps_details": [
-      "帧数详情",
-      "FPS details"
+    "debug_fps2": [
+      "帧/秒",
+      "FPS"
     ],
-    "debug_current_fps": [
-      "当前帧数",
-      "Current FPS"
+    "debug_frame_number_details": [
+      "帧数详情",
+      "Frame number details"
     ],
     "debug_last_ten_frames": [
       "最后十帧",

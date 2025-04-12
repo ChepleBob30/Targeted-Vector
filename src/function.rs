@@ -5,7 +5,6 @@ use eframe::epaint::textures::TextureOptions;
 use eframe::epaint::Stroke;
 use egui::{Color32, FontId, Frame, PointerButton, Pos2, Ui, Vec2};
 use json::JsonValue;
-// use rodio::{Decoder, OutputStream};
 use kira::manager::backend::cpal;
 use kira::manager::AudioManager;
 use kira::sound::static_sound::StaticSoundData;
@@ -73,10 +72,6 @@ pub fn find_app_bundle(
     }
 
     None
-}
-
-pub fn value_to_bool(value: i32) -> bool {
-    value > 0
 }
 
 // 创建格式化的JSON文件
@@ -339,6 +334,20 @@ pub fn track_resource<T: RustConstructorResource>(
         );
     }
     id as usize
+}
+
+pub fn check_resource_exist<T: RustConstructorResource>(
+    resource_list: Vec<T>,
+    resource_name: &str,
+) -> bool {
+    let mut found_resource: bool = false;
+    for (i, _a) in resource_list.iter().enumerate() {
+        if resource_list[i].name() == resource_name {
+            found_resource = true;
+            break;
+        };
+    }
+    found_resource
 }
 
 pub trait RustConstructorResource {
@@ -634,6 +643,7 @@ pub struct App {
     pub render_resource_list: Vec<RenderResource>,
     pub login_user_config: User,
     pub frame: Frame,
+    pub vertrefresh: f32,
     pub page: String,
     pub resource_page: Vec<PageData>,
     pub resource_image: Vec<Image>,
@@ -685,6 +695,7 @@ impl App {
             frame: Frame {
                 ..Default::default()
             },
+            vertrefresh: 0.01,
             page: "Launch".to_string(),
             resource_page: vec![
                 PageData {
@@ -850,9 +861,10 @@ impl App {
                 [255, 0, 0, 0, 0],
                 &format!("{}_Title", i),
             );
-        };
+        }
         let image = self.resource_image.clone();
-        self.resource_image[track_resource(image, "1_Title", "image")].image_size = [900_f32, 130_f32];
+        self.resource_image[track_resource(image, "1_Title", "image")].image_size =
+            [900_f32, 130_f32];
         self.add_image_texture(
             "Background",
             "Resources/assets/images/wallpaper.jpg",
@@ -934,19 +946,6 @@ impl App {
             [true, true, true, true, false],
             [255, 0, 0, 0, 0],
             "Login",
-        );
-        self.add_image(
-            "Background",
-            [
-                0_f32,
-                0_f32,
-                ctx.available_rect().width(),
-                ctx.available_rect().height(),
-            ],
-            [1, 0, 1, 0],
-            [true, true, false, false, false],
-            [255, 0, 0, 0, 0],
-            "Background",
         );
         self.add_image(
             "Wallpaper1",
@@ -1145,10 +1144,31 @@ impl App {
     }
 
     pub fn new_page_update(&mut self, name: &str) {
-        self.renew_timer();
+        self.timer.start_time = self.timer.total_time;
         let page = self.resource_page.clone();
+        self.update_timer();
         self.resource_page[track_resource(page, name, "page")].change_page_updated = true;
-        self.timer.split_time = vec![];
+    }
+
+    pub fn wallpaper(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
+        let image = self.resource_image.clone();
+        self.resource_image[track_resource(
+            image,
+            &format!(
+                "Home_Wallpaper_{}",
+                self.login_user_config.wallpaper.clone()
+            ),
+            "image",
+        )]
+        .image_size = [ctx.available_rect().width(), ctx.available_rect().height()];
+        self.image(
+            ui,
+            &format!(
+                "Home_Wallpaper_{}",
+                self.login_user_config.wallpaper.clone()
+            ),
+            ctx,
+        );
     }
 
     pub fn dock(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
@@ -1160,50 +1180,56 @@ impl App {
             );
             self.modify_var("dock_active_status", rect.contains(mouse_pos));
             let image = self.resource_image.clone();
-            if self.var_b("dock_active_status") {
-                for _ in 0..5 {
-                    if self.resource_rect[id].origin_position[1] > -10_f32 {
-                        for i in 0..self.resource_switch.len() {
-                            if self.resource_switch[i].name.contains("Home_") {
-                                self.resource_image[track_resource(
-                                    image.clone(),
-                                    &self.resource_switch[i].switch_image_name,
-                                    "image",
-                                )]
-                                .origin_position[1] -= 1_f32;
-                            };
-                        }
-                        self.resource_rect[id].origin_position[1] -= 1_f32;
-                    } else {
-                        break;
-                    };
-                }
-            } else if !self.var_b("dock_active_status") {
-                for _ in 0..5 {
-                    if self.resource_rect[id].origin_position[1] < 80_f32 {
-                        for i in 0..self.resource_switch.len() {
-                            if self.resource_switch[i].name.contains("Home_") {
-                                self.resource_image[track_resource(
-                                    image.clone(),
-                                    &self.resource_switch[i].switch_image_name,
-                                    "image",
-                                )]
-                                .origin_position[1] += 1_f32;
-                            };
-                        }
-                        self.resource_rect[id].origin_position[1] += 1_f32;
-                    } else {
-                        break;
-                    };
-                }
+            if self.timer.now_time - self.split_time("dock_animation")[0] >= self.vertrefresh {
+                self.add_split_time("dock_animation", true);
+                if self.var_b("dock_active_status") {
+                    for _ in 0..5 {
+                        if self.resource_rect[id].origin_position[1] > -10_f32 {
+                            for i in 0..self.resource_switch.len() {
+                                if self.resource_switch[i].name.contains("Home_") {
+                                    self.resource_image[track_resource(
+                                        image.clone(),
+                                        &self.resource_switch[i].switch_image_name,
+                                        "image",
+                                    )]
+                                    .origin_position[1] -= 1_f32;
+                                };
+                            }
+                            self.resource_rect[id].origin_position[1] -= 1_f32;
+                        } else {
+                            break;
+                        };
+                    }
+                } else if !self.var_b("dock_active_status") {
+                    for _ in 0..5 {
+                        if self.resource_rect[id].origin_position[1] < 80_f32 {
+                            for i in 0..self.resource_switch.len() {
+                                if self.resource_switch[i].name.contains("Home_") {
+                                    self.resource_image[track_resource(
+                                        image.clone(),
+                                        &self.resource_switch[i].switch_image_name,
+                                        "image",
+                                    )]
+                                    .origin_position[1] += 1_f32;
+                                };
+                            }
+                            self.resource_rect[id].origin_position[1] += 1_f32;
+                        } else {
+                            break;
+                        };
+                    }
+                };
             };
             self.rect(ui, "Dock_Background", ctx);
             if self.switch("Home_Home", ui, ctx, true)[0] == 0 {
                 self.new_page_update("Home_Page");
+                self.add_split_time("dock_animation", true);
+                self.add_split_time("title_animation", true);
                 self.switch_page("Home_Page");
             };
             if self.switch("Home_Settings", ui, ctx, true)[0] == 0 {
                 self.new_page_update("Home_Setting");
+                self.add_split_time("dock_animation", true);
                 self.switch_page("Home_Setting");
             };
             let id2 = track_resource(self.resource_image.clone(), "Home_Power", "switch");
@@ -1222,6 +1248,9 @@ impl App {
                         exit(0);
                     } else {
                         self.config.login_user_name = "".to_string();
+                        self.timer.start_time = self.timer.total_time;
+                        self.update_timer();
+                        self.add_split_time("ScrollWallpaper", true);
                         self.switch_page("Login");
                     }
                 }
@@ -1268,7 +1297,15 @@ impl App {
         }
     }
 
-    pub fn add_split_time(&mut self, name: &str) {
+    pub fn add_split_time(&mut self, name: &str, reset: bool) {
+        if reset {
+            for i in 0..self.timer.split_time.len() {
+                if self.timer.split_time[i].name == name {
+                    self.timer.split_time.remove(i);
+                    break;
+                }
+            }
+        };
         self.timer.split_time.push(SplitTime {
             discern_type: "SplitTime".to_string(),
             name: name.to_string(),
@@ -1279,11 +1316,6 @@ impl App {
     pub fn split_time(&mut self, name: &str) -> [f32; 2] {
         self.timer.split_time[track_resource(self.timer.split_time.clone(), name, "split_time")]
             .time
-    }
-
-    pub fn renew_timer(&mut self) {
-        self.timer.start_time = self.timer.total_time;
-        self.timer.split_time = vec![];
     }
 
     pub fn update_timer(&mut self) {
@@ -1493,9 +1525,10 @@ impl App {
     }
 
     fn read_image_to_vec(&mut self, path: &str) -> Vec<u8> {
-        let mut file = File::open(path).expect("打开图片文件失败");
+        let mut file = File::open(path).unwrap_or_else(|_| panic!("打开图片文件失败: {}", path));
         let mut buffer = Vec::new();
-        file.read_to_end(&mut buffer).expect("读取图片文件失败");
+        file.read_to_end(&mut buffer)
+            .unwrap_or_else(|_| panic!("读取图片文件失败: {}", path));
         buffer
     }
 
@@ -1701,6 +1734,9 @@ impl App {
             "scroll_background",
         );
         self.resource_scroll_background[id].reg_render_resource(&mut self.render_resource_list);
+        if !check_resource_exist(self.timer.split_time.clone(), name) {
+            self.add_split_time(name, false);
+        };
         let mut id2;
         for i in 0..self.resource_scroll_background[id].image_name.len() {
             self.image(
@@ -1709,36 +1745,39 @@ impl App {
                 ctx,
             );
         }
-        for i in 0..self.resource_scroll_background[id].image_name.len() {
-            id2 = track_resource(
-                self.resource_image.clone(),
-                &self.resource_scroll_background[id].image_name[i].clone(),
-                "image",
-            );
-            if self.resource_scroll_background[id].horizontal_or_vertical {
-                if self.resource_scroll_background[id].left_and_top_or_right_and_bottom {
+        if self.timer.now_time - self.split_time(name)[0] >= self.vertrefresh {
+            self.add_split_time(name, true);
+            for i in 0..self.resource_scroll_background[id].image_name.len() {
+                id2 = track_resource(
+                    self.resource_image.clone(),
+                    &self.resource_scroll_background[id].image_name[i].clone(),
+                    "image",
+                );
+                if self.resource_scroll_background[id].horizontal_or_vertical {
+                    if self.resource_scroll_background[id].left_and_top_or_right_and_bottom {
+                        for _j in 0..self.resource_scroll_background[id].scroll_speed {
+                            self.resource_image[id2].image_position[0] -= 1_f32;
+                            self.scroll_background_check_boundary(id, id2);
+                        }
+                    } else {
+                        for _j in 0..self.resource_scroll_background[id].scroll_speed {
+                            self.resource_image[id2].image_position[0] += 1_f32;
+                            self.scroll_background_check_boundary(id, id2);
+                        }
+                    };
+                } else if self.resource_scroll_background[id].left_and_top_or_right_and_bottom {
                     for _j in 0..self.resource_scroll_background[id].scroll_speed {
-                        self.resource_image[id2].image_position[0] -= 1_f32;
+                        self.resource_image[id2].image_position[1] -= 1_f32;
                         self.scroll_background_check_boundary(id, id2);
                     }
                 } else {
                     for _j in 0..self.resource_scroll_background[id].scroll_speed {
-                        self.resource_image[id2].image_position[0] += 1_f32;
+                        self.resource_image[id2].image_position[1] += 1_f32;
                         self.scroll_background_check_boundary(id, id2);
                     }
                 };
-            } else if self.resource_scroll_background[id].left_and_top_or_right_and_bottom {
-                for _j in 0..self.resource_scroll_background[id].scroll_speed {
-                    self.resource_image[id2].image_position[1] -= 1_f32;
-                    self.scroll_background_check_boundary(id, id2);
-                }
-            } else {
-                for _j in 0..self.resource_scroll_background[id].scroll_speed {
-                    self.resource_image[id2].image_position[1] += 1_f32;
-                    self.scroll_background_check_boundary(id, id2);
-                }
-            };
-        }
+            }
+        };
     }
 
     fn scroll_background_check_boundary(&mut self, id: usize, id2: usize) {
