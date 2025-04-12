@@ -1222,13 +1222,15 @@ impl App {
             };
             self.rect(ui, "Dock_Background", ctx);
             if self.switch("Home_Home", ui, ctx, true)[0] == 0 {
-                self.new_page_update("Home_Page");
+                self.timer.start_time = self.timer.total_time;
+                self.update_timer();
                 self.add_split_time("dock_animation", true);
                 self.add_split_time("title_animation", true);
                 self.switch_page("Home_Page");
             };
             if self.switch("Home_Settings", ui, ctx, true)[0] == 0 {
-                self.new_page_update("Home_Setting");
+                self.timer.start_time = self.timer.total_time;
+                self.update_timer();
                 self.add_split_time("dock_animation", true);
                 self.switch_page("Home_Setting");
             };
