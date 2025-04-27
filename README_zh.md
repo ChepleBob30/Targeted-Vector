@@ -7,7 +7,7 @@
 [![语言: Rust](https://img.shields.io/badge/语言-Rust-5F4C49)](https://www.rust-lang.org/)
 [![许可证: MIT](https://img.shields.io/badge/许可证-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 ![Github Stars](https://img.shields.io/github/stars/ChepleBob30/targeted-vector?style=flat&color=red)
-![版本](https://img.shields.io/badge/版本-v0.6.0_alpha.1-blue)
+![版本](https://img.shields.io/badge/版本-v0.7.0_alpha.1-blue)
 
 [English](./README.md) | [简体中文](./README_zh.md)
 
@@ -23,7 +23,7 @@
 
 ---
 
-中文版README由英文版README翻译所得，我向README内容一致性做出了妥协，所以可能存在部分地方翻译生硬甚至错误，请见谅。
+中文版README部分内容由英文版README翻译所得，我向README内容一致性做出了妥协，所以可能存在部分地方翻译生硬甚至错误，请见谅。
 
 ---
 
@@ -35,7 +35,7 @@
 ## 如何给靶向载体做贡献
 靶向载体是一个开源项目，想要给靶向载体做贡献是很正常的。然而，我不期望任何人在开发阶段为靶向载体本身贡献代码。因为靶向载体正在以我的开发节奏前进，如果有人为靶向载体贡献代码，那将是混乱的。
 
-*虽然我不期望任何人在开发阶段为目标向量本身贡献代码，但我确实希望大家都能贡献bug报告和功能建议。*
+*虽然我不期望任何人在开发阶段为靶向载体本身贡献代码，但我确实希望大家都能贡献bug报告和功能建议。*
 
 您可以通过以下方式为靶向载体做出贡献:
 1. 提交bug报告和功能建议：如果您在玩靶向载体时遇到任何bug或有任何功能建议，请在GitHub存储库中创建issue或直接发送给我（Cheple_Bob@outlook.com）。
@@ -52,7 +52,7 @@
 
 - 为什么叫“靶向载体”？
 
-    *因为靶向载体是一款玩家用鼠标控制枪支击杀敌人的游戏，所以叫“靶向”，同时玩家也可以放置工具进行攻击，所以也叫“载体”*
+    *因为靶向载体是一款玩家用鼠标控制枪支击杀敌人的游戏，所以叫“靶向”，同时玩家也可以放置工具进行攻击，所以也叫“载体”。*
 
 - 为什么选择Rust作为开发语言？
 
@@ -60,7 +60,7 @@
 
 - 靶向载体将支持哪些平台？
 
-    *我将支持macOS和Windows。如果我有足够的时间，我也会支持Linux*
+    *我将支持macOS和Windows。如果我有足够的时间，我也会支持Linux。*
 
 - 靶向载体的发展现状如何？
 
@@ -69,6 +69,10 @@
 - 什么时候能提供.dmg和.msi？
 
     *我将在开发阶段结束时提供.dmg和.msi。*
+
+- 靶向载体会支持什么语言？
+
+    *靶向载体本体支持简体中文和英文，其他语言计划通过模组由开发者自行添加。*
 
 ---
 

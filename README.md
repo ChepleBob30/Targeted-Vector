@@ -7,7 +7,7 @@
 [![Language: Rust](https://img.shields.io/badge/Language-Rust-5F4C49)](https://www.rust-lang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 ![Github Stars](https://img.shields.io/github/stars/ChepleBob30/targeted-vector?style=flat&color=red)
-![Version](https://img.shields.io/badge/Version-v0.6.0_alpha.1-blue)
+![Version](https://img.shields.io/badge/Version-v0.7.0_alpha.1-blue)
 
 [English](./README.md) | [简体中文](./README_zh.md)
 
@@ -31,7 +31,7 @@ In the past, I made a Python game called "Shilang Hunter" in 2024. However, we f
 ## How to Contribute to Targeted Vector
 Targeted Vector is an open-source project, It's normal to want to contribute to Targeted Vector. However, I do not expect anyone to contribute codes to the Targeted Vector itself in the development phase. Because Targeted Vector is moving at the pace of my development and it will be confusions if someone wants to contribute codes to the Targeted Vector.
 
-*While I don't expect anyone to contribute code to the target vector itself during the development phase, I do expect anyone to contribute bug reports and feature suggestions.*
+*While I don't expect anyone to contribute code to the Targeted Vector itself during the development phase, I do expect anyone to contribute bug reports and feature suggestions.*
 
 You can contribute to Targeted Vector in the following ways:
 1. Submit bug reports and Feature Suggestions: If you encounter any bugs while playing Targeted Vector or have any feature suggestions, please create an issue in the GitHub repository or send it directly to me (Cheple_Bob@outlook.com).
@@ -65,6 +65,11 @@ We sincerely thank the following individuals who have made outstanding contribut
 - When will you provide .dmg and .msi?
 
     *I will provide .dmg and .msi when the development phase is over.*
+
+- What languages will the Targeted Vector support? 
+
+    *The Targeted Vector ontology supports simplified Chinese and English, and other languages are planned to be added by the developer through the mod.*
+
 
 ---
 

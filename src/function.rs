@@ -176,6 +176,7 @@ pub struct Config {
     pub language: u8,
     pub login_user_name: String,
     pub amount_languages: u8,
+    pub rc_strict_mode: bool,
 }
 
 impl Config {
@@ -185,6 +186,7 @@ impl Config {
             language: value["language"].as_u8()?,
             login_user_name: value["login_user_name"].as_str()?.to_string(),
             amount_languages: value["amount_languages"].as_u8()?,
+            rc_strict_mode: value["rc_strict_mode"].as_bool()?,
         })
     }
     pub fn to_json_value(&self) -> JsonValue {
@@ -193,6 +195,7 @@ impl Config {
             language: self.language,
             login_user_name: self.login_user_name.clone(),
             amount_languages: self.amount_languages,
+            rc_strict_mode: self.rc_strict_mode,
         }
     }
 }
@@ -306,34 +309,26 @@ impl From<String> for Value {
     }
 }
 
-/// The method to get the index of the resource in the vector.
-/// # Arguments
-/// * `resource_list` - target vector.
-/// * `resource_name` - target resource name.
-/// * `error_log` - if method didn't find your resource, it will print the error message.
-/// # Returns
-/// your resource's index.
-/// # Panics
-/// if resource doesn't exist, it will panic.
-pub fn track_resource<T: RustConstructorResource>(
-    resource_list: Vec<T>,
-    resource_name: &str,
-    error_log: &str,
-) -> usize {
-    let mut id: i32 = -1;
-    for (i, _a) in resource_list.iter().enumerate() {
-        if resource_list[i].name() == resource_name {
-            id = i as i32;
-            break;
-        };
-    }
-    if id == -1 {
-        panic!(
-            "RustConstructor Error[Track lost]: \"{}\" does not have a resource \"{}\"!",
-            error_log, resource_name
-        );
-    }
-    id as usize
+#[derive(Clone, Debug)]
+pub struct ReportState {
+    pub current_page: String,
+    pub current_total_runtime: f32,
+    pub current_page_runtime: f32,
+}
+
+#[derive(Clone, Debug)]
+pub struct Problem {
+    pub severity_level: SeverityLevel,
+    pub problem: String,
+    pub annotation: String,
+    pub report_state: ReportState,
+}
+
+#[derive(Clone, Debug)]
+pub enum SeverityLevel {
+    MildWarning,
+    SevereWarning,
+    Error,
 }
 
 pub fn check_resource_exist<T: RustConstructorResource>(
@@ -481,7 +476,7 @@ pub struct Image {
     pub overlay_color: [u8; 4],
     pub use_overlay_color: bool,
     pub origin_position: [f32; 2],
-    pub cite_texture: String,
+    pub origin_cite_texture: String,
 }
 
 impl RustConstructorResource for Text {
@@ -618,15 +613,14 @@ impl RustConstructorResource for Switch {
 pub struct Switch {
     pub discern_type: String,
     pub name: String,
+    pub appearance: Vec<SwitchData>,
     pub switch_image_name: String,
-    pub switch_texture_name: Vec<String>,
     pub enable_hover_click_image: [bool; 2],
     pub state: u32,
-    pub use_overlay: bool,
-    pub overlay_color: Vec<[u8; 4]>,
-    pub click_method: Vec<PointerButton>,
+    pub click_method: Vec<SwitchClickAction>,
     pub last_time_clicked: bool,
     pub last_time_clicked_index: usize,
+    pub animation_count: u32,
 }
 
 #[derive(Clone, Debug)]
@@ -635,12 +629,25 @@ pub struct RenderResource {
     pub name: String,
 }
 
+#[derive(Clone, Debug)]
+pub struct SwitchData {
+    texture: String,
+    color: [u8; 4],
+}
+
+#[derive(Clone, Debug)]
+pub struct SwitchClickAction {
+    pub click_method: PointerButton,
+    pub action: bool,
+}
+
 #[allow(dead_code)]
 #[derive(Clone)]
 pub struct App {
     pub config: Config,
     pub game_text: GameText,
     pub render_resource_list: Vec<RenderResource>,
+    pub problem_list: Vec<Problem>,
     pub login_user_config: User,
     pub frame: Frame,
     pub vertrefresh: f32,
@@ -667,6 +674,7 @@ impl App {
             language: 0,
             login_user_name: "".to_string(),
             amount_languages: 0,
+            rc_strict_mode: false,
         };
         let mut game_text = GameText {
             game_text: HashMap::new(),
@@ -685,6 +693,7 @@ impl App {
             config,
             game_text,
             render_resource_list: Vec::new(),
+            problem_list: Vec::new(),
             login_user_config: User {
                 version: 0,
                 name: "".to_string(),
@@ -722,6 +731,12 @@ impl App {
                     forced_update: true,
                     change_page_updated: false,
                 },
+                PageData {
+                    discern_type: "PageData".to_string(),
+                    name: "Error".to_string(),
+                    forced_update: true,
+                    change_page_updated: false,
+                },
             ],
             resource_image: Vec::new(),
             resource_text: Vec::new(),
@@ -743,13 +758,18 @@ impl App {
     }
 
     pub fn switch_page(&mut self, page: &str) {
-        self.page = self.resource_page[track_resource(self.resource_page.clone(), page, "page")]
-            .name
-            .to_string();
+        self.page = page.to_string();
     }
 
     pub fn launch_page_preload(&mut self, ctx: &egui::Context) {
         let game_text = self.game_text.game_text.clone();
+        self.add_image_texture(
+            "Error",
+            "Resources/assets/images/error.png",
+            [false, false],
+            true,
+            ctx,
+        );
         self.add_image_texture(
             "RC_Logo",
             "Resources/assets/images/rc.png",
@@ -770,6 +790,14 @@ impl App {
             [false, false],
             true,
             ctx,
+        );
+        self.add_image(
+            "Error",
+            [0_f32, 0_f32, 130_f32, 130_f32],
+            [1, 2, 1, 2],
+            [true, true, true, true, false],
+            [255, 0, 0, 0, 0],
+            "Error",
         );
         self.add_image(
             "RC_Logo",
@@ -862,9 +890,8 @@ impl App {
                 &format!("{}_Title", i),
             );
         }
-        let image = self.resource_image.clone();
-        self.resource_image[track_resource(image, "1_Title", "image")].image_size =
-            [900_f32, 130_f32];
+        let id = self.track_resource(self.resource_image.clone(), "1_Title");
+        self.resource_image[id].image_size = [900_f32, 130_f32];
         self.add_image_texture(
             "Background",
             "Resources/assets/images/wallpaper.jpg",
@@ -995,45 +1022,60 @@ impl App {
         );
         self.add_switch(
             ["Power", "Power"],
-            vec![],
+            vec![
+                SwitchData {
+                    texture: "Power".to_string(),
+                    color: [255, 255, 255, 255],
+                },
+                SwitchData {
+                    texture: "Power".to_string(),
+                    color: [200, 200, 200, 255],
+                },
+            ],
             [false, true, true],
             1,
-            vec![[255, 255, 255, 255], [200, 200, 200, 255]],
-            vec![
-                PointerButton::Primary,
-                PointerButton::Secondary,
-                PointerButton::Middle,
-                PointerButton::Extra1,
-                PointerButton::Extra2,
-            ],
+            vec![SwitchClickAction {
+                click_method: PointerButton::Primary,
+                action: true,
+            }],
         );
         self.add_switch(
             ["Register", "Register"],
-            vec![],
+            vec![
+                SwitchData {
+                    texture: "Register".to_string(),
+                    color: [255, 255, 255, 255],
+                },
+                SwitchData {
+                    texture: "Register".to_string(),
+                    color: [200, 200, 200, 255],
+                },
+            ],
             [false, true, true],
             1,
-            vec![[255, 255, 255, 255], [200, 200, 200, 255]],
-            vec![
-                PointerButton::Primary,
-                PointerButton::Secondary,
-                PointerButton::Middle,
-                PointerButton::Extra1,
-                PointerButton::Extra2,
-            ],
+            vec![SwitchClickAction {
+                click_method: PointerButton::Primary,
+                action: true,
+            }],
         );
         self.add_switch(
             ["Login", "Login"],
-            vec![],
+            vec![
+                SwitchData {
+                    texture: "Login".to_string(),
+                    color: [255, 255, 255, 255],
+                },
+                SwitchData {
+                    texture: "Login".to_string(),
+                    color: [200, 200, 200, 255],
+                },
+            ],
             [false, true, true],
             1,
-            vec![[255, 255, 255, 255], [200, 200, 200, 255]],
-            vec![
-                PointerButton::Primary,
-                PointerButton::Secondary,
-                PointerButton::Middle,
-                PointerButton::Extra1,
-                PointerButton::Extra2,
-            ],
+            vec![SwitchClickAction {
+                click_method: PointerButton::Primary,
+                action: true,
+            }],
         );
         self.add_image_texture(
             "Home",
@@ -1082,39 +1124,90 @@ impl App {
         );
         self.add_switch(
             ["Home_Home", "Home_Home"],
-            vec![],
+            vec![
+                SwitchData {
+                    texture: "Home".to_string(),
+                    color: [255, 255, 255, 255],
+                },
+                SwitchData {
+                    texture: "Home".to_string(),
+                    color: [180, 180, 180, 255],
+                },
+                SwitchData {
+                    texture: "Home".to_string(),
+                    color: [150, 150, 150, 255],
+                },
+            ],
             [true, true, true],
             1,
-            vec![
-                [255, 255, 255, 255],
-                [180, 180, 180, 255],
-                [150, 150, 150, 255],
-            ],
-            vec![PointerButton::Primary],
+            vec![SwitchClickAction {
+                click_method: PointerButton::Primary,
+                action: true,
+            }],
         );
         self.add_switch(
             ["Home_Settings", "Home_Settings"],
-            vec![],
+            vec![
+                SwitchData {
+                    texture: "Settings".to_string(),
+                    color: [255, 255, 255, 255],
+                },
+                SwitchData {
+                    texture: "Settings".to_string(),
+                    color: [180, 180, 180, 255],
+                },
+                SwitchData {
+                    texture: "Settings".to_string(),
+                    color: [150, 150, 150, 255],
+                },
+            ],
             [true, true, true],
             1,
-            vec![
-                [255, 255, 255, 255],
-                [180, 180, 180, 255],
-                [150, 150, 150, 255],
-            ],
-            vec![PointerButton::Primary],
+            vec![SwitchClickAction {
+                click_method: PointerButton::Primary,
+                action: true,
+            }],
         );
         self.add_switch(
             ["Home_Power", "Home_Power"],
-            vec![],
-            [true, true, true],
-            1,
             vec![
-                [255, 255, 255, 255],
-                [180, 180, 180, 255],
-                [150, 150, 150, 255],
+                SwitchData {
+                    texture: "Power".to_string(),
+                    color: [255, 255, 255, 255],
+                },
+                SwitchData {
+                    texture: "Power".to_string(),
+                    color: [180, 180, 180, 255],
+                },
+                SwitchData {
+                    texture: "Power".to_string(),
+                    color: [150, 150, 150, 255],
+                },
+                SwitchData {
+                    texture: "Logout".to_string(),
+                    color: [255, 255, 255, 255],
+                },
+                SwitchData {
+                    texture: "Logout".to_string(),
+                    color: [180, 180, 180, 255],
+                },
+                SwitchData {
+                    texture: "Logout".to_string(),
+                    color: [150, 150, 150, 255],
+                },
             ],
-            vec![PointerButton::Primary, PointerButton::Secondary],
+            [true, true, true],
+            2,
+            vec![
+                SwitchClickAction {
+                    click_method: PointerButton::Primary,
+                    action: false,
+                },
+                SwitchClickAction {
+                    click_method: PointerButton::Secondary,
+                    action: true,
+                },
+            ],
         );
         self.add_rect(
             "Dock_Background",
@@ -1130,12 +1223,122 @@ impl App {
             [100, 100, 100, 125, 255, 255, 255, 255],
             0.0,
         );
+        self.add_rect(
+            "Error_Pages_Background",
+            [
+                0_f32,
+                0_f32,
+                ctx.available_rect().width(),
+                ctx.available_rect().height(),
+                0_f32,
+            ],
+            [1, 2, 1, 2],
+            [false, false, true, true],
+            [31, 103, 179, 255, 255, 255, 255, 255],
+            0.0,
+        );
+        self.add_text(
+            ["Error_Pages_Sorry", ":("],
+            [0_f32, 0_f32, 100_f32, 1000_f32, 0.0],
+            [255, 255, 255, 255, 0, 0, 0],
+            [true, true, false, false],
+            false,
+            [1, 5, 1, 6],
+        );
+        self.add_text(
+            ["Error_Pages_Reason", ""],
+            [0_f32, 0_f32, 40_f32, 1000_f32, 0.0],
+            [255, 255, 255, 255, 0, 0, 0],
+            [true, true, false, false],
+            false,
+            [1, 5, 2, 6],
+        );
+        self.add_text(
+            ["Error_Pages_Solution", ""],
+            [0_f32, 0_f32, 20_f32, 1000_f32, 0.0],
+            [255, 255, 255, 255, 0, 0, 0],
+            [true, true, false, false],
+            false,
+            [1, 5, 3, 6],
+        );
+    }
+
+    pub fn problem_report(
+        &mut self,
+        problem: &str,
+        severity_level: SeverityLevel,
+        annotation: &str,
+    ) {
+        std::thread::spawn(|| {
+            let _ = kira_play_wav("Resources/assets/sounds/Error.wav");
+        });
+        self.problem_list.push(Problem {
+            severity_level,
+            problem: problem.to_string(),
+            annotation: annotation.to_string(),
+            report_state: ReportState {
+                current_page: self.page.clone(),
+                current_total_runtime: self.timer.total_time,
+                current_page_runtime: self.timer.now_time,
+            },
+        });
+    }
+
+    /// The method to get the index of the resource in the vector.
+    /// # Arguments
+    /// * `resource_list` - target vector.
+    /// * `resource_name` - target resource name.
+    /// * `error_log` - if method didn't find your resource, it will print the error message.
+    /// # Returns
+    /// your resource's index.
+    /// # Panics
+    /// if resource doesn't exist, it will panic.
+    pub fn track_resource<T: RustConstructorResource + std::clone::Clone>(
+        &mut self,
+        resource_list: Vec<T>,
+        resource_name: &str,
+    ) -> usize {
+        let list = resource_list.clone();
+        if check_resource_exist(list, resource_name) {
+            let mut id: i32 = -1;
+            for (i, _a) in resource_list.iter().enumerate() {
+                if resource_list[i].name() == resource_name {
+                    id = i as i32;
+                    break;
+                };
+            }
+            id as usize
+        } else {
+            if self.config.rc_strict_mode {
+                panic!(
+                    "{}{}",
+                    self.game_text.game_text["error_track_resource_not_found"]
+                        [self.config.language as usize]
+                        .clone(),
+                    resource_name
+                )
+            } else {
+                self.problem_report(
+                    &format!(
+                        "{}{}",
+                        self.game_text.game_text["error_track_resource_not_found"]
+                            [self.config.language as usize]
+                            .clone(),
+                        resource_name
+                    ),
+                    SeverityLevel::SevereWarning,
+                    &self.game_text.game_text["error_track_resource_not_found_annotation"]
+                        [self.config.language as usize]
+                        .clone(),
+                );
+            };
+            0
+        }
     }
 
     pub fn check_updated(&mut self, name: &str) -> bool {
-        if self.resource_page[track_resource(self.resource_page.clone(), name, "page")]
-            .change_page_updated
-        {
+        let id = self.track_resource(self.resource_page.clone(), name);
+        if self.resource_page[id].change_page_updated {
             true
         } else {
             self.new_page_update(name);
@@ -1147,20 +1350,21 @@ impl App {
         self.timer.start_time = self.timer.total_time;
         let page = self.resource_page.clone();
         self.update_timer();
-        self.resource_page[track_resource(page, name, "page")].change_page_updated = true;
+        let id = self.track_resource(page, name);
+        self.resource_page[id].change_page_updated = true;
     }
 
     pub fn wallpaper(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
         let image = self.resource_image.clone();
-        self.resource_image[track_resource(
+        let id = self.track_resource(
             image,
             &format!(
                 "Home_Wallpaper_{}",
                 self.login_user_config.wallpaper.clone()
             ),
-            "image",
-        )]
-        .image_size = [ctx.available_rect().width(), ctx.available_rect().height()];
+        );
+        self.resource_image[id].image_size =
+            [ctx.available_rect().width(), ctx.available_rect().height()];
         self.image(
             ui,
             &format!(
@@ -1172,7 +1376,7 @@ impl App {
     }
 
     pub fn dock(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
-        let id = track_resource(self.resource_rect.clone(), "Dock_Background", "rect");
+        let id = self.track_resource(self.resource_rect.clone(), "Dock_Background");
         if let Some(mouse_pos) = ui.input(|i| i.pointer.hover_pos()) {
             let rect = egui::Rect::from_min_size(
                 egui::Pos2::new(0_f32, ctx.available_rect().height() - 80_f32),
@@ -1187,12 +1391,11 @@ impl App {
                         if self.resource_rect[id].origin_position[1] > -10_f32 {
                             for i in 0..self.resource_switch.len() {
                                 if self.resource_switch[i].name.contains("Home_") {
-                                    self.resource_image[track_resource(
+                                    let id = self.track_resource(
                                         image.clone(),
-                                        &self.resource_switch[i].switch_image_name,
-                                        "image",
-                                    )]
-                                    .origin_position[1] -= 1_f32;
+                                        &self.resource_switch[i].switch_image_name.clone(),
+                                    );
+                                    self.resource_image[id].origin_position[1] -= 1_f32;
                                 };
                             }
                             self.resource_rect[id].origin_position[1] -= 1_f32;
@@ -1205,12 +1408,11 @@ impl App {
                         if self.resource_rect[id].origin_position[1] < 80_f32 {
                             for i in 0..self.resource_switch.len() {
                                 if self.resource_switch[i].name.contains("Home_") {
-                                    self.resource_image[track_resource(
+                                    let id = self.track_resource(
                                         image.clone(),
-                                        &self.resource_switch[i].switch_image_name,
-                                        "image",
-                                    )]
-                                    .origin_position[1] += 1_f32;
+                                        &self.resource_switch[i].switch_image_name.clone(),
+                                    );
+                                    self.resource_image[id].origin_position[1] += 1_f32;
                                 };
                             }
                             self.resource_rect[id].origin_position[1] += 1_f32;
@@ -1234,44 +1436,25 @@ impl App {
                 self.add_split_time("dock_animation", true);
                 self.switch_page("Home_Setting");
             };
-            let id2 = track_resource(self.resource_image.clone(), "Home_Power", "switch");
-            let texture = self.resource_image_texture.clone();
-            match self.switch("Home_Power", ui, ctx, true)[0] {
-                0 => {
+            let id2 = self.track_resource(self.resource_switch.clone(), "Home_Power");
+            if self.switch("Home_Power", ui, ctx, true)[0] == 0 {
+                let _ = write_to_json(
+                    format!("Resources/config/user_{}.json", self.config.login_user_name),
+                    self.login_user_config.to_json_value(),
+                );
+                if self.resource_switch[id2].state == 0 {
                     let _ = write_to_json(
-                        format!("Resources/config/user_{}.json", self.config.login_user_name),
-                        self.login_user_config.to_json_value(),
+                        "Resources/config/Preferences.json",
+                        self.config.to_json_value(),
                     );
-                    if self.resource_image[id2].cite_texture == "Power" {
-                        let _ = write_to_json(
-                            "Resources/config/Preferences.json",
-                            self.config.to_json_value(),
-                        );
-                        exit(0);
-                    } else {
-                        self.config.login_user_name = "".to_string();
-                        self.timer.start_time = self.timer.total_time;
-                        self.update_timer();
-                        self.add_split_time("ScrollWallpaper", true);
-                        self.switch_page("Login");
-                    }
+                    exit(0);
+                } else {
+                    self.config.login_user_name = "".to_string();
+                    self.timer.start_time = self.timer.total_time;
+                    self.update_timer();
+                    self.add_split_time("ScrollWallpaper", true);
+                    self.switch_page("Login");
                 }
-                1 => {
-                    if self.resource_image[id2].cite_texture == "Power" {
-                        self.resource_image[id2].image_texture = self.resource_image_texture
-                            [track_resource(texture, "Logout", "image_texture")]
-                        .texture
-                        .clone();
-                        self.resource_image[id2].cite_texture = "Logout".to_string();
-                    } else {
-                        self.resource_image[id2].image_texture = self.resource_image_texture
-                            [track_resource(texture, "Power", "image_texture")]
-                        .texture
-                        .clone();
-                        self.resource_image[id2].cite_texture = "Power".to_string();
-                    };
-                }
-                _ => {}
             };
         };
         self.resource_rect[id].size[0] = ctx.available_rect().width() - 100_f32;
@@ -1316,8 +1499,8 @@ impl App {
     }
 
     pub fn split_time(&mut self, name: &str) -> [f32; 2] {
-        self.timer.split_time[track_resource(self.timer.split_time.clone(), name, "split_time")]
-            .time
+        let id = self.track_resource(self.timer.split_time.clone(), name);
+        self.timer.split_time[id].time
     }
 
     pub fn update_timer(&mut self) {
@@ -1354,7 +1537,7 @@ impl App {
     }
 
     pub fn rect(&mut self, ui: &mut Ui, name: &str, ctx: &egui::Context) {
-        let id = track_resource(self.resource_rect.clone(), name, "rect");
+        let id = self.track_resource(self.resource_rect.clone(), name);
         self.resource_rect[id].reg_render_resource(&mut self.render_resource_list);
         self.resource_rect[id].position[0] = match self.resource_rect[id].x_grid[1] {
             0 => self.resource_rect[id].position[0],
@@ -1449,7 +1632,7 @@ impl App {
     }
 
     pub fn text(&mut self, ui: &mut Ui, name: &str, ctx: &egui::Context) {
-        let id = track_resource(self.resource_text.clone(), name, "text");
+        let id = self.track_resource(self.resource_text.clone(), name);
         self.resource_text[id].reg_render_resource(&mut self.render_resource_list);
         // 计算文本大小
         let galley = ui.fonts(|f| {
@@ -1527,10 +1710,33 @@ impl App {
     }
 
     fn read_image_to_vec(&mut self, path: &str) -> Vec<u8> {
-        let mut file = File::open(path).unwrap_or_else(|_| panic!("打开图片文件失败: {}", path));
+        let mut file =
+            File::open(path).unwrap_or(File::open("Resources/assets/images/error.png").unwrap());
+        if !check_file_exists(path) {
+            if self.config.rc_strict_mode {
+                panic!(
+                    "{}: {}",
+                    self.game_text.game_text["error_image_open_failed"]
+                        [self.config.language as usize],
+                    path
+                );
+            } else {
+                self.problem_report(
+                    &format!(
+                        "{}: {}",
+                        self.game_text.game_text["error_image_open_failed"]
+                            [self.config.language as usize],
+                        path
+                    ),
+                    SeverityLevel::SevereWarning,
+                    &self.game_text.game_text["error_image_open_failed_annotation"]
+                        [self.config.language as usize]
+                        .clone(),
+                );
+            };
+        };
         let mut buffer = Vec::new();
-        file.read_to_end(&mut buffer)
-            .unwrap_or_else(|_| panic!("读取图片文件失败: {}", path));
+        file.read_to_end(&mut buffer).unwrap();
         buffer
     }
 
@@ -1544,59 +1750,369 @@ impl App {
 
     #[allow(dead_code)]
     pub fn modify_var<T: Into<Value>>(&mut self, name: &str, value: T) {
-        let id = self.variables.clone();
-        self.variables[track_resource(id, name, "variables")].value = value.into();
+        let id = self.track_resource(self.variables.clone(), name);
+        self.variables[id].value = value.into();
     }
 
     #[allow(dead_code)]
     pub fn var(&mut self, name: &str) -> Value {
-        self.variables[track_resource(self.variables.clone(), name, "variables")]
-            .clone()
-            .value
+        let id = self.track_resource(self.variables.clone(), name);
+        self.variables[id].clone().value
     }
 
     pub fn var_i(&mut self, name: &str) -> i32 {
-        match &self.variables[track_resource(self.variables.clone(), name, "variables")].value {
-            // 直接访问 value 字段
-            Value::Int(i) => *i,
-            _ => panic!("RustConstructor Error[Variable load failed]: The variable \"{}\" is not of type i32", name),
+        if check_resource_exist(self.variables.clone(), name) {
+            let id = self.track_resource(self.variables.clone(), name);
+            match &self.variables[id].value {
+                // 直接访问 value 字段
+                Value::Int(i) => *i,
+                _ => {
+                    if self.config.rc_strict_mode {
+                        panic!(
+                            "\"{}\" {}",
+                            name,
+                            self.game_text.game_text["error_variable_not_i32_type"]
+                                [self.config.language as usize]
+                                .clone()
+                        );
+                    } else {
+                        self.problem_report(
+                            &format!(
+                                "\"{}\" {}",
+                                name,
+                                self.game_text.game_text["error_variable_not_i32_type"]
+                                    [self.config.language as usize]
+                                    .clone()
+                            ),
+                            SeverityLevel::SevereWarning,
+                            &self.game_text.game_text["error_variable_wrong_type_annotation"]
+                                [self.config.language as usize]
+                                .clone(),
+                        );
+                        0
+                    }
+                }
+            }
+        } else if self.config.rc_strict_mode {
+            panic!(
+                "\"{}\" {}",
+                name,
+                self.game_text.game_text["error_variable_not_i32_type"]
+                    [self.config.language as usize]
+                    .clone()
+            );
+        } else {
+            self.problem_report(
+                &format!(
+                    "\"{}\" {}",
+                    name,
+                    self.game_text.game_text["error_variable_not_i32_type"]
+                        [self.config.language as usize]
+                        .clone()
+                ),
+                SeverityLevel::SevereWarning,
+                &self.game_text.game_text["error_variable_wrong_type_annotation"]
+                    [self.config.language as usize]
+                    .clone(),
+            );
+            0
         }
     }
 
     #[allow(dead_code)]
     pub fn var_u(&mut self, name: &str) -> u32 {
-        match &self.variables[track_resource(self.variables.clone(), name, "variables")].value {
-            Value::UInt(u) => *u,
-            _ => panic!("RustConstructor Error[Variable load failed]: The variable \"{}\" is not of type u32", name),
+        if check_resource_exist(self.variables.clone(), name) {
+            let id = self.track_resource(self.variables.clone(), name);
+            match &self.variables[id].value {
+                // 直接访问 value 字段
+                Value::UInt(u) => *u,
+                _ => {
+                    if self.config.rc_strict_mode {
+                        panic!(
+                            "\"{}\" {}",
+                            name,
+                            self.game_text.game_text["error_variable_not_u32_type"]
+                                [self.config.language as usize]
+                                .clone()
+                        );
+                    } else {
+                        self.problem_report(
+                            &format!(
+                                "\"{}\" {}",
+                                name,
+                                self.game_text.game_text["error_variable_not_u32_type"]
+                                    [self.config.language as usize]
+                                    .clone()
+                            ),
+                            SeverityLevel::SevereWarning,
+                            &self.game_text.game_text["error_variable_wrong_type_annotation"]
+                                [self.config.language as usize]
+                                .clone(),
+                        );
+                        0
+                    }
+                }
+            }
+        } else if self.config.rc_strict_mode {
+            panic!(
+                "\"{}\" {}",
+                name,
+                self.game_text.game_text["error_variable_not_u32_type"]
+                    [self.config.language as usize]
+                    .clone()
+            );
+        } else {
+            self.problem_report(
+                &format!(
+                    "\"{}\" {}",
+                    name,
+                    self.game_text.game_text["error_variable_not_u32_type"]
+                        [self.config.language as usize]
+                        .clone()
+                ),
+                SeverityLevel::SevereWarning,
+                &self.game_text.game_text["error_variable_wrong_type_annotation"]
+                    [self.config.language as usize]
+                    .clone(),
+            );
+            0
         }
     }
 
     #[allow(dead_code)]
     pub fn var_f(&mut self, name: &str) -> f32 {
-        match &self.variables[track_resource(self.variables.clone(), name, "variables")].value {
-            Value::Float(f) => *f,
-            _ => panic!("RustConstructor Error[Variable load failed]: The variable \"{}\" is not of type f32", name),
+        if check_resource_exist(self.variables.clone(), name) {
+            let id = self.track_resource(self.variables.clone(), name);
+            match &self.variables[id].value {
+                // 直接访问 value 字段
+                Value::Float(f) => *f,
+                _ => {
+                    if self.config.rc_strict_mode {
+                        panic!(
+                            "\"{}\" {}",
+                            name,
+                            self.game_text.game_text["error_variable_not_f32_type"]
+                                [self.config.language as usize]
+                                .clone()
+                        );
+                    } else {
+                        self.problem_report(
+                            &format!(
+                                "\"{}\" {}",
+                                name,
+                                self.game_text.game_text["error_variable_not_f32_type"]
+                                    [self.config.language as usize]
+                                    .clone()
+                            ),
+                            SeverityLevel::SevereWarning,
+                            &self.game_text.game_text["error_variable_wrong_type_annotation"]
+                                [self.config.language as usize]
+                                .clone(),
+                        );
+                        0_f32
+                    }
+                }
+            }
+        } else if self.config.rc_strict_mode {
+            panic!(
+                "\"{}\" {}",
+                name,
+                self.game_text.game_text["error_variable_not_f32_type"]
+                    [self.config.language as usize]
+                    .clone()
+            );
+        } else {
+            self.problem_report(
+                &format!(
+                    "\"{}\" {}",
+                    name,
+                    self.game_text.game_text["error_variable_not_f32_type"]
+                        [self.config.language as usize]
+                        .clone()
+                ),
+                SeverityLevel::SevereWarning,
+                &self.game_text.game_text["error_variable_wrong_type_annotation"]
+                    [self.config.language as usize]
+                    .clone(),
+            );
+            0_f32
         }
     }
 
     pub fn var_b(&mut self, name: &str) -> bool {
-        match &self.variables[track_resource(self.variables.clone(), name, "variables")].value {
-            Value::Bool(b) => *b,
-            _ => panic!("RustConstructor Error[Variable load failed]: The variable \"{}\" is not of type bool", name),
+        if check_resource_exist(self.variables.clone(), name) {
+            let id = self.track_resource(self.variables.clone(), name);
+            match &self.variables[id].value {
+                // 直接访问 value 字段
+                Value::Bool(b) => *b,
+                _ => {
+                    if self.config.rc_strict_mode {
+                        panic!(
+                            "\"{}\" {}",
+                            name,
+                            self.game_text.game_text["error_variable_not_bool_type"]
+                                [self.config.language as usize]
+                                .clone()
+                        );
+                    } else {
+                        self.problem_report(
+                            &format!(
+                                "\"{}\" {}",
+                                name,
+                                self.game_text.game_text["error_variable_not_bool_type"]
+                                    [self.config.language as usize]
+                                    .clone()
+                            ),
+                            SeverityLevel::SevereWarning,
+                            &self.game_text.game_text["error_variable_wrong_type_annotation"]
+                                [self.config.language as usize]
+                                .clone(),
+                        );
+                        false
+                    }
+                }
+            }
+        } else if self.config.rc_strict_mode {
+            panic!(
+                "\"{}\" {}",
+                name,
+                self.game_text.game_text["error_variable_not_bool_type"]
+                    [self.config.language as usize]
+                    .clone()
+            );
+        } else {
+            self.problem_report(
+                &format!(
+                    "\"{}\" {}",
+                    name,
+                    self.game_text.game_text["error_variable_not_bool_type"]
+                        [self.config.language as usize]
+                        .clone()
+                ),
+                SeverityLevel::SevereWarning,
+                &self.game_text.game_text["error_variable_wrong_type_annotation"]
+                    [self.config.language as usize]
+                    .clone(),
+            );
+            false
         }
     }
 
     pub fn var_v(&mut self, name: &str) -> Vec<Value> {
-        match &self.variables[track_resource(self.variables.clone(), name, "variables")].value {
-            Value::Vec(v) => v.clone(),
-            _ => panic!("RustConstructor Error[Variable load failed]: The variable \"{}\" is not of type Vec", name),
+        if check_resource_exist(self.variables.clone(), name) {
+            let id = self.track_resource(self.variables.clone(), name);
+            match &self.variables[id].value {
+                // 直接访问 value 字段
+                Value::Vec(v) => v.clone(),
+                _ => {
+                    if self.config.rc_strict_mode {
+                        panic!(
+                            "\"{}\" {}",
+                            name,
+                            self.game_text.game_text["error_variable_not_vec_type"]
+                                [self.config.language as usize]
+                                .clone()
+                        );
+                    } else {
+                        self.problem_report(
+                            &format!(
+                                "\"{}\" {}",
+                                name,
+                                self.game_text.game_text["error_variable_not_vec_type"]
+                                    [self.config.language as usize]
+                                    .clone()
+                            ),
+                            SeverityLevel::SevereWarning,
+                            &self.game_text.game_text["error_variable_wrong_type_annotation"]
+                                [self.config.language as usize]
+                                .clone(),
+                        );
+                        Vec::new()
+                    }
+                }
+            }
+        } else if self.config.rc_strict_mode {
+            panic!(
+                "\"{}\" {}",
+                name,
+                self.game_text.game_text["error_variable_not_vec_type"]
+                    [self.config.language as usize]
+                    .clone()
+            );
+        } else {
+            self.problem_report(
+                &format!(
+                    "\"{}\" {}",
+                    name,
+                    self.game_text.game_text["error_variable_not_vec_type"]
+                        [self.config.language as usize]
+                        .clone()
+                ),
+                SeverityLevel::SevereWarning,
+                &self.game_text.game_text["error_variable_wrong_type_annotation"]
+                    [self.config.language as usize]
+                    .clone(),
+            );
+            Vec::new()
         }
     }
 
     pub fn var_s(&mut self, name: &str) -> String {
-        match &self.variables[track_resource(self.variables.clone(), name, "variables")].value {
-            Value::String(s) => s.clone(),
-            _ => panic!("RustConstructor Error[Variable load failed]: The variable \"{}\" is not of type String", name),
+        if check_resource_exist(self.variables.clone(), name) {
+            let id = self.track_resource(self.variables.clone(), name);
+            match &self.variables[id].value {
+                // 直接访问 value 字段
+                Value::String(s) => s.clone(),
+                _ => {
+                    if self.config.rc_strict_mode {
+                        panic!(
+                            "\"{}\" {}",
+                            name,
+                            self.game_text.game_text["error_variable_not_string_type"]
+                                [self.config.language as usize]
+                                .clone()
+                        );
+                    } else {
+                        self.problem_report(
+                            &format!(
+                                "\"{}\" {}",
+                                name,
+                                self.game_text.game_text["error_variable_not_string_type"]
+                                    [self.config.language as usize]
+                                    .clone()
+                            ),
+                            SeverityLevel::SevereWarning,
+                            &self.game_text.game_text["error_variable_wrong_type_annotation"]
+                                [self.config.language as usize]
+                                .clone(),
+                        );
+                        String::new()
+                    }
+                }
+            }
+        } else if self.config.rc_strict_mode {
+            panic!(
+                "\"{}\" {}",
+                name,
+                self.game_text.game_text["error_variable_not_string_type"]
+                    [self.config.language as usize]
+                    .clone()
+            );
+        } else {
+            self.problem_report(
+                &format!(
+                    "\"{}\" {}",
+                    name,
+                    self.game_text.game_text["error_variable_not_string_type"]
+                        [self.config.language as usize]
+                        .clone()
+                ),
+                SeverityLevel::SevereWarning,
+                &self.game_text.game_text["error_variable_wrong_type_annotation"]
+                    [self.config.language as usize]
+                    .clone(),
+            );
+            String::new()
         }
     }
 
@@ -1608,7 +2124,30 @@ impl App {
                 b
             }
             _ => {
-                panic!("RustConstructor Error[Variable decode failed]: The variable should be of type bool");
+                if self.config.rc_strict_mode {
+                    panic!(
+                        "\"{:?}\" {}",
+                        target,
+                        self.game_text.game_text["error_variable_not_bool_type"]
+                            [self.config.language as usize]
+                            .clone()
+                    );
+                } else {
+                    self.problem_report(
+                        &format!(
+                            "\"{:?}\" {}",
+                            target,
+                            self.game_text.game_text["error_variable_not_bool_type"]
+                                [self.config.language as usize]
+                                .clone()
+                        ),
+                        SeverityLevel::SevereWarning,
+                        &self.game_text.game_text["error_variable_wrong_type_annotation"]
+                            [self.config.language as usize]
+                            .clone(),
+                    );
+                    false
+                }
             }
         }
     }
@@ -1621,7 +2160,30 @@ impl App {
                 i
             }
             _ => {
-                panic!("RustConstructor Error[Variable decode failed]: The variable should be of type i32");
+                if self.config.rc_strict_mode {
+                    panic!(
+                        "\"{:?}\" {}",
+                        target,
+                        self.game_text.game_text["error_variable_not_i32_type"]
+                            [self.config.language as usize]
+                            .clone()
+                    );
+                } else {
+                    self.problem_report(
+                        &format!(
+                            "\"{:?}\" {}",
+                            target,
+                            self.game_text.game_text["error_variable_not_i32_type"]
+                                [self.config.language as usize]
+                                .clone()
+                        ),
+                        SeverityLevel::SevereWarning,
+                        &self.game_text.game_text["error_variable_wrong_type_annotation"]
+                            [self.config.language as usize]
+                            .clone(),
+                    );
+                    0
+                }
             }
         }
     }
@@ -1634,7 +2196,30 @@ impl App {
                 u
             }
             _ => {
-                panic!("RustConstructor Error[Variable decode failed]: The variable should be of type u32");
+                if self.config.rc_strict_mode {
+                    panic!(
+                        "\"{:?}\" {}",
+                        target,
+                        self.game_text.game_text["error_variable_not_u32_type"]
+                            [self.config.language as usize]
+                            .clone()
+                    );
+                } else {
+                    self.problem_report(
+                        &format!(
+                            "\"{:?}\" {}",
+                            target,
+                            self.game_text.game_text["error_variable_not_u32_type"]
+                                [self.config.language as usize]
+                                .clone()
+                        ),
+                        SeverityLevel::SevereWarning,
+                        &self.game_text.game_text["error_variable_wrong_type_annotation"]
+                            [self.config.language as usize]
+                            .clone(),
+                    );
+                    0
+                }
             }
         }
     }
@@ -1646,7 +2231,30 @@ impl App {
                 f
             }
             _ => {
-                panic!("RustConstructor Error[Variable decode failed]: The variable should be of type f32");
+                if self.config.rc_strict_mode {
+                    panic!(
+                        "\"{:?}\" {}",
+                        target,
+                        self.game_text.game_text["error_variable_not_f32_type"]
+                            [self.config.language as usize]
+                            .clone()
+                    );
+                } else {
+                    self.problem_report(
+                        &format!(
+                            "\"{:?}\" {}",
+                            target,
+                            self.game_text.game_text["error_variable_not_f32_type"]
+                                [self.config.language as usize]
+                                .clone()
+                        ),
+                        SeverityLevel::SevereWarning,
+                        &self.game_text.game_text["error_variable_wrong_type_annotation"]
+                            [self.config.language as usize]
+                            .clone(),
+                    );
+                    0_f32
+                }
             }
         }
     }
@@ -1659,7 +2267,30 @@ impl App {
                 s
             }
             _ => {
-                panic!("RustConstructor Error[Variable decode failed]: The variable should be of type String");
+                if self.config.rc_strict_mode {
+                    panic!(
+                        "\"{:?}\" {}",
+                        target,
+                        self.game_text.game_text["error_variable_not_string_type"]
+                            [self.config.language as usize]
+                            .clone()
+                    );
+                } else {
+                    self.problem_report(
+                        &format!(
+                            "\"{:?}\" {}",
+                            target,
+                            self.game_text.game_text["error_variable_not_string_type"]
+                                [self.config.language as usize]
+                                .clone()
+                        ),
+                        SeverityLevel::SevereWarning,
+                        &self.game_text.game_text["error_variable_wrong_type_annotation"]
+                            [self.config.language as usize]
+                            .clone(),
+                    );
+                    String::new()
+                }
             }
         }
     }
@@ -1675,7 +2306,7 @@ impl App {
     ) {
         let mut image_id = vec![];
         for i in image_name.clone().into_iter() {
-            image_id.push(track_resource(self.resource_image.clone(), &i, "image"));
+            image_id.push(self.track_resource(self.resource_image.clone(), &i));
             continue;
         }
         for (count, _i) in image_id.clone().into_iter().enumerate() {
@@ -1730,11 +2361,7 @@ impl App {
     }
 
     pub fn scroll_background(&mut self, ui: &mut Ui, name: &str, ctx: &egui::Context) {
-        let id = track_resource(
-            self.resource_scroll_background.clone(),
-            name,
-            "scroll_background",
-        );
+        let id = self.track_resource(self.resource_scroll_background.clone(), name);
         self.resource_scroll_background[id].reg_render_resource(&mut self.render_resource_list);
         if !check_resource_exist(self.timer.split_time.clone(), name) {
             self.add_split_time(name, false);
@@ -1750,10 +2377,9 @@ impl App {
         if self.timer.now_time - self.split_time(name)[0] >= self.vertrefresh {
             self.add_split_time(name, true);
             for i in 0..self.resource_scroll_background[id].image_name.len() {
-                id2 = track_resource(
+                id2 = self.track_resource(
                     self.resource_image.clone(),
                     &self.resource_scroll_background[id].image_name[i].clone(),
-                    "image",
                 );
                 if self.resource_scroll_background[id].horizontal_or_vertical {
                     if self.resource_scroll_background[id].left_and_top_or_right_and_bottom {
@@ -1842,9 +2468,8 @@ impl App {
                 cite_path: path.to_string(),
             });
         } else {
-            let id = self.resource_image_texture.clone();
-            self.resource_image_texture[track_resource(id, name, "image_texture")].texture =
-                image_texture;
+            let id = self.track_resource(self.resource_image_texture.clone(), name);
+            self.resource_image_texture[id].texture = image_texture;
         };
     }
 
@@ -1857,16 +2482,11 @@ impl App {
         alpha_and_overlay_color: [u8; 5],
         image_texture_name: &str,
     ) {
+        let id = self.track_resource(self.resource_image_texture.clone(), image_texture_name);
         self.resource_image.push(Image {
             discern_type: "Image".to_string(),
             name: name.to_string(),
-            image_texture: self.resource_image_texture[track_resource(
-                self.resource_image_texture.clone(),
-                image_texture_name,
-                "image_texture",
-            )]
-            .texture
-            .clone(),
+            image_texture: self.resource_image_texture[id].texture.clone(),
             image_position: [position_size[0], position_size[1]],
             image_size: [position_size[2], position_size[3]],
             x_grid: [grid[0], grid[1]],
@@ -1886,12 +2506,12 @@ impl App {
             ],
             use_overlay_color: center_display_and_use_overlay[4],
             origin_position: [position_size[0], position_size[1]],
-            cite_texture: image_texture_name.to_string(),
+            origin_cite_texture: image_texture_name.to_string(),
         });
     }
 
     pub fn image(&mut self, ui: &Ui, name: &str, ctx: &egui::Context) {
-        let id = track_resource(self.resource_image.clone(), name, "image");
+        let id = self.track_resource(self.resource_image.clone(), name);
         self.resource_image[id].reg_render_resource(&mut self.render_resource_list);
         self.resource_image[id].image_position[0] = match self.resource_image[id].x_grid[1] {
             0 => self.resource_image[id].image_position[0],
@@ -1960,11 +2580,10 @@ impl App {
     pub fn add_switch(
         &mut self,
         name_and_switch_image_name: [&str; 2],
-        switch_texture_name: Vec<String>,
+        mut appearance: Vec<SwitchData>,
         enable_hover_click_image_and_use_overlay: [bool; 3],
         switch_amounts_state: u32,
-        overlay_color: Vec<[u8; 4]>,
-        click_method: Vec<PointerButton>,
+        click_method: Vec<SwitchClickAction>,
     ) {
         let mut count = 1;
         if enable_hover_click_image_and_use_overlay[0] {
@@ -1973,39 +2592,51 @@ impl App {
         if enable_hover_click_image_and_use_overlay[1] {
             count += 1;
         };
-        if enable_hover_click_image_and_use_overlay[2] {
-            if overlay_color.len() as u32 != count * switch_amounts_state {
+        if appearance.len() as u32 != count * switch_amounts_state {
+            if self.config.rc_strict_mode {
                 panic!(
                     "RustConstructor Error[Switch load failed]: \"{}\" switch is missing/extra {} resources!",
                     name_and_switch_image_name[0],
-                    count * switch_amounts_state - overlay_color.len() as u32
+                    count * switch_amounts_state - appearance.len() as u32
                 );
+            } else {
+                self.problem_report(
+                    &format!(
+                        "{}{}:{}",
+                        name_and_switch_image_name[0],
+                        self.game_text.game_text["error_switch_appearance_mismatch"]
+                            [self.config.language as usize],
+                        count * switch_amounts_state - appearance.len() as u32
+                    ),
+                    SeverityLevel::MildWarning,
+                    &self.game_text.game_text["error_switch_appearance_mismatch_annotation"]
+                        [self.config.language as usize]
+                        .clone(),
+                );
+                for _ in 0..count * switch_amounts_state - appearance.len() as u32 {
+                    appearance.push(SwitchData {
+                        texture: "Error".to_string(),
+                        color: [255, 255, 255, 255],
+                    });
+                }
             };
-            let id = self.resource_image.clone();
-            self.resource_image[track_resource(id, name_and_switch_image_name[1], "image")]
-                .use_overlay_color = true;
-        } else if switch_texture_name.len() as u32 != count * switch_amounts_state {
-            panic!(
-                "RustConstructor Error[Switch load failed]: \"{}\" switch is missing/extra {} resources!",
-                name_and_switch_image_name[0],
-                count * switch_amounts_state - switch_texture_name.len() as u32
-            );
         };
+        let id = self.track_resource(self.resource_image.clone(), name_and_switch_image_name[1]);
+        self.resource_image[id].use_overlay_color = true;
         self.resource_switch.push(Switch {
             discern_type: "Switch".to_string(),
             name: name_and_switch_image_name[0].to_string(),
-            switch_texture_name,
+            appearance,
             switch_image_name: name_and_switch_image_name[1].to_string(),
             enable_hover_click_image: [
                 enable_hover_click_image_and_use_overlay[0],
                 enable_hover_click_image_and_use_overlay[1],
             ],
             state: 0,
-            use_overlay: enable_hover_click_image_and_use_overlay[2],
-            overlay_color,
             click_method,
             last_time_clicked: false,
             last_time_clicked_index: 0,
+            animation_count: count,
         });
     }
 
@@ -2018,12 +2649,11 @@ impl App {
         enable: bool,
     ) -> [usize; 2] {
         let mut activated = [5, 0];
-        let id = track_resource(self.resource_switch.clone(), name, "switch");
+        let id = self.track_resource(self.resource_switch.clone(), name);
         self.resource_switch[id].reg_render_resource(&mut self.render_resource_list);
-        let id2 = track_resource(
+        let id2 = self.track_resource(
             self.resource_image.clone(),
             &self.resource_switch[id].switch_image_name.clone(),
-            "image",
         );
         let id3;
         let rect = Rect::from_min_size(
@@ -2044,8 +2674,9 @@ impl App {
                     let mut active = false;
                     for u in 0..self.resource_switch[id].click_method.len() as u32 {
                         clicked.push(ui.input(|i| {
-                            i.pointer
-                                .button_down(self.resource_switch[id].click_method[u as usize])
+                            i.pointer.button_down(
+                                self.resource_switch[id].click_method[u as usize].click_method,
+                            )
                         }));
                         if clicked[u as usize] {
                             active = true;
@@ -2056,53 +2687,64 @@ impl App {
                     if active {
                         self.resource_switch[id].last_time_clicked = true;
                         if self.resource_switch[id].enable_hover_click_image[1] {
-                            if self.resource_switch[id].use_overlay {
-                                if self.resource_switch[id].enable_hover_click_image[0] {
-                                    self.resource_image[id2].overlay_color =
-                                        self.resource_switch[id].overlay_color
-                                            [(self.resource_switch[id].state + 2) as usize];
-                                } else {
-                                    self.resource_image[id2].overlay_color =
-                                        self.resource_switch[id].overlay_color
-                                            [(self.resource_switch[id].state + 1) as usize];
-                                };
-                            } else {
-                                if self.resource_switch[id].enable_hover_click_image[0] {
-                                    id3 = track_resource(
-                                        self.resource_image_texture.clone(),
-                                        &self.resource_switch[id].switch_texture_name
-                                            [(self.resource_switch[id].state + 2) as usize]
-                                            .clone(),
-                                        "image_texture",
-                                    );
-                                } else {
-                                    id3 = track_resource(
-                                        self.resource_image_texture.clone(),
-                                        &self.resource_switch[id].switch_texture_name
-                                            [(self.resource_switch[id].state + 1) as usize]
-                                            .clone(),
-                                        "image_texture",
-                                    );
-                                };
+                            if self.resource_switch[id].enable_hover_click_image[0] {
+                                self.resource_image[id2].overlay_color = self.resource_switch[id]
+                                    .appearance[(self
+                                    .resource_switch[id]
+                                    .state
+                                    * self.resource_switch[id].animation_count
+                                    + 2) as usize]
+                                    .color;
+                                id3 = self.track_resource(
+                                    self.resource_image_texture.clone(),
+                                    &self.resource_switch[id].appearance[(self.resource_switch[id]
+                                        .state
+                                        * self.resource_switch[id].animation_count
+                                        + 2)
+                                        as usize]
+                                        .texture
+                                        .clone(),
+                                );
                                 self.resource_image[id2].image_texture =
                                     self.resource_image_texture[id3].texture.clone();
-                            };
-                        } else if !self.resource_switch[id].enable_hover_click_image[0] {
-                            if self.resource_switch[id].use_overlay {
-                                self.resource_image[id2].overlay_color = self.resource_switch[id]
-                                    .overlay_color
-                                    [self.resource_switch[id].state as usize];
                             } else {
-                                id3 = track_resource(
+                                self.resource_image[id2].overlay_color = self.resource_switch[id]
+                                    .appearance[(self
+                                    .resource_switch[id]
+                                    .state
+                                    * self.resource_switch[id].animation_count
+                                    + 1) as usize]
+                                    .color;
+                                id3 = self.track_resource(
                                     self.resource_image_texture.clone(),
-                                    &self.resource_switch[id].switch_texture_name
-                                        [self.resource_switch[id].state as usize]
+                                    &self.resource_switch[id].appearance[(self.resource_switch[id]
+                                        .state
+                                        * self.resource_switch[id].animation_count
+                                        + 1)
+                                        as usize]
+                                        .texture
                                         .clone(),
-                                    "image_texture",
                                 );
                                 self.resource_image[id2].image_texture =
                                     self.resource_image_texture[id3].texture.clone();
                             };
+                        } else if !self.resource_switch[id].enable_hover_click_image[0] {
+                            self.resource_image[id2].overlay_color =
+                                self.resource_switch[id].appearance[(self.resource_switch[id].state
+                                    * self.resource_switch[id].animation_count)
+                                    as usize]
+                                    .color;
+                            id3 = self.track_resource(
+                                self.resource_image_texture.clone(),
+                                &self.resource_switch[id].appearance[(self.resource_switch[id]
+                                    .state
+                                    * self.resource_switch[id].animation_count)
+                                    as usize]
+                                    .texture
+                                    .clone(),
+                            );
+                            self.resource_image[id2].image_texture =
+                                self.resource_image_texture[id3].texture.clone();
                         };
                     } else {
                         if self.resource_switch[id].last_time_clicked {
@@ -2113,53 +2755,54 @@ impl App {
                             if self.resource_switch[id].enable_hover_click_image[1] {
                                 count += 1;
                             };
-                            if self.resource_switch[id].use_overlay {
+                            if self.resource_switch[id].click_method
+                                [self.resource_switch[id].last_time_clicked_index]
+                                .action
+                            {
                                 if self.resource_switch[id].state
-                                    < (self.resource_switch[id].overlay_color.len() / count - 1)
-                                        as u32
+                                    < (self.resource_switch[id].appearance.len() / count - 1) as u32
                                 {
                                     self.resource_switch[id].state += 1;
                                 } else {
                                     self.resource_switch[id].state = 0;
                                 };
-                            } else if self.resource_switch[id].state
-                                < (self.resource_switch[id].switch_texture_name.len() / count - 1)
-                                    as u32
-                            {
-                                self.resource_switch[id].state += 1;
-                            } else {
-                                self.resource_switch[id].state = 0;
                             };
                             activated[0] = self.resource_switch[id].last_time_clicked_index;
                             self.resource_switch[id].last_time_clicked = false;
                         };
                         if self.resource_switch[id].enable_hover_click_image[0] {
-                            if self.resource_switch[id].use_overlay {
-                                self.resource_image[id2].overlay_color = self.resource_switch[id]
-                                    .overlay_color
-                                    [(self.resource_switch[id].state + 1) as usize];
-                            } else {
-                                id3 = track_resource(
-                                    self.resource_image_texture.clone(),
-                                    &self.resource_switch[id].switch_texture_name
-                                        [(self.resource_switch[id].state + 1) as usize]
-                                        .clone(),
-                                    "image_texture",
-                                );
-                                self.resource_image[id2].image_texture =
-                                    self.resource_image_texture[id3].texture.clone();
-                            };
-                        } else if self.resource_switch[id].use_overlay {
                             self.resource_image[id2].overlay_color = self.resource_switch[id]
-                                .overlay_color
-                                [self.resource_switch[id].state as usize];
-                        } else {
-                            id3 = track_resource(
+                                .appearance[(self.resource_switch[id]
+                                .state
+                                * self.resource_switch[id].animation_count
+                                + 1) as usize]
+                                .color;
+                            id3 = self.track_resource(
                                 self.resource_image_texture.clone(),
-                                &self.resource_switch[id].switch_texture_name
-                                    [self.resource_switch[id].state as usize]
+                                &self.resource_switch[id].appearance[(self.resource_switch[id]
+                                    .state
+                                    * self.resource_switch[id].animation_count
+                                    + 1)
+                                    as usize]
+                                    .texture
                                     .clone(),
-                                "image_texture",
+                            );
+                            self.resource_image[id2].image_texture =
+                                self.resource_image_texture[id3].texture.clone();
+                        } else {
+                            self.resource_image[id2].overlay_color =
+                                self.resource_switch[id].appearance[(self.resource_switch[id].state
+                                    * self.resource_switch[id].animation_count)
+                                    as usize]
+                                    .color;
+                            id3 = self.track_resource(
+                                self.resource_image_texture.clone(),
+                                &self.resource_switch[id].appearance[(self.resource_switch[id]
+                                    .state
+                                    * self.resource_switch[id].animation_count)
+                                    as usize]
+                                    .texture
+                                    .clone(),
                             );
                             self.resource_image[id2].image_texture =
                                 self.resource_image_texture[id3].texture.clone();
@@ -2167,38 +2810,39 @@ impl App {
                     };
                 } else {
                     self.resource_switch[id].last_time_clicked = false;
-                    if self.resource_switch[id].use_overlay {
-                        self.resource_image[id2].overlay_color = self.resource_switch[id]
-                            .overlay_color[self.resource_switch[id].state as usize];
-                    } else {
-                        id3 = track_resource(
-                            self.resource_image_texture.clone(),
-                            &self.resource_switch[id].switch_texture_name
-                                [self.resource_switch[id].state as usize]
-                                .clone(),
-                            "image_texture",
-                        );
-                        self.resource_image[id2].image_texture =
-                            self.resource_image_texture[id3].texture.clone();
-                    };
+                    self.resource_image[id2].overlay_color = self.resource_switch[id].appearance
+                        [(self.resource_switch[id].state * self.resource_switch[id].animation_count)
+                            as usize]
+                        .color;
+                    id3 = self.track_resource(
+                        self.resource_image_texture.clone(),
+                        &self.resource_switch[id].appearance[(self.resource_switch[id].state
+                            * self.resource_switch[id].animation_count)
+                            as usize]
+                            .texture
+                            .clone(),
+                    );
+                    self.resource_image[id2].image_texture =
+                        self.resource_image_texture[id3].texture.clone();
                 };
             };
         } else {
             self.resource_switch[id].last_time_clicked = false;
-            if self.resource_switch[id].use_overlay {
-                self.resource_image[id2].overlay_color =
-                    self.resource_switch[id].overlay_color[self.resource_switch[id].state as usize];
-            } else {
-                id3 = track_resource(
-                    self.resource_image_texture.clone(),
-                    &self.resource_switch[id].switch_texture_name
-                        [self.resource_switch[id].state as usize]
-                        .clone(),
-                    "image_texture",
-                );
-                self.resource_image[id2].image_texture =
-                    self.resource_image_texture[id3].texture.clone();
-            };
+            self.resource_image[id2].overlay_color =
+                self.resource_switch[id].appearance[(self.resource_switch[id].state
+                    * self.resource_switch[id].animation_count)
+                    as usize]
+                    .color;
+            id3 = self.track_resource(
+                self.resource_image_texture.clone(),
+                &self.resource_switch[id].appearance[(self.resource_switch[id].state
+                    * self.resource_switch[id].animation_count)
+                    as usize]
+                    .texture
+                    .clone(),
+            );
+            self.resource_image[id2].image_texture =
+                self.resource_image_texture[id3].texture.clone();
         };
         self.image(ui, &self.resource_switch[id].switch_image_name.clone(), ctx);
         activated[1] = self.resource_switch[id].state as usize;

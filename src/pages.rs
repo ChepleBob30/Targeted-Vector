@@ -1,7 +1,7 @@
 //! pages.rs is the core part of the page of the Targeted Vector, mainly the page content.
 use crate::function::{
-    check_file_exists, create_pretty_json, kira_play_wav, read_from_json, track_resource,
-    write_to_json, App, User, Value,
+    check_file_exists, check_resource_exist, create_pretty_json, kira_play_wav, read_from_json,
+    write_to_json, App, SeverityLevel, User, Value,
 };
 use chrono::{Local, Timelike};
 use eframe::egui;
@@ -61,21 +61,22 @@ impl eframe::App for App {
                     self.add_var("enable_debug_mode", false);
                     self.add_var("debug_fps_window", false);
                     self.add_var("debug_resource_list_window", false);
+                    self.add_var("debug_problem_window", false);
                     self.add_split_time("0", false);
                     self.add_split_time("fade_animation", false);
                 };
-                let rect = self.resource_rect.clone();
-                self.resource_rect[track_resource(rect, "Background", "rect")].size =
+                let id = self.track_resource(self.resource_rect.clone(), "Background");
+                self.resource_rect[id].size =
                     [ctx.available_rect().width(), ctx.available_rect().height()];
-                let mut id = track_resource(self.resource_image.clone(), "RC_Logo", "image");
-                let mut id2 = track_resource(self.resource_text.clone(), "Powered", "text");
-                let id3 = track_resource(self.variables.clone(), "progress", "variables");
+                let mut id = self.track_resource(self.resource_image.clone(), "RC_Logo");
+                let mut id2 = self.track_resource(self.resource_text.clone(), "Powered");
+                let id3 = self.track_resource(self.variables.clone(), "progress");
                 if self.var_i("progress") >= 2 && self.var_i("progress") < 4 {
-                    id = track_resource(self.resource_image.clone(), "Binder_Logo", "image");
-                    id2 = track_resource(self.resource_text.clone(), "Organize", "text");
+                    id = self.track_resource(self.resource_image.clone(), "Binder_Logo");
+                    id2 = self.track_resource(self.resource_text.clone(), "Organize");
                 } else if self.var_i("progress") >= 4 {
-                    id = track_resource(self.resource_image.clone(), "Mouse", "image");
-                    id2 = track_resource(self.resource_text.clone(), "Mouse", "text");
+                    id = self.track_resource(self.resource_image.clone(), "Mouse");
+                    id2 = self.track_resource(self.resource_text.clone(), "Mouse");
                 };
                 egui::CentralPanel::default().show(ctx, |ui| {
                     self.rect(ui, "Background", ctx);
@@ -206,11 +207,8 @@ impl eframe::App for App {
                 });
             }
             "Login" => {
-                let scroll_background = track_resource(
-                    self.resource_scroll_background.clone(),
-                    "ScrollWallpaper",
-                    "scroll_background",
-                );
+                let scroll_background =
+                    self.track_resource(self.resource_scroll_background.clone(), "ScrollWallpaper");
                 if !self.check_updated(&self.page.clone()) {
                     self.add_var("account_name_str", "".to_string());
                     self.add_var("account_password_str", "".to_string());
@@ -231,11 +229,10 @@ impl eframe::App for App {
                         .image_name
                         .len()
                     {
-                        let id = track_resource(
+                        let id = self.track_resource(
                             self.resource_image.clone(),
                             &self.resource_scroll_background[scroll_background].image_name[i]
                                 .clone(),
-                            "image",
                         );
                         self.resource_image[id].image_size =
                             [ctx.available_rect().width(), ctx.available_rect().height()];
@@ -260,11 +257,10 @@ impl eframe::App for App {
                             .image_name
                             .len()
                         {
-                            let id = track_resource(
+                            let id = self.track_resource(
                                 self.resource_image.clone(),
                                 &self.resource_scroll_background[scroll_background].image_name[i]
-                                    .clone(),
-                                "image",
+                                    .clone()
                             );
                             self.resource_image[id].image_size =
                                 [ctx.available_rect().width(), ctx.available_rect().height()];
@@ -275,8 +271,8 @@ impl eframe::App for App {
                         }
                     };
                     self.scroll_background(ui, "ScrollWallpaper", ctx);
-                    let text = self.resource_text.clone();
-                    self.resource_text[track_resource(text.clone(), "Date", "text")].text_content = Local::now().format(&format!("{} {}", &game_text["date"][self.config.language as usize], &game_text["week"][self.config.language as usize])).to_string();
+                    let id = self.track_resource(self.resource_text.clone(), "Date");
+                    self.resource_text[id].text_content = Local::now().format(&format!("{} {}", &game_text["date"][self.config.language as usize], &game_text["week"][self.config.language as usize])).to_string();
                     if self.config.language == 0 {
                         let week = match Local::now().format("%A").to_string().as_str() {
                             "Monday" => "一",
@@ -288,9 +284,10 @@ impl eframe::App for App {
                             "Sunday" => "日",
                             _ => "一",
                         };
-                        self.resource_text[track_resource(text.clone(), "Date", "text")].text_content = format!("{} {}{}", Local::now().format(&game_text["date"][self.config.language as usize]), game_text["week"][self.config.language as usize], week);
+                        self.resource_text[id].text_content = format!("{} {}{}", Local::now().format(&game_text["date"][self.config.language as usize]), game_text["week"][self.config.language as usize], week);
                     }
-                    self.resource_text[track_resource(text.clone(), "Time", "text")].text_content = Local::now().format(&game_text["time"][self.config.language as usize]).to_string();
+                    let id2 = self.track_resource(self.resource_text.clone(), "Time");
+                    self.resource_text[id2].text_content = Local::now().format(&game_text["time"][self.config.language as usize]).to_string();
                     self.text(ui, "Date", ctx);
                     self.text(ui, "Time", ctx);
                     egui::Area::new("Login".into())
@@ -346,7 +343,7 @@ impl eframe::App for App {
                         self.modify_var("login_enable_name_error_message", !check_file_exists(format!("Resources/config/user_{}.json", input1.replace(" ", "").replace("/", "").replace("\\", ""))));
                         if check_file_exists(format!("Resources/config/user_{}.json", input1.replace(" ", "").replace("/", "").replace("\\", ""))) {
                             let mut user = User {
-                                version: 5,
+                                version: 6,
                                 name: "".to_string(),
                                 password: "".to_string(),
                                 language: 0,
@@ -359,12 +356,15 @@ impl eframe::App for App {
                             };
                             if user.password == input2 {
                                 self.config.login_user_name = user.name;
+                                self.config.language = user.language;
                                 input1 = "".to_string();
                                 input2 = "".to_string();
                                 self.timer.start_time = self.timer.total_time;
                                 self.update_timer();
-                                self.add_split_time("dock_animation", true);
-                                self.add_split_time("title_animation", true);
+                                if check_resource_exist(self.timer.split_time.clone(), "dock_animation") {
+                                    self.add_split_time("dock_animation", true);
+                                    self.add_split_time("title_animation", true);
+                                };
                                 self.switch_page("Home_Page");
                                 if let Ok(json_value) = read_from_json(format!(
                                     "Resources/config/user_{}.json",
@@ -457,7 +457,7 @@ impl eframe::App for App {
                                             self.modify_var("reg_enable_name_error_message", input3.replace(" ", "").replace("/", "").replace("\\", "").is_empty() || check_file_exists(format!("Resources/config/user_{}.json", input3.replace(" ", "").replace("/", "")).replace("\\", "")));
                                             if input4 == input5 && !check_file_exists(format!("Resources/config/user_{}.json", input3.replace(" ", "").replace("/", "")).replace("\\", "")) && !input3.replace(" ", "").replace("/", "").replace("\\", "").is_empty(){
                                                     let user_data = object! {
-                                                        "version": 5,
+                                                        "version": 6,
                                                         "name": input3.replace(" ", "").replace("/", "").replace("\\", "").clone(),
                                                         "password": input4.clone(),
                                                         "language": self.config.language,
@@ -542,10 +542,9 @@ impl eframe::App for App {
                         &format!("{}_Title", self.login_user_config.language),
                         ctx,
                     );
-                    let id = track_resource(
+                    let id = self.track_resource(
                         self.resource_image.clone(),
                         &format!("{}_Title", self.login_user_config.language),
-                        "image",
                     );
                     if self.timer.now_time - self.split_time("title_animation")[0]
                         >= self.vertrefresh
@@ -574,10 +573,47 @@ impl eframe::App for App {
                     self.dock(ctx, ui);
                 });
             }
-            _ => panic!(
-                "RustConstructor Error[Page load failed]: Page not found: \"{}\"",
-                self.page
-            ),
+            "Error" => {
+                self.check_updated(&self.page.clone());
+                let id = self.track_resource(self.resource_text.clone(), "Error_Pages_Reason");
+                let id2 = self.track_resource(self.resource_text.clone(), "Error_Pages_Solution");
+                let id3 = self.track_resource(self.resource_rect.clone(), "Error_Pages_Background");
+                self.resource_text[id].text_content =
+                    game_text["error_pages_reason"][self.config.language as usize].clone();
+                self.resource_text[id2].text_content =
+                    game_text["error_pages_solution"][self.config.language as usize].clone();
+                self.resource_rect[id3].size =
+                    [ctx.available_rect().width(), ctx.available_rect().height()];
+                egui::CentralPanel::default().show(ctx, |ui| {
+                    self.rect(ui, "Error_Pages_Background", ctx);
+                    self.text(ui, "Error_Pages_Sorry", ctx);
+                    self.text(ui, "Error_Pages_Reason", ctx);
+                    self.text(ui, "Error_Pages_Solution", ctx);
+                });
+            }
+            _ => {
+                if self.config.rc_strict_mode {
+                    panic!(
+                        "{}{}",
+                        game_text["error_page_not_found"][self.config.language as usize].clone(),
+                        self.page
+                    );
+                };
+                self.problem_report(
+                    &format!(
+                        "{}{}",
+                        game_text["error_page_not_found"][self.config.language as usize].clone(),
+                        self.page
+                    ),
+                    SeverityLevel::Error,
+                    &game_text["error_page_not_found_annotation"][self.config.language as usize]
+                        .clone(),
+                );
+                std::thread::spawn(|| {
+                    let _ = kira_play_wav("Resources/assets/sounds/Error.wav");
+                });
+                self.switch_page("Error")
+            }
         };
         egui::TopBottomPanel::top("Debug mode")
             .frame(egui::Frame {
@@ -675,7 +711,7 @@ impl eframe::App for App {
                                         if t.use_overlay_color {
                                             ui.colored_label(egui::Color32::RED, format!("{}: {:?}", game_text["debug_resource_image_overlay"][self.config.language as usize].clone(), t.overlay_color));
                                         };
-                                        ui.colored_label(egui::Color32::RED, format!("{}: {:?}", game_text["debug_resource_cite_texture"][self.config.language as usize].clone(), t.cite_texture));
+                                        ui.colored_label(egui::Color32::RED, format!("{}: {:?}", game_text["debug_resource_origin_cite_texture"][self.config.language as usize].clone(), t.origin_cite_texture));
                                         ui.separator();
                                     });
                                 self.resource_text
@@ -774,16 +810,68 @@ impl eframe::App for App {
                                         ui.colored_label(egui::Color32::ORANGE, format!("{}: {:?}", game_text["debug_resource_switch_enable_hover_animation"][self.config.language as usize].clone(), t.enable_hover_click_image[0]));
                                         ui.colored_label(egui::Color32::ORANGE, format!("{}: {:?}", game_text["debug_resource_switch_enable_click_animation"][self.config.language as usize].clone(), t.enable_hover_click_image[1]));
                                         ui.colored_label(egui::Color32::ORANGE, format!("{}: {:?}", game_text["debug_resource_switch_state"][self.config.language as usize].clone(), t.state));
-                                        if t.use_overlay {
-                                            ui.colored_label(egui::Color32::ORANGE, format!("{}: {:?}", game_text["debug_resource_switch_overlay_color_animation"][self.config.language as usize].clone(), t.overlay_color));
-                                        } else {
-                                            ui.colored_label(egui::Color32::ORANGE, format!("{}: {:?}", game_text["debug_resource_switch_texture_animation"][self.config.language as usize].clone(), t.switch_texture_name));
-                                        };
+                                        ui.colored_label(egui::Color32::ORANGE, format!("{}: {:?}", game_text["debug_resource_switch_appearance"][self.config.language as usize].clone(), t.appearance));
                                         ui.colored_label(egui::Color32::ORANGE, format!("{}: {:?}", game_text["debug_resource_switch_click_method"][self.config.language as usize].clone(), t.click_method));
                                         ui.colored_label(egui::Color32::ORANGE, format!("{}: {:?}", game_text["debug_resource_switch_click_state"][self.config.language as usize].clone(), t.last_time_clicked));
                                         if t.last_time_clicked {
                                             ui.colored_label(egui::Color32::ORANGE, format!("{}: {:?}", game_text["debug_resource_switch_clicked_method"][self.config.language as usize].clone(), t.last_time_clicked_index));
                                         };
+                                        ui.separator();
+                                    });
+                        });
+                    });
+                    egui::Window::new("problem_report")
+                    .frame(self.frame)
+                    .title_bar(false)
+                    .open(&mut self.var_b("debug_problem_window"))
+                    .show(ctx, |ui| {
+                        ui.vertical_centered(|ui| {
+                            ui.heading(game_text["debug_problem_report"][self.config.language as usize].clone());
+                        });
+                        ui.separator();
+                        egui::ScrollArea::vertical()
+                        .max_height(ctx.available_rect().height() - 100.0)
+                        .max_width(ctx.available_rect().width() - 100.0)
+                        .show(ui, |ui| {
+                            self.problem_list
+                                    .iter()
+                                    .rev()
+                                    .take(self.problem_list.len())
+                                    .for_each(|t| {
+                                        ui.colored_label(match t.severity_level {
+                                            SeverityLevel::Error => egui::Color32::RED,
+                                            SeverityLevel::SevereWarning => egui::Color32::ORANGE,
+                                            SeverityLevel::MildWarning => egui::Color32::YELLOW,
+                                        }, format!("{}: {}", game_text["debug_problem"][self.config.language as usize].clone(), t.problem));
+                                        ui.colored_label(match t.severity_level {
+                                            SeverityLevel::Error => egui::Color32::RED,
+                                            SeverityLevel::SevereWarning => egui::Color32::ORANGE,
+                                            SeverityLevel::MildWarning => egui::Color32::YELLOW,
+                                        }, format!("{}: {}", game_text["debug_severity_level"][self.config.language as usize].clone(), match t.severity_level {
+                                            SeverityLevel::Error => game_text["debug_severity_level_error"][self.config.language as usize].clone(),
+                                            SeverityLevel::SevereWarning => game_text["debug_severity_level_severe_warning"][self.config.language as usize].clone(),
+                                            SeverityLevel::MildWarning => game_text["debug_severity_level_mild_warning"][self.config.language as usize].clone(),
+                                        }));
+                                        ui.colored_label(match t.severity_level {
+                                            SeverityLevel::Error => egui::Color32::RED,
+                                            SeverityLevel::SevereWarning => egui::Color32::ORANGE,
+                                            SeverityLevel::MildWarning => egui::Color32::YELLOW,
+                                        }, format!("{}: {}", game_text["debug_annotation"][self.config.language as usize].clone(), t.annotation));
+                                        ui.colored_label(match t.severity_level {
+                                            SeverityLevel::Error => egui::Color32::RED,
+                                            SeverityLevel::SevereWarning => egui::Color32::ORANGE,
+                                            SeverityLevel::MildWarning => egui::Color32::YELLOW,
+                                        }, format!("{}: {}", game_text["debug_problem_current_page"][self.config.language as usize].clone(), t.report_state.current_page));
+                                        ui.colored_label(match t.severity_level {
+                                            SeverityLevel::Error => egui::Color32::RED,
+                                            SeverityLevel::SevereWarning => egui::Color32::ORANGE,
+                                            SeverityLevel::MildWarning => egui::Color32::YELLOW,
+                                        }, format!("{}: {}", game_text["debug_problem_current_page_runtime"][self.config.language as usize].clone(), t.report_state.current_page_runtime));
+                                        ui.colored_label(match t.severity_level {
+                                            SeverityLevel::Error => egui::Color32::RED,
+                                            SeverityLevel::SevereWarning => egui::Color32::ORANGE,
+                                            SeverityLevel::MildWarning => egui::Color32::YELLOW,
+                                        }, format!("{}: {}", game_text["debug_problem_current_total_runtime"][self.config.language as usize].clone(), t.report_state.current_total_runtime));
                                         ui.separator();
                                     });
                         });
@@ -811,6 +899,11 @@ impl eframe::App for App {
                                     {
                                         let flip = !self.var_b("debug_resource_list_window");
                                         self.modify_var("debug_resource_list_window", flip);
+                                    };
+                                    if ui.button(game_text["debug_problem_report"][self.config.language as usize].clone()).clicked()
+                                    {
+                                        let flip = !self.var_b("debug_problem_window");
+                                        self.modify_var("debug_problem_window", flip);
                                     };
                                 });
                                 ui.vertical(|ui| {
@@ -844,10 +937,8 @@ impl eframe::App for App {
                     });
                 };
             });
-        if self.resource_page
-            [track_resource(self.resource_page.clone(), &self.page.clone(), "page")]
-        .forced_update
-        {
+        let id = self.track_resource(self.resource_page.clone(), &self.page.clone());
+        if self.resource_page[id].forced_update {
             // 请求重新绘制界面
             ctx.request_repaint();
         };

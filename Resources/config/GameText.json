@@ -109,8 +109,8 @@
       "Page"
     ],
     "debug_game_version": [
-      "靶向载体 v0.6.0-alpha.1",
-      "Targeted Vector v0.6.0-alpha.1"
+      "靶向载体 v0.7.0-alpha.1",
+      "Targeted Vector v0.7.0-alpha.1"
     ],
     "debug_game_now_time": [
       "当前页面运行时间",
@@ -260,9 +260,9 @@
       "变量值",
       "Variable value"
     ],
-    "debug_resource_cite_texture": [
-      "引用纹理",
-      "Cite to texture"
+    "debug_resource_origin_cite_texture": [
+      "原始引用纹理",
+      "Origin cite to texture"
     ],
     "debug_resource_image_path": [
       "图片路径",
@@ -284,13 +284,9 @@
       "状态",
       "State"
     ],
-    "debug_resource_switch_texture_animation": [
-      "纹理动画",
-      "Texture animation"
-    ],
-    "debug_resource_switch_overlay_color_animation": [
-      "覆盖颜色动画",
-      "Overlay color animation"
+    "debug_resource_switch_appearance": [
+      "外观",
+      "Appearance"
     ],
     "debug_resource_switch_click_method": [
       "点击方法",
@@ -304,6 +300,10 @@
       "触发点击方法",
       "Trigger click method"
     ],
+    "debug_problem_report": [
+      "问题报告",
+      "Problem report"
+    ],
     "date": [
       "%m月%d日",
       "%B %d"
@@ -315,6 +315,110 @@
     "week": [
       "星期",
       "%A"
+    ],
+    "error_pages_reason": [
+      "由于目标页面不存在，现已进入默认的报错页面。",
+      "The target page does not exist, and the default error page is now entered."
+    ],
+    "error_pages_solution": [
+      "解决方法\n如果你是开发者: 请检查页面名称是否正确。\n如果你是玩家: 请联系开发者并描述问题出现的原因。",
+      "Solution\nIf you are a developer: Please check whether the page name is correct.\nIf you are a player: Please contact the developer and describe the reason for the problem."
+    ],
+    "error_page_not_found": [
+      "未找到页面",
+      "Page Not found "
+    ],
+    "error_page_not_found_annotation": [
+      "此问题会导致页面无法正常显示，请检查页面名称是否正确。",
+      "This issue may cause the page to fail to display properly. Please check if the page name is correct."
+    ],
+    "error_track_resource_not_found": [
+      "未找到资源",
+      "Resource Not found "
+    ],
+    "error_track_resource_not_found_annotation": [
+      "此问题会导致游戏可能无法正常运作，请检查资源名称是否正确以及是否提供了正确的资源列表。",
+      "This issue may cause the game to fail to operate properly. Please check whether the resource names are correct and whether the correct list of resources is provided."
+    ],
+    "debug_problem": [
+      "问题",
+      "Problem"
+    ],
+    "debug_annotation": [
+      "注释",
+      "Annotation"
+    ],
+    "debug_problem_current_page": [
+      "当前页面",
+      "Current page"
+    ],
+    "debug_problem_current_page_runtime": [
+      "当前页面运行时间",
+      "Current page runtime"
+    ],
+    "debug_problem_current_total_runtime": [
+      "当前总运行时间",
+      "Current total runtime"
+    ],
+    "debug_severity_level": [
+      "严重程度",
+      "Severity level"
+    ],
+    "debug_severity_level_mild_warning": [
+      "弱警告",
+      "Mild warning"
+    ],
+    "debug_severity_level_severe_warning": [
+      "强警告",
+      "Severe warning"
+    ],
+    "debug_severity_level_error": [
+      "错误",
+      "Error"
+    ],
+    "error_image_open_failed": [
+      "图片打开失败",
+      "Image open failed"
+    ],
+    "error_image_open_failed_annotation": [
+      "此问题会导致图片无法正常显示，请检查图片名称是否正确。",
+      "This issue may cause the image to fail to display properly. Please check whether the image names are correct."
+    ],
+    "error_variable_not_i32_type": [
+      "变量不是i32类型",
+      "Variable is not i32 type"
+    ],
+    "error_variable_not_u32_type": [
+      "变量不是u32类型",
+      "Variable is not u32 type"
+    ],
+    "error_variable_not_f32_type": [
+      "变量不是f32类型",
+      "Variable is not f32 type"
+    ],
+    "error_variable_not_vec_type": [
+      "变量不是vec类型",
+      "Variable is not vec type"
+    ],
+    "error_variable_not_bool_type": [
+      "变量不是bool类型",
+      "Variable is not bool type"
+    ],
+    "error_variable_not_string_type": [
+      "变量不是string类型",
+      "Variable is not string type"
+    ],
+    "error_variable_wrong_type_annotation": [
+      "请检查变量名称与类型是否正确，是否存在重名项。",
+      "Please check whether the variable names and types are correct and whether there are duplicate items."
+    ],
+    "error_switch_appearance_mismatch": [
+      "开关外观数目多/少",
+      "The number of switch appearances is large / small"
+    ],
+    "error_switch_appearance_mismatch_annotation": [
+      "此问题会导致开关无法正常显示，请检查资源数量是否与开启的动画数匹配。",
+      "This issue will cause the switch to fail to display normally. Please check whether the number of resources matches the number of animations that are enabled."
     ]
   }
 }
