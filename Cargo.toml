@@ -1,6 +1,6 @@
 [package]
 name = "Targeted-Vector"
-version = "0.7.0-alpha.1"
+version = "0.8.0-alpha.1"
 edition = "2021"
 authors = ["ChepleBob <Cheple_Bob@outlook.com>"]
 description = "A simple shooting game."
@@ -17,8 +17,8 @@ path = "src/main.rs"
 identifier = "com.cheplebob.targetedvector"
 short_description = "A simple shooting game."
 name = "Targeted Vector"
-version = "0.7.0"
-short-version-string = "0.7"
+version = "0.8.0"
+short-version-string = "0.8"
 category = "public.app-category.games"
 copyright = "Copyright (C) 2025 ChepleBob. All rights reserved"
 icon = ["Resources/assets/images/icon.icns"]
@@ -35,6 +35,7 @@ kira = { version = "0.8", features = ["cpal"] }
 anyhow = "1.0.97"
 image = "0.25.6"
 json = "0.12.4"
+rfd = "0.11.0"
 walkdir = "2.5.0"
 whoami = "2.0.0-pre.0"
 chrono = "0.4.40"

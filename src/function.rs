@@ -894,7 +894,7 @@ impl App {
         self.resource_image[id].image_size = [900_f32, 130_f32];
         self.add_image_texture(
             "Background",
-            "Resources/assets/images/wallpaper.jpg",
+            "Resources/assets/images/wallpaper.png",
             [false, false],
             true,
             ctx,
@@ -1356,23 +1356,10 @@ impl App {
 
     pub fn wallpaper(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
         let image = self.resource_image.clone();
-        let id = self.track_resource(
-            image,
-            &format!(
-                "Home_Wallpaper_{}",
-                self.login_user_config.wallpaper.clone()
-            ),
-        );
+        let id = self.track_resource(image, "Home_Wallpaper");
         self.resource_image[id].image_size =
             [ctx.available_rect().width(), ctx.available_rect().height()];
-        self.image(
-            ui,
-            &format!(
-                "Home_Wallpaper_{}",
-                self.login_user_config.wallpaper.clone()
-            ),
-            ctx,
-        );
+        self.image(ui, "Home_Wallpaper", ctx);
     }
 
     pub fn dock(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
@@ -2470,6 +2457,7 @@ impl App {
         } else {
             let id = self.track_resource(self.resource_image_texture.clone(), name);
             self.resource_image_texture[id].texture = image_texture;
+            self.resource_image_texture[id].cite_path = path.to_string();
         };
     }
 

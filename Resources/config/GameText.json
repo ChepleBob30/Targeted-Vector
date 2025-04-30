@@ -57,11 +57,11 @@
       "Continue"
     ],
     "reg_account_name": [
-      "请输入账户名（20字以内）",
+      "请输入账户名(20字以内)",
       "Please enter your account name (within 20 characters)"
     ],
     "reg_account_password": [
-      "请输入密码（20字以内）",
+      "请输入密码(20字以内)",
       "Please enter your password (within 20 characters)"
     ],
     "reg_account_check_password": [
@@ -109,8 +109,8 @@
       "Page"
     ],
     "debug_game_version": [
-      "靶向载体 v0.7.0-alpha.1",
-      "Targeted Vector v0.7.0-alpha.1"
+      "靶向载体 v0.8.0-alpha.1",
+      "Targeted Vector v0.8.0-alpha.1"
     ],
     "debug_game_now_time": [
       "当前页面运行时间",
@@ -315,6 +315,30 @@
     "week": [
       "星期",
       "%A"
+    ],
+    "game_language": [
+      "游戏语言",
+      "Game language"
+    ],
+    "game_version": [
+      "游戏版本",
+      "Game version"
+    ],
+    "game_wallpaper": [
+      "游戏壁纸",
+      "Game wallpaper"
+    ],
+    "return_to_default": [
+      "恢复默认",
+      "Return to default"
+    ],
+    "game_change_wallpaper": [
+      "切换游戏壁纸",
+      "Change game wallpaper"
+    ],
+    "choose_image": [
+      "选择图片",
+      "Choose image"
     ],
     "error_pages_reason": [
       "由于目标页面不存在，现已进入默认的报错页面。",

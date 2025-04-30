@@ -8,6 +8,8 @@ use eframe::egui;
 use eframe::epaint::Rounding;
 use egui::{Frame, Shadow, Stroke};
 use json::object;
+use rfd::FileDialog;
+use std::fs;
 use std::{process::exit, vec::Vec};
 
 impl eframe::App for App {
@@ -303,8 +305,9 @@ impl eframe::App for App {
                                 .close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside)
                                 .show_ui(ui, |ui| {
                                     let lang = self.config.language;
-                                    ui.selectable_value(&mut self.config.language, 0, format!("{}({})", game_text["language"][0].clone(), game_text[&format!("{}_language", lang)][0].clone()));
-                                    ui.selectable_value(&mut self.config.language, 1, format!("{}({})", game_text["language"][1].clone(), game_text[&format!("{}_language", lang)][1].clone()));
+                                    for i in 0..self.config.amount_languages {
+                                        ui.selectable_value(&mut self.config.language, i, format!("{}({})", game_text["language"][i as usize].clone(), game_text[&format!("{}_language", lang)][i as usize].clone())); 
+                                    };
                                 }
                             );
                             };
@@ -343,7 +346,7 @@ impl eframe::App for App {
                         self.modify_var("login_enable_name_error_message", !check_file_exists(format!("Resources/config/user_{}.json", input1.replace(" ", "").replace("/", "").replace("\\", ""))));
                         if check_file_exists(format!("Resources/config/user_{}.json", input1.replace(" ", "").replace("/", "").replace("\\", ""))) {
                             let mut user = User {
-                                version: 6,
+                                version: 0,
                                 name: "".to_string(),
                                 password: "".to_string(),
                                 language: 0,
@@ -374,6 +377,10 @@ impl eframe::App for App {
                                         self.login_user_config = read_user;
                                     };
                                 };
+                                self.add_image_texture("Home_Wallpaper", &self.login_user_config.wallpaper.clone(), [false, false], false, ctx);
+                                let id = self.track_resource(self.resource_image_texture.clone(), "Home_Wallpaper");
+                                let id2 = self.track_resource(self.resource_image.clone(), "Home_Wallpaper");
+                                self.resource_image[id2].image_texture = self.resource_image_texture[id].texture.clone();
                             };
                             self.modify_var("login_enable_password_error_message", user.password != input2);
                         };
@@ -457,11 +464,11 @@ impl eframe::App for App {
                                             self.modify_var("reg_enable_name_error_message", input3.replace(" ", "").replace("/", "").replace("\\", "").is_empty() || check_file_exists(format!("Resources/config/user_{}.json", input3.replace(" ", "").replace("/", "")).replace("\\", "")));
                                             if input4 == input5 && !check_file_exists(format!("Resources/config/user_{}.json", input3.replace(" ", "").replace("/", "")).replace("\\", "")) && !input3.replace(" ", "").replace("/", "").replace("\\", "").is_empty(){
                                                     let user_data = object! {
-                                                        "version": 6,
+                                                        "version": 7,
                                                         "name": input3.replace(" ", "").replace("/", "").replace("\\", "").clone(),
                                                         "password": input4.clone(),
                                                         "language": self.config.language,
-                                                        "wallpaper": "Resources/assets/images/wallpaper.jpg".to_string(),
+                                                        "wallpaper": "Resources/assets/images/wallpaper.png".to_string(),
                                                     };
                                                     let _ = create_pretty_json(format!("Resources/config/user_{}.json", input3.replace(" ", "").replace("/", "").replace("\\", "")), user_data);
                                                     self.modify_var("reg_status", Value::UInt(2));
@@ -502,20 +509,14 @@ impl eframe::App for App {
             "Home_Page" => {
                 if !self.check_updated(&self.page.clone()) {
                     self.add_image_texture(
-                        &format!(
-                            "Home_Wallpaper_{}",
-                            self.login_user_config.wallpaper.clone()
-                        ),
+                        "Home_Wallpaper",
                         &self.login_user_config.wallpaper.clone(),
                         [false, false],
                         true,
                         ctx,
                     );
                     self.add_image(
-                        &format!(
-                            "Home_Wallpaper_{}",
-                            self.login_user_config.wallpaper.clone()
-                        ),
+                        "Home_Wallpaper",
                         [
                             0_f32,
                             0_f32,
@@ -525,10 +526,7 @@ impl eframe::App for App {
                         [1, 2, 1, 2],
                         [true, true, true, true, false],
                         [255, 0, 0, 0, 0],
-                        &format!(
-                            "Home_Wallpaper_{}",
-                            self.login_user_config.wallpaper.clone()
-                        ),
+                        "Home_Wallpaper",
                     );
                     self.add_var("title_float_status", true);
                     self.add_var("dock_active_status", false);
@@ -569,7 +567,160 @@ impl eframe::App for App {
                 self.check_updated(&self.page.clone());
                 egui::CentralPanel::default().show(ctx, |ui| {
                     self.wallpaper(ui, ctx);
-                    ui.label("这是一个未完工的设置页面！");
+                    egui::ScrollArea::vertical()
+                        .max_height(ctx.available_rect().height() - 100.0)
+                        .max_width(ctx.available_rect().width() / 4_f32 * 3_f32)
+                        .auto_shrink(false)
+                        .show(ui, |ui| {
+                            ui.horizontal(|ui| {
+                                ui.label(
+                                    egui::WidgetText::from(
+                                        game_text["game_language"]
+                                            [self.login_user_config.language as usize]
+                                            .clone()
+                                            .to_string(),
+                                    )
+                                    .text_style(egui::TextStyle::Heading),
+                                );
+                                ui.separator();
+                                egui::ComboBox::from_label("")
+                                    .selected_text(
+                                        game_text["language"]
+                                            [self.login_user_config.language as usize]
+                                            .clone(),
+                                    )
+                                    .width(200_f32)
+                                    .close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside)
+                                    .show_ui(ui, |ui| {
+                                        let lang = self.login_user_config.language;
+                                        for i in 0..self.config.amount_languages {
+                                            ui.selectable_value(
+                                                &mut self.login_user_config.language,
+                                                i,
+                                                format!(
+                                                    "{}({})",
+                                                    game_text["language"][i as usize].clone(),
+                                                    game_text[&format!("{}_language", lang)]
+                                                        [i as usize]
+                                                        .clone()
+                                                ),
+                                            );
+                                        }
+                                    })
+                            });
+                            ui.horizontal(|ui| {
+                                ui.label(
+                                    egui::WidgetText::from(
+                                        game_text["game_version"]
+                                            [self.login_user_config.language as usize]
+                                            .clone()
+                                            .to_string(),
+                                    )
+                                    .text_style(egui::TextStyle::Heading),
+                                );
+                                ui.separator();
+                                ui.label(
+                                    egui::WidgetText::from(
+                                        game_text["debug_game_version"]
+                                            [self.login_user_config.language as usize]
+                                            .clone()
+                                            .to_string(),
+                                    )
+                                    .text_style(egui::TextStyle::Heading),
+                                );
+                            });
+                            ui.horizontal(|ui| {
+                                ui.label(
+                                    egui::WidgetText::from(
+                                        game_text["game_wallpaper"]
+                                            [self.login_user_config.language as usize]
+                                            .clone()
+                                            .to_string(),
+                                    )
+                                    .text_style(egui::TextStyle::Heading),
+                                );
+                                ui.separator();
+                                if ui
+                                    .button(
+                                        game_text["game_change_wallpaper"]
+                                            [self.login_user_config.language as usize]
+                                            .clone(),
+                                    )
+                                    .clicked()
+                                {
+                                    if let Some(path) = FileDialog::new()
+                                        .set_title(
+                                            &game_text["choose_image"]
+                                                [self.login_user_config.language as usize]
+                                                .clone(),
+                                        )
+                                        .add_filter("", &["png"])
+                                        .pick_file()
+                                    {
+                                        // 复制文件
+                                        let _ = fs::copy(
+                                            &path,
+                                            std::path::Path::new(&format!(
+                                                "Resources/assets/images/{}_new_wallpaper.png",
+                                                self.config.login_user_name
+                                            )),
+                                        );
+                                        self.add_image_texture(
+                                            "Home_Wallpaper",
+                                            &format!(
+                                                "Resources/assets/images/{}_new_wallpaper.png",
+                                                self.config.login_user_name
+                                            ),
+                                            [false, false],
+                                            false,
+                                            ctx,
+                                        );
+                                        let id = self.track_resource(
+                                            self.resource_image_texture.clone(),
+                                            "Home_Wallpaper",
+                                        );
+                                        let id2 = self.track_resource(
+                                            self.resource_image.clone(),
+                                            "Home_Wallpaper",
+                                        );
+                                        self.resource_image[id2].image_texture =
+                                            self.resource_image_texture[id].texture.clone();
+                                        self.login_user_config.wallpaper = format!(
+                                            "Resources/assets/images/{}_new_wallpaper.png",
+                                            self.config.login_user_name
+                                        );
+                                    };
+                                };
+                                if ui
+                                    .button(
+                                        game_text["return_to_default"]
+                                            [self.login_user_config.language as usize]
+                                            .clone(),
+                                    )
+                                    .clicked()
+                                {
+                                    self.add_image_texture(
+                                        "Home_Wallpaper",
+                                        "Resources/assets/images/wallpaper.png",
+                                        [false, false],
+                                        false,
+                                        ctx,
+                                    );
+                                    let id = self.track_resource(
+                                        self.resource_image_texture.clone(),
+                                        "Home_Wallpaper",
+                                    );
+                                    let id2 = self.track_resource(
+                                        self.resource_image.clone(),
+                                        "Home_Wallpaper",
+                                    );
+                                    self.resource_image[id2].image_texture =
+                                        self.resource_image_texture[id].texture.clone();
+                                    self.login_user_config.wallpaper =
+                                        "Resources/assets/images/wallpaper.png".to_string();
+                                };
+                            });
+                        });
                     self.dock(ctx, ui);
                 });
             }
