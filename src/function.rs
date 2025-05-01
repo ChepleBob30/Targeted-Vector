@@ -3,6 +3,7 @@ use anyhow::Context;
 use eframe::emath::Rect;
 use eframe::epaint::textures::TextureOptions;
 use eframe::epaint::Stroke;
+use egui::emath::Numeric;
 use egui::{Color32, FontId, Frame, PointerButton, Pos2, Ui, Vec2};
 use json::JsonValue;
 use kira::manager::backend::cpal;
@@ -150,6 +151,12 @@ pub fn kira_play_wav(path: &str) -> anyhow::Result<f64> {
     Ok(duration)
 }
 
+pub fn general_click_feedback() {
+    std::thread::spawn(|| {
+        kira_play_wav("Resources/assets/sounds/Click.wav").unwrap();
+    });
+}
+
 fn load_fonts(ctx: &egui::Context) {
     let mut fonts = egui::FontDefinitions::default();
     fonts.font_data.insert(
@@ -226,6 +233,71 @@ impl GameText {
         }
 
         Some(GameText { game_text: parsed })
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct Map {
+    pub map_name: Vec<String>,
+    pub map_author: String,
+    pub map_image: String,
+    pub map_size: [f32; 2],
+    pub map_description: Vec<String>,
+    pub map_origin_position: [f32; 2],
+    pub map_intro: String,
+}
+
+#[allow(dead_code)]
+impl Map {
+    pub fn from_json_value(value: &JsonValue) -> Option<Self> {
+        Some(Self {
+            // 处理map_name数组
+            map_name: value["map_name"].members()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect::<Vec<_>>(),
+            
+            // 安全解包字符串字段
+            map_author: value["map_author"].as_str()?.to_string(),
+            map_image: value["map_image"].as_str()?.to_string(),
+            
+            // 处理浮点数组
+            map_size: [
+                value["map_size"][0].as_f32()?,
+                value["map_size"][1].as_f32()?
+            ],
+            
+            // 处理描述数组
+            map_description: value["map_description"].members()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect::<Vec<_>>(),
+            
+            // 处理坐标数组
+            map_origin_position: [
+                value["map_origin_position"][0].as_f32()?,
+                value["map_origin_position"][1].as_f32()?
+            ],
+            
+            map_intro: value["map_intro"].as_str()?.to_string(),
+        })
+    }
+
+    pub fn to_json_value(&self) -> JsonValue {
+        json::object! {
+            map_name: self.map_name.clone(),
+            map_author: self.map_author.clone(),
+            map_image: self.map_image.clone(),
+            map_size: [
+                self.map_size[0].to_f64(),
+                self.map_size[1].to_f64()
+            ],
+            map_description: self.map_description.clone(),
+            map_origin_position: [
+                self.map_origin_position[0].to_f64(),
+                self.map_origin_position[1].to_f64()
+            ],
+            map_intro: self.map_intro.clone(),
+        }
     }
 }
 
@@ -870,8 +942,8 @@ impl App {
             [0, 0, 0, 255, 255, 255, 255, 255],
             0.0,
         );
-        let _ = std::thread::spawn(|| {
-            let _ = kira_play_wav("Resources/assets/sounds/Launch.wav");
+        std::thread::spawn(|| {
+            kira_play_wav("Resources/assets/sounds/Launch.wav").unwrap();
         });
         for i in 0..self.config.amount_languages {
             self.add_image_texture(
@@ -1098,10 +1170,17 @@ impl App {
             true,
             ctx,
         );
+        self.add_image_texture(
+            "Journey",
+            "Resources/assets/images/journey.png",
+            [false, false],
+            true,
+            ctx,
+        );
         self.add_image(
             "Home_Home",
             [0_f32, -20_f32, 50_f32, 50_f32],
-            [2, 4, 1, 1],
+            [2, 5, 1, 1],
             [true, false, true, false, false],
             [255, 0, 0, 0, 0],
             "Home",
@@ -1109,15 +1188,23 @@ impl App {
         self.add_image(
             "Home_Settings",
             [0_f32, -20_f32, 50_f32, 50_f32],
-            [3, 4, 1, 1],
+            [4, 5, 1, 1],
             [true, false, true, false, false],
             [255, 0, 0, 0, 0],
             "Settings",
         );
         self.add_image(
+            "Home_Journey",
+            [0_f32, -20_f32, 50_f32, 50_f32],
+            [3, 5, 1, 1],
+            [true, false, true, false, false],
+            [255, 0, 0, 0, 0],
+            "Power",
+        );
+        self.add_image(
             "Home_Power",
             [0_f32, -20_f32, 50_f32, 50_f32],
-            [1, 4, 1, 1],
+            [1, 5, 1, 1],
             [true, false, true, false, false],
             [255, 0, 0, 0, 0],
             "Power",
@@ -1135,6 +1222,29 @@ impl App {
                 },
                 SwitchData {
                     texture: "Home".to_string(),
+                    color: [150, 150, 150, 255],
+                },
+            ],
+            [true, true, true],
+            1,
+            vec![SwitchClickAction {
+                click_method: PointerButton::Primary,
+                action: true,
+            }],
+        );
+        self.add_switch(
+            ["Home_Journey", "Home_Journey"],
+            vec![
+                SwitchData {
+                    texture: "Journey".to_string(),
+                    color: [255, 255, 255, 255],
+                },
+                SwitchData {
+                    texture: "Journey".to_string(),
+                    color: [180, 180, 180, 255],
+                },
+                SwitchData {
+                    texture: "Journey".to_string(),
                     color: [150, 150, 150, 255],
                 },
             ],
@@ -1270,7 +1380,7 @@ impl App {
         annotation: &str,
     ) {
         std::thread::spawn(|| {
-            let _ = kira_play_wav("Resources/assets/sounds/Error.wav");
+            kira_play_wav("Resources/assets/sounds/Error.wav").unwrap();
         });
         self.problem_list.push(Problem {
             severity_level,
@@ -1425,15 +1535,15 @@ impl App {
             };
             let id2 = self.track_resource(self.resource_switch.clone(), "Home_Power");
             if self.switch("Home_Power", ui, ctx, true)[0] == 0 {
-                let _ = write_to_json(
+                write_to_json(
                     format!("Resources/config/user_{}.json", self.config.login_user_name),
                     self.login_user_config.to_json_value(),
-                );
+                ).unwrap();
                 if self.resource_switch[id2].state == 0 {
-                    let _ = write_to_json(
+                    write_to_json(
                         "Resources/config/Preferences.json",
                         self.config.to_json_value(),
-                    );
+                    ).unwrap();
                     exit(0);
                 } else {
                     self.config.login_user_name = "".to_string();
@@ -1442,6 +1552,11 @@ impl App {
                     self.add_split_time("ScrollWallpaper", true);
                     self.switch_page("Login");
                 }
+            };
+            if self.switch("Home_Journey", ui, ctx, true)[0] == 0 {
+                std::thread::spawn(|| {
+                    kira_play_wav("Resources/assets/sounds/Error.wav").unwrap();
+                });
             };
         };
         self.resource_rect[id].size[0] = ctx.available_rect().width() - 100_f32;
@@ -2736,6 +2851,7 @@ impl App {
                         };
                     } else {
                         if self.resource_switch[id].last_time_clicked {
+                            general_click_feedback();
                             let mut count = 1;
                             if self.resource_switch[id].enable_hover_click_image[0] {
                                 count += 1;

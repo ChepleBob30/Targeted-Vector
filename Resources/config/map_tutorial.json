@@ -1,0 +1,15 @@
+{
+    "map_name": [
+        "教程",
+        "Tutorial"
+    ],
+    "map_author": "ChepleBob",
+    "map_image": "Resources/assets/images/map_tutorial.png",
+    "map_size": [4000.0, 3000.0],
+    "map_description": [
+        "起点",
+        "Origin"
+    ],
+    "map_origin_position": [0.0, 0.0],
+    "map_intro": "Resources/assets/images/map_tutorial_intro.png"
+}

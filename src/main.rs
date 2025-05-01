@@ -1,4 +1,4 @@
-//! Targeted Vector v0.8.0-alpha.1
+//! Targeted Vector v0.9.0-alpha.1
 //! Developer: Cheple_Bob
 //! This is a rust shooter built on top of RustConstructor.
 //! Special Thanks:
@@ -39,7 +39,7 @@ fn main() {
     //     }
     // };
     // config.launch_path = launch_path;
-    // let _ = write_to_json("Resources/config/Preferences.json", config.to_json_value());
+    // write_to_json("Resources/config/Preferences.json", config.to_json_value());
 
     let img = image::load_from_memory_with_format(
         include_bytes!("../Resources/assets/images/icon.png"),
@@ -62,12 +62,12 @@ fn main() {
             .with_min_inner_size([1280_f32, 720_f32]),
         ..Default::default()
     };
-    let _ = eframe::run_native(
+    eframe::run_native(
     "Targeted Vector",
     options,
     Box::new(|cc: &eframe::CreationContext| -> Result<Box<dyn eframe::App>, Box<dyn std::error::Error + Send + Sync>> {
         let app: App = App::new(cc);
         Ok(Box::new(app))
     }),
-    );
+    ).unwrap();
 }

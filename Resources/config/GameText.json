@@ -109,8 +109,8 @@
       "Page"
     ],
     "debug_game_version": [
-      "靶向载体 v0.8.0-alpha.1",
-      "Targeted Vector v0.8.0-alpha.1"
+      "靶向载体 v0.9.0-alpha.1",
+      "Targeted Vector v0.9.0-alpha.1"
     ],
     "debug_game_now_time": [
       "当前页面运行时间",
@@ -119,6 +119,10 @@
     "debug_game_total_time": [
       "总运行时间",
       "Total running time"
+    ],
+    "debug_login_user": [
+      "当前登录用户",
+      "Current login user"
     ],
     "debug_game_second": [
       "秒",
@@ -133,8 +137,8 @@
       "FPS"
     ],
     "debug_fps2": [
-      "帧/秒",
-      "FPS"
+      "帧",
+      "Frames"
     ],
     "debug_frame_number_details": [
       "帧数详情",

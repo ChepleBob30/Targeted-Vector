@@ -1,7 +1,7 @@
 //! pages.rs is the core part of the page of the Targeted Vector, mainly the page content.
 use crate::function::{
     check_file_exists, check_resource_exist, create_pretty_json, kira_play_wav, read_from_json,
-    write_to_json, App, SeverityLevel, User, Value,
+    write_to_json, general_click_feedback, App, SeverityLevel, User, Value,
 };
 use chrono::{Local, Timelike};
 use eframe::egui;
@@ -158,6 +158,7 @@ impl eframe::App for App {
                                                     self.login_user_config = read_user;
                                                 };
                                             };
+                                            self.config.language = self.login_user_config.language;
                                             self.switch_page("Home_Page");
                                         };
                                     };
@@ -339,7 +340,7 @@ impl eframe::App for App {
                         });
                     let no_window = !self.var_b("open_reg_window");
                     if self.switch("Power", ui, ctx, no_window)[0] != 5 {
-                        let _ = write_to_json("Resources/config/Preferences.json", self.config.to_json_value());
+                        write_to_json("Resources/config/Preferences.json", self.config.to_json_value()).unwrap();
                         exit(0);
                     };
                     if self.switch("Login", ui, ctx, no_window)[0] != 5 {
@@ -377,10 +378,12 @@ impl eframe::App for App {
                                         self.login_user_config = read_user;
                                     };
                                 };
-                                self.add_image_texture("Home_Wallpaper", &self.login_user_config.wallpaper.clone(), [false, false], false, ctx);
-                                let id = self.track_resource(self.resource_image_texture.clone(), "Home_Wallpaper");
-                                let id2 = self.track_resource(self.resource_image.clone(), "Home_Wallpaper");
-                                self.resource_image[id2].image_texture = self.resource_image_texture[id].texture.clone();
+                                if check_resource_exist(self.resource_image_texture.clone(), "Home_Wallpaper") {
+                                    self.add_image_texture("Home_Wallpaper", &self.login_user_config.wallpaper.clone(), [false, false], false, ctx);
+                                    let id = self.track_resource(self.resource_image_texture.clone(), "Home_Wallpaper");
+                                    let id2 = self.track_resource(self.resource_image.clone(), "Home_Wallpaper");
+                                    self.resource_image[id2].image_texture = self.resource_image_texture[id].texture.clone();
+                                };
                             };
                             self.modify_var("login_enable_password_error_message", user.password != input2);
                         };
@@ -448,29 +451,33 @@ impl eframe::App for App {
                                 };
                                     if self.var_u("reg_status") == 0 {
                                         if ui.button(game_text["cancel"][self.config.language as usize].clone()).clicked() {
+                                            general_click_feedback();
                                             self.modify_var("open_reg_window", false);
                                         };
                                         if ui.button(game_text["continue"][self.config.language as usize].clone()).clicked() {
+                                            general_click_feedback();
                                             self.modify_var("reg_enable_name_error_message", false);
                                             self.modify_var("reg_enable_password_error_message", false);
                                             self.modify_var("reg_status", Value::UInt(1));
                                         };
                                     } else if self.var_u("reg_status") == 1 {
                                         if ui.button(game_text["cancel"][self.config.language as usize].clone()).clicked() {
+                                            general_click_feedback();
                                             self.modify_var("reg_status", Value::UInt(0));
                                         };
                                         if ui.button(game_text["continue"][self.config.language as usize].clone()).clicked() {
+                                            general_click_feedback();
                                             self.modify_var("reg_enable_password_error_message", input4 != input5);
                                             self.modify_var("reg_enable_name_error_message", input3.replace(" ", "").replace("/", "").replace("\\", "").is_empty() || check_file_exists(format!("Resources/config/user_{}.json", input3.replace(" ", "").replace("/", "")).replace("\\", "")));
                                             if input4 == input5 && !check_file_exists(format!("Resources/config/user_{}.json", input3.replace(" ", "").replace("/", "")).replace("\\", "")) && !input3.replace(" ", "").replace("/", "").replace("\\", "").is_empty(){
                                                     let user_data = object! {
-                                                        "version": 7,
+                                                        "version": 8,
                                                         "name": input3.replace(" ", "").replace("/", "").replace("\\", "").clone(),
                                                         "password": input4.clone(),
                                                         "language": self.config.language,
                                                         "wallpaper": "Resources/assets/images/wallpaper.png".to_string(),
                                                     };
-                                                    let _ = create_pretty_json(format!("Resources/config/user_{}.json", input3.replace(" ", "").replace("/", "").replace("\\", "")), user_data);
+                                                    create_pretty_json(format!("Resources/config/user_{}.json", input3.replace(" ", "").replace("/", "").replace("\\", "")), user_data).unwrap();
                                                     self.modify_var("reg_status", Value::UInt(2));
                                             };
                                         };
@@ -482,9 +489,11 @@ impl eframe::App for App {
                                         };
                                     } else if self.var_u("reg_status") == 2 {
                                         if ui.button(game_text["re_reg"][self.config.language as usize].clone()).clicked() {
+                                            general_click_feedback();
                                             self.modify_var("reg_status", Value::UInt(0));
                                         };
                                         if ui.button(game_text["reg_complete"][self.config.language as usize].clone()).clicked() {
+                                            general_click_feedback();
                                             input1 = input3.replace(" ", "").replace("/", "").replace("\\", "");
                                             input2 = input5.clone();
                                             input3 = "".to_string();
@@ -605,8 +614,9 @@ impl eframe::App for App {
                                                         .clone()
                                                 ),
                                             );
-                                        }
-                                    })
+                                        };
+                                        self.config.language = self.login_user_config.language;
+                                    });
                             });
                             ui.horizontal(|ui| {
                                 ui.label(
@@ -648,6 +658,7 @@ impl eframe::App for App {
                                     )
                                     .clicked()
                                 {
+                                    general_click_feedback();
                                     if let Some(path) = FileDialog::new()
                                         .set_title(
                                             &game_text["choose_image"]
@@ -658,13 +669,13 @@ impl eframe::App for App {
                                         .pick_file()
                                     {
                                         // 复制文件
-                                        let _ = fs::copy(
+                                        fs::copy(
                                             &path,
                                             std::path::Path::new(&format!(
                                                 "Resources/assets/images/{}_new_wallpaper.png",
                                                 self.config.login_user_name
                                             )),
-                                        );
+                                        ).unwrap();
                                         self.add_image_texture(
                                             "Home_Wallpaper",
                                             &format!(
@@ -699,6 +710,7 @@ impl eframe::App for App {
                                     )
                                     .clicked()
                                 {
+                                    general_click_feedback();
                                     self.add_image_texture(
                                         "Home_Wallpaper",
                                         "Resources/assets/images/wallpaper.png",
@@ -761,7 +773,7 @@ impl eframe::App for App {
                         .clone(),
                 );
                 std::thread::spawn(|| {
-                    let _ = kira_play_wav("Resources/assets/sounds/Error.wav");
+                    kira_play_wav("Resources/assets/sounds/Error.wav").unwrap();
                 });
                 self.switch_page("Error")
             }
@@ -775,8 +787,8 @@ impl eframe::App for App {
             .show_separator_line(false)
             .show(ctx, |ui| {
                 if ctx.input(|i| i.key_pressed(egui::Key::F3)) {
-                    let _ = std::thread::spawn(|| {
-                        let _ = kira_play_wav("Resources/assets/sounds/Notification.wav");
+                    std::thread::spawn(|| {
+                        kira_play_wav("Resources/assets/sounds/Notification.wav").unwrap();
                     });
                     let enable_debug_mode = self.var_b("enable_debug_mode");
                     self.modify_var("enable_debug_mode", !enable_debug_mode);
@@ -1043,16 +1055,19 @@ impl eframe::App for App {
                                 ui.vertical(|ui| {
                                     if ui.button(game_text["debug_frame_number_details"][self.config.language as usize].clone()).clicked()
                                     {
+                                        general_click_feedback();
                                         let flip = !self.var_b("debug_fps_window");
                                         self.modify_var("debug_fps_window", flip);
                                     };
                                     if ui.button(game_text["debug_resource_list"][self.config.language as usize].clone()).clicked()
                                     {
+                                        general_click_feedback();
                                         let flip = !self.var_b("debug_resource_list_window");
                                         self.modify_var("debug_resource_list_window", flip);
                                     };
                                     if ui.button(game_text["debug_problem_report"][self.config.language as usize].clone()).clicked()
                                     {
+                                        general_click_feedback();
                                         let flip = !self.var_b("debug_problem_window");
                                         self.modify_var("debug_problem_window", flip);
                                     };
@@ -1065,6 +1080,11 @@ impl eframe::App for App {
                                     );
                                     ui.label(
                                         egui::WidgetText::from(format!("{}: {}", game_text["debug_game_page"][self.config.language as usize].clone(), self.page))
+                                            .color(egui::Color32::GRAY)
+                                            .background_color(egui::Color32::from_black_alpha(220)),
+                                    );
+                                    ui.label(
+                                        egui::WidgetText::from(format!("{}: {}", game_text["debug_login_user"][self.config.language as usize].clone(), self.config.login_user_name))
                                             .color(egui::Color32::GRAY)
                                             .background_color(egui::Color32::from_black_alpha(220)),
                                     );
