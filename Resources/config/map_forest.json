@@ -1,0 +1,15 @@
+{
+    "map_name": [
+        "森林",
+        "Forest"
+    ],
+    "map_author": "ChepleBob",
+    "map_image": "Resources/assets/images/map_forest.png",
+    "map_width": 3000.0,
+    "map_description": [
+        "第二章",
+        "Chapter 2"
+    ],
+    "map_origin_position": [0.0, 0.0],
+    "map_intro": "Resources/assets/images/map_forest_intro.png"
+}

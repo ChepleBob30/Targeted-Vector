@@ -1,7 +1,8 @@
 //! pages.rs is the core part of the page of the Targeted Vector, mainly the page content.
 use crate::function::{
-    check_file_exists, check_resource_exist, create_pretty_json, kira_play_wav, read_from_json,
-    write_to_json, general_click_feedback, App, SeverityLevel, User, Value,
+    check_file_exists, check_resource_exist, count_files_recursive, create_pretty_json,
+    general_click_feedback, kira_play_wav, list_files_recursive, read_from_json, write_to_json,
+    App, Map, SeverityLevel, SwitchClickAction, SwitchData, User, Value,
 };
 use chrono::{Local, Timelike};
 use eframe::egui;
@@ -9,8 +10,7 @@ use eframe::epaint::Rounding;
 use egui::{Frame, Shadow, Stroke};
 use json::object;
 use rfd::FileDialog;
-use std::fs;
-use std::{process::exit, vec::Vec};
+use std::{fs, path::Path, process::exit, vec::Vec};
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
@@ -352,6 +352,7 @@ impl eframe::App for App {
                                 password: "".to_string(),
                                 language: 0,
                                 wallpaper: "".to_string(),
+                                current_map: "".to_string(),
                             };
                             if let Ok(json_value) = read_from_json(format!("Resources/config/user_{}.json", input1.replace(" ", "").replace("/", "").replace("\\", ""))) {
                                 if let Some(read_user) = User::from_json_value(&json_value) {
@@ -471,11 +472,12 @@ impl eframe::App for App {
                                             self.modify_var("reg_enable_name_error_message", input3.replace(" ", "").replace("/", "").replace("\\", "").is_empty() || check_file_exists(format!("Resources/config/user_{}.json", input3.replace(" ", "").replace("/", "")).replace("\\", "")));
                                             if input4 == input5 && !check_file_exists(format!("Resources/config/user_{}.json", input3.replace(" ", "").replace("/", "")).replace("\\", "")) && !input3.replace(" ", "").replace("/", "").replace("\\", "").is_empty(){
                                                     let user_data = object! {
-                                                        "version": 8,
+                                                        "version": 9,
                                                         "name": input3.replace(" ", "").replace("/", "").replace("\\", "").clone(),
                                                         "password": input4.clone(),
                                                         "language": self.config.language,
                                                         "wallpaper": "Resources/assets/images/wallpaper.png".to_string(),
+                                                        "current_map": "map_tutorial".to_string(),
                                                     };
                                                     create_pretty_json(format!("Resources/config/user_{}.json", input3.replace(" ", "").replace("/", "").replace("\\", "")), user_data).unwrap();
                                                     self.modify_var("reg_status", Value::UInt(2));
@@ -539,6 +541,8 @@ impl eframe::App for App {
                     );
                     self.add_var("title_float_status", true);
                     self.add_var("dock_active_status", false);
+                    self.add_var("refreshed_map_data", false);
+                    self.add_var("selected_map", Value::UInt(0));
                     self.add_split_time("title_animation", false);
                     self.add_split_time("dock_animation", false);
                 };
@@ -614,7 +618,7 @@ impl eframe::App for App {
                                                         .clone()
                                                 ),
                                             );
-                                        };
+                                        }
                                         self.config.language = self.login_user_config.language;
                                     });
                             });
@@ -675,7 +679,8 @@ impl eframe::App for App {
                                                 "Resources/assets/images/{}_new_wallpaper.png",
                                                 self.config.login_user_name
                                             )),
-                                        ).unwrap();
+                                        )
+                                        .unwrap();
                                         self.add_image_texture(
                                             "Home_Wallpaper",
                                             &format!(
@@ -735,6 +740,128 @@ impl eframe::App for App {
                         });
                     self.dock(ctx, ui);
                 });
+            }
+            "Home_Select_Map" => {
+                if !self.check_updated(&self.page.clone()) {
+                    self.add_split_time("map_select_animation", false);
+                };
+                egui::CentralPanel::default().show(ctx, |ui| {
+                    self.wallpaper(ui, ctx);
+                    self.dock(ctx, ui);
+                    let map_list = list_files_recursive(Path::new("Resources/config"), "map_")
+                        .unwrap_or_default();
+                    let mut map_move_animation = 0;
+                    if self.var_b("refreshed_map_data") {
+                        let selected_map = self.var_u("selected_map");
+                        let selected_map_id = self.track_resource(self.resource_image.clone(), &format!("Map_{:?}", map_list[selected_map as usize]));
+                        if self.resource_image[selected_map_id].origin_position[0] != 0_f32 && (self.timer.now_time - self.split_time("map_select_animation")[0]) >= self.vertrefresh {
+                            if self.resource_image[selected_map_id].origin_position[0] > 0_f32 {
+                                map_move_animation = 1;
+                            } else {
+                                map_move_animation = 2;
+                            };
+                            self.add_split_time("map_select_animation", true);
+                        };
+                    };
+                    for (i, _) in
+                           map_list.iter().enumerate().take(count_files_recursive(Path::new("Resources/config"), "map_").unwrap_or(0))
+                    {
+                        let mut map_information = Map {
+                            map_name: vec![],
+                            map_author: "".to_string(),
+                            map_image: "".to_string(),
+                            map_width: 0_f32,
+                            map_description: vec![],
+                            map_origin_position: [0_f32, 0_f32],
+                            map_intro: "".to_string(),
+                        };
+                        if let Ok(json_value) =
+                            read_from_json(map_list[i].to_string_lossy().to_string())
+                        {
+                            if let Some(read_map_information) = Map::from_json_value(&json_value) {
+                                map_information = read_map_information;
+                            }
+                            if !check_resource_exist(
+                                self.resource_image_texture.clone(),
+                                &format!("Map_{:?}", map_list[i]),
+                            ) && !self.var_b("refreshed_map_data")
+                            {
+                                self.add_image_texture(
+                                    &format!("Map_{:?}", map_list[i]),
+                                    &map_information.map_intro,
+                                    [false, false],
+                                    true,
+                                    ctx,
+                                );
+                                self.add_image(
+                                    &format!("Map_{:?}", map_list[i]),
+                                    [(450 * i) as f32, 0_f32, 400_f32, 400_f32],
+                                    [
+                                        1,
+                                        2,
+                                        1,
+                                        2,
+                                    ],
+                                    [false, false, true, true, true],
+                                    [255, 255, 255, 255, 255],
+                                    &format!("Map_{:?}", map_list[i]),
+                                );
+                                self.add_switch(
+                                    [
+                                        &format!("Map_{:?}", map_list[i]),
+                                        &format!("Map_{:?}", map_list[i]),
+                                    ],
+                                    vec![
+                                        SwitchData {
+                                            texture: format!("Map_{:?}", map_list[i]),
+                                            color: [255, 255, 255, 255],
+                                        },
+                                        SwitchData {
+                                            texture: format!("Map_{:?}", map_list[i]),
+                                            color: [180, 180, 180, 255],
+                                        },
+                                        SwitchData {
+                                            texture: format!("Map_{:?}", map_list[i]),
+                                            color: [150, 150, 150, 255],
+                                        },
+                                    ],
+                                    [true, true, true],
+                                    1,
+                                    vec![SwitchClickAction {
+                                        click_method: egui::PointerButton::Primary,
+                                        action: false,
+                                    }],
+                                );
+                            };
+                        };
+                        if map_move_animation != 0 {
+                            let id = self.track_resource(self.resource_image.clone(), &format!("Map_{:?}", map_list[i]));
+                            if map_move_animation == 1 {
+                                self.resource_image[id].origin_position[0] -= 30_f32;
+                            } else {
+                                self.resource_image[id].origin_position[0] += 30_f32;
+                            };
+                        };
+                        if self.switch(&format!("Map_{:?}", map_list[i]), ui, ctx, true)[0] == 0 {
+                            self.login_user_config.current_map =
+                                map_list[i].to_string_lossy().to_string();
+                            self.switch_page("Select_Level");
+                        };
+                    };
+                    self.modify_var("refreshed_map_data", true);
+                    if self.switch("Forward", ui, ctx, true)[0] == 0 && self.var_u("selected_map") < (count_files_recursive(Path::new("Resources/config"), "map_").unwrap_or(0) - 1) as u32 {
+                        let selected_map = self.var_u("selected_map");
+                        self.modify_var("selected_map", Value::UInt(selected_map + 1));
+                    };
+                    if self.switch("Backward", ui, ctx, true)[0] == 0 && self.var_u("selected_map") > 0 {
+                        let selected_map = self.var_u("selected_map");
+                        self.modify_var("selected_map", Value::UInt(selected_map - 1));
+                    };
+                });
+            }
+            "Select_Level" => {
+                self.check_updated(&self.page.clone());
+                egui::CentralPanel::default().show(ctx, |_ui| {});
             }
             "Error" => {
                 self.check_updated(&self.page.clone());

@@ -5,10 +5,10 @@
     ],
     "map_author": "ChepleBob",
     "map_image": "Resources/assets/images/map_tutorial.png",
-    "map_size": [4000.0, 3000.0],
+    "map_width": 3000.0,
     "map_description": [
-        "起点",
-        "Origin"
+        "第一章",
+        "Chapter 1"
     ],
     "map_origin_position": [0.0, 0.0],
     "map_intro": "Resources/assets/images/map_tutorial_intro.png"

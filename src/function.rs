@@ -157,6 +157,43 @@ pub fn general_click_feedback() {
     });
 }
 
+pub fn count_files_recursive(dir: &Path, target: &str) -> std::io::Result<usize> {
+    let mut count = 0;
+    if dir.is_dir() {
+        for entry in fs::read_dir(dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_dir() {
+                count += count_files_recursive(&path, target)?;
+            } else if path.file_name().unwrap().to_string_lossy().contains(target) {
+                count += 1;
+            }
+        }
+    }
+    Ok(count)
+}
+
+pub fn list_files_recursive(path: &Path, prefix: &str) -> Result<Vec<PathBuf>, std::io::Error> {
+    let mut matches = Vec::new();
+
+    for entry in std::fs::read_dir(path)? {
+        // 遍历目录
+        let entry = entry?;
+        let path = entry.path();
+
+        if path.is_dir() {
+            // 递归处理子目录
+            matches.extend(list_files_recursive(&path, prefix)?);
+        } else if let Some(file_name) = path.file_name() {
+            if file_name.to_string_lossy().contains(prefix) {
+                matches.push(path);
+            }
+        }
+    }
+
+    Ok(matches)
+}
+
 fn load_fonts(ctx: &egui::Context) {
     let mut fonts = egui::FontDefinitions::default();
     fonts.font_data.insert(
@@ -242,7 +279,7 @@ pub struct Map {
     pub map_name: Vec<String>,
     pub map_author: String,
     pub map_image: String,
-    pub map_size: [f32; 2],
+    pub map_width: f32,
     pub map_description: Vec<String>,
     pub map_origin_position: [f32; 2],
     pub map_intro: String,
@@ -253,31 +290,30 @@ impl Map {
     pub fn from_json_value(value: &JsonValue) -> Option<Self> {
         Some(Self {
             // 处理map_name数组
-            map_name: value["map_name"].members()
+            map_name: value["map_name"]
+                .members()
                 .filter_map(|v| v.as_str().map(String::from))
                 .collect::<Vec<_>>(),
-            
+
             // 安全解包字符串字段
             map_author: value["map_author"].as_str()?.to_string(),
             map_image: value["map_image"].as_str()?.to_string(),
-            
+
             // 处理浮点数组
-            map_size: [
-                value["map_size"][0].as_f32()?,
-                value["map_size"][1].as_f32()?
-            ],
-            
+            map_width: value["map_width"].as_f32()?,
+
             // 处理描述数组
-            map_description: value["map_description"].members()
+            map_description: value["map_description"]
+                .members()
                 .filter_map(|v| v.as_str().map(String::from))
                 .collect::<Vec<_>>(),
-            
+
             // 处理坐标数组
             map_origin_position: [
                 value["map_origin_position"][0].as_f32()?,
-                value["map_origin_position"][1].as_f32()?
+                value["map_origin_position"][1].as_f32()?,
             ],
-            
+
             map_intro: value["map_intro"].as_str()?.to_string(),
         })
     }
@@ -287,10 +323,7 @@ impl Map {
             map_name: self.map_name.clone(),
             map_author: self.map_author.clone(),
             map_image: self.map_image.clone(),
-            map_size: [
-                self.map_size[0].to_f64(),
-                self.map_size[1].to_f64()
-            ],
+            map_width: self.map_width.to_f64(),
             map_description: self.map_description.clone(),
             map_origin_position: [
                 self.map_origin_position[0].to_f64(),
@@ -309,6 +342,7 @@ pub struct User {
     pub password: String,
     pub language: u8,
     pub wallpaper: String,
+    pub current_map: String,
 }
 
 #[allow(dead_code)]
@@ -320,6 +354,7 @@ impl User {
             password: value["password"].as_str()?.to_string(),
             language: value["language"].as_u8()?,
             wallpaper: value["wallpaper"].as_str()?.to_string(),
+            current_map: value["current_map"].as_str()?.to_string(),
         })
     }
 
@@ -330,6 +365,7 @@ impl User {
             password: self.password.clone(),
             language: self.language,
             wallpaper: self.wallpaper.clone(),
+            current_map: self.current_map.clone(),
         }
     }
 }
@@ -703,8 +739,8 @@ pub struct RenderResource {
 
 #[derive(Clone, Debug)]
 pub struct SwitchData {
-    texture: String,
-    color: [u8; 4],
+    pub texture: String,
+    pub color: [u8; 4],
 }
 
 #[derive(Clone, Debug)]
@@ -772,6 +808,7 @@ impl App {
                 password: "".to_string(),
                 language: 0,
                 wallpaper: "".to_string(),
+                current_map: "".to_string(),
             },
             frame: Frame {
                 ..Default::default()
@@ -800,6 +837,18 @@ impl App {
                 PageData {
                     discern_type: "PageData".to_string(),
                     name: "Home_Setting".to_string(),
+                    forced_update: true,
+                    change_page_updated: false,
+                },
+                PageData {
+                    discern_type: "PageData".to_string(),
+                    name: "Home_Select_Map".to_string(),
+                    forced_update: true,
+                    change_page_updated: false,
+                },
+                PageData {
+                    discern_type: "PageData".to_string(),
+                    name: "Select_Level".to_string(),
                     forced_update: true,
                     change_page_updated: false,
                 },
@@ -1333,6 +1382,82 @@ impl App {
             [100, 100, 100, 125, 255, 255, 255, 255],
             0.0,
         );
+        self.add_image_texture(
+            "Forward",
+            "Resources/assets/images/go.png",
+            [false, false],
+            true,
+            ctx,
+        );
+        self.add_image_texture(
+            "Backward",
+            "Resources/assets/images/go.png",
+            [true, false],
+            true,
+            ctx,
+        );
+        self.add_image(
+            "Forward",
+            [50_f32, -100_f32, 50_f32, 50_f32],
+            [1, 2, 1, 1],
+            [true, false, false, false, false],
+            [255, 0, 0, 0, 0],
+            "Forward",
+        );
+        self.add_image(
+            "Backward",
+            [-50_f32, -100_f32, 50_f32, 50_f32],
+            [1, 2, 1, 1],
+            [false, false, false, false, false],
+            [255, 0, 0, 0, 0],
+            "Backward",
+        );
+        self.add_switch(
+            ["Forward", "Forward"],
+            vec![
+                SwitchData {
+                    texture: "Forward".to_string(),
+                    color: [255, 255, 255, 255],
+                },
+                SwitchData {
+                    texture: "Forward".to_string(),
+                    color: [180, 180, 180, 255],
+                },
+                SwitchData {
+                    texture: "Forward".to_string(),
+                    color: [150, 150, 150, 255],
+                },
+            ],
+            [true, true, true],
+            1,
+            vec![SwitchClickAction {
+                click_method: PointerButton::Primary,
+                action: false,
+            }],
+        );
+        self.add_switch(
+            ["Backward", "Backward"],
+            vec![
+                SwitchData {
+                    texture: "Backward".to_string(),
+                    color: [255, 255, 255, 255],
+                },
+                SwitchData {
+                    texture: "Backward".to_string(),
+                    color: [180, 180, 180, 255],
+                },
+                SwitchData {
+                    texture: "Backward".to_string(),
+                    color: [150, 150, 150, 255],
+                },
+            ],
+            [true, true, true],
+            1,
+            vec![SwitchClickAction {
+                click_method: PointerButton::Primary,
+                action: false,
+            }],
+        );
         self.add_rect(
             "Error_Pages_Background",
             [
@@ -1538,12 +1663,14 @@ impl App {
                 write_to_json(
                     format!("Resources/config/user_{}.json", self.config.login_user_name),
                     self.login_user_config.to_json_value(),
-                ).unwrap();
+                )
+                .unwrap();
                 if self.resource_switch[id2].state == 0 {
                     write_to_json(
                         "Resources/config/Preferences.json",
                         self.config.to_json_value(),
-                    ).unwrap();
+                    )
+                    .unwrap();
                     exit(0);
                 } else {
                     self.config.login_user_name = "".to_string();
@@ -1554,9 +1681,10 @@ impl App {
                 }
             };
             if self.switch("Home_Journey", ui, ctx, true)[0] == 0 {
-                std::thread::spawn(|| {
-                    kira_play_wav("Resources/assets/sounds/Error.wav").unwrap();
-                });
+                if check_resource_exist(self.timer.split_time.clone(), "map_select_animation") {
+                    self.add_split_time("map_select_animation", true);
+                };
+                self.switch_page("Home_Select_Map");
             };
         };
         self.resource_rect[id].size[0] = ctx.available_rect().width() - 100_f32;
