@@ -281,7 +281,6 @@ pub struct Map {
     pub map_image: String,
     pub map_width: f32,
     pub map_description: Vec<String>,
-    pub map_origin_position: [f32; 2],
     pub map_intro: String,
 }
 
@@ -308,12 +307,6 @@ impl Map {
                 .filter_map(|v| v.as_str().map(String::from))
                 .collect::<Vec<_>>(),
 
-            // 处理坐标数组
-            map_origin_position: [
-                value["map_origin_position"][0].as_f32()?,
-                value["map_origin_position"][1].as_f32()?,
-            ],
-
             map_intro: value["map_intro"].as_str()?.to_string(),
         })
     }
@@ -325,10 +318,6 @@ impl Map {
             map_image: self.map_image.clone(),
             map_width: self.map_width.to_f64(),
             map_description: self.map_description.clone(),
-            map_origin_position: [
-                self.map_origin_position[0].to_f64(),
-                self.map_origin_position[1].to_f64()
-            ],
             map_intro: self.map_intro.clone(),
         }
     }
@@ -1021,8 +1010,8 @@ impl App {
             ctx,
         );
         self.add_image_texture(
-            "Power",
-            "Resources/assets/images/power.png",
+            "Shutdown",
+            "Resources/assets/images/shutdown.png",
             [false, false],
             true,
             ctx,
@@ -1072,12 +1061,12 @@ impl App {
             "Gun_Logo",
         );
         self.add_image(
-            "Power",
+            "Shutdown",
             [-75_f32, 25_f32, 50_f32, 50_f32],
             [1, 2, 7, 8],
             [true, true, true, true, false],
             [255, 0, 0, 0, 0],
-            "Power",
+            "Shutdown",
         );
         self.add_image(
             "Register",
@@ -1142,18 +1131,22 @@ impl App {
             [1, 2, 1, 6],
         );
         self.add_switch(
-            ["Power", "Power"],
+            ["Shutdown", "Shutdown"],
             vec![
                 SwitchData {
-                    texture: "Power".to_string(),
+                    texture: "Shutdown".to_string(),
                     color: [255, 255, 255, 255],
                 },
                 SwitchData {
-                    texture: "Power".to_string(),
-                    color: [200, 200, 200, 255],
+                    texture: "Shutdown".to_string(),
+                    color: [180, 180, 180, 255],
+                },
+                SwitchData {
+                    texture: "Shutdown".to_string(),
+                    color: [150, 150, 150, 255],
                 },
             ],
-            [false, true, true],
+            [true, true, true],
             1,
             vec![SwitchClickAction {
                 click_method: PointerButton::Primary,
@@ -1169,10 +1162,14 @@ impl App {
                 },
                 SwitchData {
                     texture: "Register".to_string(),
-                    color: [200, 200, 200, 255],
+                    color: [180, 180, 180, 255],
+                },
+                SwitchData {
+                    texture: "Register".to_string(),
+                    color: [150, 150, 150, 255],
                 },
             ],
-            [false, true, true],
+            [true, true, true],
             1,
             vec![SwitchClickAction {
                 click_method: PointerButton::Primary,
@@ -1188,10 +1185,14 @@ impl App {
                 },
                 SwitchData {
                     texture: "Login".to_string(),
-                    color: [200, 200, 200, 255],
+                    color: [180, 180, 180, 255],
+                },
+                SwitchData {
+                    texture: "Login".to_string(),
+                    color: [150, 150, 150, 255],
                 },
             ],
-            [false, true, true],
+            [true, true, true],
             1,
             vec![SwitchClickAction {
                 click_method: PointerButton::Primary,
@@ -1208,6 +1209,13 @@ impl App {
         self.add_image_texture(
             "Settings",
             "Resources/assets/images/settings.png",
+            [false, false],
+            true,
+            ctx,
+        );
+        self.add_image_texture(
+            "Power",
+            "Resources/assets/images/power.png",
             [false, false],
             true,
             ctx,
@@ -1496,6 +1504,138 @@ impl App {
             false,
             [1, 5, 3, 6],
         );
+        self.add_rect(
+            "Cut_To_Background",
+            [
+                0_f32,
+                0_f32,
+                ctx.available_rect().width(),
+                ctx.available_rect().height(),
+                0_f32,
+            ],
+            [1, 2, 1, 2],
+            [false, false, true, true],
+            [0, 0, 0, 0, 255, 255, 255, 255],
+            0.0,
+        );
+        self.add_image_texture(
+            "Scroll_Forward",
+            "Resources/assets/images/scroll_remind.png",
+            [true, false],
+            true,
+            ctx,
+        );
+        self.add_image(
+            "Scroll_Forward",
+            [
+                0_f32,
+                0_f32,
+                50_f32,
+                ctx.available_rect().height(),
+            ],
+            [1, 1, 1, 2],
+            [false, true, false, true, false],
+            [100, 0, 0, 0, 0],
+            "Scroll_Forward",
+        );
+        self.add_image_texture(
+            "Back",
+            "Resources/assets/images/back.png",
+            [true, false],
+            true,
+            ctx,
+        );
+        self.add_image(
+            "Back",
+            [
+                60_f32,
+                10_f32,
+                50_f32,
+                50_f32,
+            ],
+            [0, 1, 0, 1],
+            [true, true, false, false, false],
+            [255, 0, 0, 0, 0],
+            "Back",
+        );
+        self.add_switch(
+            ["Back", "Back"],
+            vec![
+                SwitchData {
+                    texture: "Back".to_string(),
+                    color: [255, 255, 255, 255],
+                },
+                SwitchData {
+                    texture: "Back".to_string(),
+                    color: [180, 180, 180, 255],
+                },
+                SwitchData {
+                    texture: "Back".to_string(),
+                    color: [150, 150, 150, 255],
+                },
+            ],
+            [true, true, true],
+            1,
+            vec![SwitchClickAction {
+                click_method: PointerButton::Primary,
+                action: false,
+            }],
+        );
+        self.add_image_texture(
+            "Scroll_Backward",
+            "Resources/assets/images/scroll_remind.png",
+            [false, false],
+            true,
+            ctx,
+        );
+        self.add_image(
+            "Scroll_Backward",
+            [
+                0_f32,
+                0_f32,
+                50_f32,
+                ctx.available_rect().height(),
+            ],
+            [0, 1, 1, 2],
+            [true, true, false, true, false],
+            [100, 0, 0, 0, 0],
+            "Scroll_Backward",
+        );
+    }
+
+    pub fn fade(
+        &mut self,
+        fade_in_or_out: bool,
+        ctx: &egui::Context,
+        ui: &mut Ui,
+        split_time_name: &str,
+        resource_name: &str,
+    ) -> u8 {
+        let cut_to_rect_id = self.track_resource(self.resource_rect.clone(), resource_name);
+        self.resource_rect[cut_to_rect_id].size =
+            [ctx.available_rect().width(), ctx.available_rect().height()];
+        if self.timer.now_time - self.split_time(split_time_name)[0] >= self.vertrefresh {
+            self.add_split_time(split_time_name, true);
+            if fade_in_or_out {
+                if self.resource_rect[cut_to_rect_id].color[3] < 255 {
+                    for _ in 0..20 {
+                        if self.resource_rect[cut_to_rect_id].color[3] < 255 {
+                            self.resource_rect[cut_to_rect_id].color[3] += 1;
+                        };
+                    }
+                };
+            } else {
+                if self.resource_rect[cut_to_rect_id].color[3] > 0 {
+                    for _ in 0..20 {
+                        if self.resource_rect[cut_to_rect_id].color[3] > 0 {
+                            self.resource_rect[cut_to_rect_id].color[3] -= 1;
+                        };
+                    }
+                };
+            };
+        };
+        self.rect(ui, resource_name, ctx);
+        self.resource_rect[cut_to_rect_id].color[3]
     }
 
     pub fn problem_report(
@@ -1681,6 +1821,9 @@ impl App {
                 }
             };
             if self.switch("Home_Journey", ui, ctx, true)[0] == 0 {
+                self.timer.start_time = self.timer.total_time;
+                self.update_timer();
+                self.add_split_time("dock_animation", true);
                 if check_resource_exist(self.timer.split_time.clone(), "map_select_animation") {
                     self.add_split_time("map_select_animation", true);
                 };
@@ -2826,8 +2969,10 @@ impl App {
         if appearance.len() as u32 != count * switch_amounts_state {
             if self.config.rc_strict_mode {
                 panic!(
-                    "RustConstructor Error[Switch load failed]: \"{}\" switch is missing/extra {} resources!",
+                    "{}{}:{}",
                     name_and_switch_image_name[0],
+                    self.game_text.game_text["error_switch_appearance_mismatch"]
+                        [self.config.language as usize],
                     count * switch_amounts_state - appearance.len() as u32
                 );
             } else {

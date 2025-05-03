@@ -64,8 +64,10 @@ impl eframe::App for App {
                     self.add_var("debug_fps_window", false);
                     self.add_var("debug_resource_list_window", false);
                     self.add_var("debug_problem_window", false);
+                    self.add_var("cut_to", false);
                     self.add_split_time("0", false);
                     self.add_split_time("fade_animation", false);
+                    self.add_split_time("cut_to_animation", false);
                 };
                 let id = self.track_resource(self.resource_rect.clone(), "Background");
                 self.resource_rect[id].size =
@@ -339,7 +341,7 @@ impl eframe::App for App {
                             };
                         });
                     let no_window = !self.var_b("open_reg_window");
-                    if self.switch("Power", ui, ctx, no_window)[0] != 5 {
+                    if self.switch("Shutdown", ui, ctx, no_window)[0] != 5 {
                         write_to_json("Resources/config/Preferences.json", self.config.to_json_value()).unwrap();
                         exit(0);
                     };
@@ -472,7 +474,7 @@ impl eframe::App for App {
                                             self.modify_var("reg_enable_name_error_message", input3.replace(" ", "").replace("/", "").replace("\\", "").is_empty() || check_file_exists(format!("Resources/config/user_{}.json", input3.replace(" ", "").replace("/", "")).replace("\\", "")));
                                             if input4 == input5 && !check_file_exists(format!("Resources/config/user_{}.json", input3.replace(" ", "").replace("/", "")).replace("\\", "")) && !input3.replace(" ", "").replace("/", "").replace("\\", "").is_empty(){
                                                     let user_data = object! {
-                                                        "version": 9,
+                                                        "version": 10,
                                                         "name": input3.replace(" ", "").replace("/", "").replace("\\", "").clone(),
                                                         "password": input4.clone(),
                                                         "language": self.config.language,
@@ -744,17 +746,32 @@ impl eframe::App for App {
             "Home_Select_Map" => {
                 if !self.check_updated(&self.page.clone()) {
                     self.add_split_time("map_select_animation", false);
+                    self.add_var("fade_in_or_out", true);
+                };
+                let mut map_information = Map {
+                    map_name: vec![],
+                    map_author: "".to_string(),
+                    map_image: "".to_string(),
+                    map_width: 0_f32,
+                    map_description: vec![],
+                    map_intro: "".to_string(),
                 };
                 egui::CentralPanel::default().show(ctx, |ui| {
                     self.wallpaper(ui, ctx);
-                    self.dock(ctx, ui);
                     let map_list = list_files_recursive(Path::new("Resources/config"), "map_")
                         .unwrap_or_default();
                     let mut map_move_animation = 0;
+                    let enable = !self.var_b("cut_to");
                     if self.var_b("refreshed_map_data") {
                         let selected_map = self.var_u("selected_map");
-                        let selected_map_id = self.track_resource(self.resource_image.clone(), &format!("Map_{:?}", map_list[selected_map as usize]));
-                        if self.resource_image[selected_map_id].origin_position[0] != 0_f32 && (self.timer.now_time - self.split_time("map_select_animation")[0]) >= self.vertrefresh {
+                        let selected_map_id = self.track_resource(
+                            self.resource_image.clone(),
+                            &format!("Map_{:?}", map_list[selected_map as usize]),
+                        );
+                        if self.resource_image[selected_map_id].origin_position[0] != 0_f32
+                            && (self.timer.now_time - self.split_time("map_select_animation")[0])
+                                >= self.vertrefresh
+                        {
                             if self.resource_image[selected_map_id].origin_position[0] > 0_f32 {
                                 map_move_animation = 1;
                             } else {
@@ -763,18 +780,9 @@ impl eframe::App for App {
                             self.add_split_time("map_select_animation", true);
                         };
                     };
-                    for (i, _) in
-                           map_list.iter().enumerate().take(count_files_recursive(Path::new("Resources/config"), "map_").unwrap_or(0))
-                    {
-                        let mut map_information = Map {
-                            map_name: vec![],
-                            map_author: "".to_string(),
-                            map_image: "".to_string(),
-                            map_width: 0_f32,
-                            map_description: vec![],
-                            map_origin_position: [0_f32, 0_f32],
-                            map_intro: "".to_string(),
-                        };
+                    for (i, _) in map_list.iter().enumerate().take(
+                        count_files_recursive(Path::new("Resources/config"), "map_").unwrap_or(0),
+                    ) {
                         if let Ok(json_value) =
                             read_from_json(map_list[i].to_string_lossy().to_string())
                         {
@@ -796,12 +804,7 @@ impl eframe::App for App {
                                 self.add_image(
                                     &format!("Map_{:?}", map_list[i]),
                                     [(450 * i) as f32, 0_f32, 400_f32, 400_f32],
-                                    [
-                                        1,
-                                        2,
-                                        1,
-                                        2,
-                                    ],
+                                    [1, 2, 1, 2],
                                     [false, false, true, true, true],
                                     [255, 255, 255, 255, 255],
                                     &format!("Map_{:?}", map_list[i]),
@@ -835,33 +838,166 @@ impl eframe::App for App {
                             };
                         };
                         if map_move_animation != 0 {
-                            let id = self.track_resource(self.resource_image.clone(), &format!("Map_{:?}", map_list[i]));
+                            let id = self.track_resource(
+                                self.resource_image.clone(),
+                                &format!("Map_{:?}", map_list[i]),
+                            );
                             if map_move_animation == 1 {
                                 self.resource_image[id].origin_position[0] -= 30_f32;
                             } else {
                                 self.resource_image[id].origin_position[0] += 30_f32;
                             };
                         };
-                        if self.switch(&format!("Map_{:?}", map_list[i]), ui, ctx, true)[0] == 0 {
+                        if self.switch(&format!("Map_{:?}", map_list[i]), ui, ctx, enable)[0] == 0 {
+                            self.modify_var("cut_to", true);
+                            self.modify_var("fade_in_or_out", true);
                             self.login_user_config.current_map =
                                 map_list[i].to_string_lossy().to_string();
-                            self.switch_page("Select_Level");
                         };
-                    };
+                    }
                     self.modify_var("refreshed_map_data", true);
-                    if self.switch("Forward", ui, ctx, true)[0] == 0 && self.var_u("selected_map") < (count_files_recursive(Path::new("Resources/config"), "map_").unwrap_or(0) - 1) as u32 {
+                    if self.switch("Forward", ui, ctx, enable)[0] == 0
+                        && self.var_u("selected_map")
+                            < (count_files_recursive(Path::new("Resources/config"), "map_")
+                                .unwrap_or(0)
+                                - 1) as u32
+                    {
                         let selected_map = self.var_u("selected_map");
                         self.modify_var("selected_map", Value::UInt(selected_map + 1));
                     };
-                    if self.switch("Backward", ui, ctx, true)[0] == 0 && self.var_u("selected_map") > 0 {
+                    if self.switch("Backward", ui, ctx, enable)[0] == 0
+                        && self.var_u("selected_map") > 0
+                    {
                         let selected_map = self.var_u("selected_map");
                         self.modify_var("selected_map", Value::UInt(selected_map - 1));
+                    };
+                    if !self.var_b("cut_to") {
+                        self.dock(ctx, ui);
+                    } else {
+                        let fade_in_or_out = self.var_b("fade_in_or_out");
+                        if self.fade(fade_in_or_out, ctx, ui, "cut_to_animation", "Cut_To_Background") == 255 && fade_in_or_out {
+                            if let Ok(json_value) =
+                                read_from_json(&self.login_user_config.current_map)
+                            {
+                                if let Some(read_map_information) =
+                                    Map::from_json_value(&json_value)
+                                {
+                                    map_information = read_map_information;
+                                }
+                            };
+                            self.add_image_texture(
+                                &format!("{}", map_information.map_image),
+                                &format!("{}", map_information.map_image),
+                                [false, false],
+                                true,
+                                ctx,
+                            );
+                            self.add_image(
+                                &format!("{}", map_information.map_image),
+                                [
+                                    0_f32,
+                                    0_f32,
+                                    map_information.map_width,
+                                    ctx.available_rect().height(),
+                                ],
+                                [0, 0, 0, 0],
+                                [true, true, false, false, false],
+                                [255, 0, 0, 0, 0],
+                                &format!("{}", map_information.map_image),
+                            );
+                            self.modify_var("fade_in_or_out", false);
+                            self.switch_page("Select_Level");
+                            self.timer.start_time = self.timer.total_time;
+                            self.update_timer();
+                            self.add_split_time("cut_to_animation", true);
+                            if check_resource_exist(self.timer.split_time.clone(), "scroll_animation") {
+                                self.add_split_time("scroll_animation", true);
+                            };
+                        } else if self.fade(fade_in_or_out, ctx, ui, "cut_to_animation", "Cut_To_Background") == 0 && !fade_in_or_out {
+                            self.modify_var("cut_to", false);
+                        };
                     };
                 });
             }
             "Select_Level" => {
-                self.check_updated(&self.page.clone());
-                egui::CentralPanel::default().show(ctx, |_ui| {});
+                let mut map_information = Map {
+                    map_name: vec![],
+                    map_author: "".to_string(),
+                    map_image: "".to_string(),
+                    map_width: 0_f32,
+                    map_description: vec![],
+                    map_intro: "".to_string(),
+                };
+                if let Ok(json_value) = read_from_json(&self.login_user_config.current_map) {
+                    if let Some(read_map_information) = Map::from_json_value(&json_value) {
+                        map_information = read_map_information;
+                    }
+                };
+                if !self.check_updated(&self.page.clone()) {
+                    self.add_split_time("scroll_animation", false);
+                };
+                egui::CentralPanel::default().show(ctx, |ui| {
+                    let map_background_id = self.track_resource(
+                        self.resource_image.clone(),
+                        &format!("{}", map_information.map_image),
+                    );
+                    let scroll_remind_id =
+                        self.track_resource(self.resource_image.clone(), "Scroll_Forward");
+                    let scroll_remind_id2 =
+                        self.track_resource(self.resource_image.clone(), "Scroll_Backward");
+                    self.resource_image[map_background_id].image_size[1] =
+                        ctx.available_rect().height();
+                    self.resource_image[scroll_remind_id].image_size[1] =
+                        ctx.available_rect().height();
+                    self.resource_image[scroll_remind_id2].image_size[1] =
+                        ctx.available_rect().height();
+                    self.image(ui, &format!("{}", map_information.map_image), ctx);
+                    if self.switch("Back", ui, ctx, true)[0] == 0 {
+                        self.modify_var("fade_in_or_out", true);
+                        self.modify_var("cut_to", true);
+                    };
+                    self.image(ui, "Scroll_Forward", ctx);
+                    self.image(ui, "Scroll_Backward", ctx);
+                    if let Some(mouse_pos) = ui.input(|i| i.pointer.hover_pos()) {
+                        if self.timer.now_time - self.split_time("scroll_animation")[0] >= self.vertrefresh {
+                            if mouse_pos.x < 50_f32 && self.resource_image[map_background_id].image_position[0] < 0_f32 {
+                                for _ in 0..10 {
+                                    if self.resource_image[map_background_id].image_position[0] < 0_f32 {
+                                        self.resource_image[map_background_id].image_position[0] += 1_f32;
+                                    } else {
+                                        break
+                                    };
+                                };
+                            } else if mouse_pos.x > (ctx.available_rect().width() - 50_f32) && self.resource_image[map_background_id].image_position[0] > ctx.available_rect().width() - map_information.map_width {
+                                for _ in 0..10 {
+                                    if self.resource_image[map_background_id].image_position[0] > ctx.available_rect().width() - map_information.map_width {
+                                        self.resource_image[map_background_id].image_position[0] -= 1_f32;
+                                    } else {
+                                        break
+                                    };
+                                };
+                            };
+                            self.add_split_time("scroll_animation", true);
+                        };
+                    };
+                    if self.resource_image[map_background_id].image_position[0] < ctx.available_rect().width() - map_information.map_width {
+                        self.resource_image[map_background_id].image_position[0] = ctx.available_rect().width() - map_information.map_width;
+                    };
+                    if self.var_b("cut_to") {
+                        let fade_in_or_out = self.var_b("fade_in_or_out");
+                        if self.fade(fade_in_or_out, ctx, ui, "cut_to_animation", "Cut_To_Background") == 255 && fade_in_or_out {
+                            self.timer.start_time = self.timer.total_time;
+                            self.update_timer();
+                            self.add_split_time("cut_to_animation", true);
+                            self.add_split_time("dock_animation", true);
+                            self.add_split_time("map_select_animation", true);
+                            self.modify_var("fade_in_or_out", false);
+                            self.switch_page("Home_Select_Map");
+                        } else if self.fade(fade_in_or_out, ctx, ui, "cut_to_animation", "Cut_To_Background") == 0 && !fade_in_or_out {
+                            self.modify_var("cut_to", false);
+                        };
+                    };
+                });
             }
             "Error" => {
                 self.check_updated(&self.page.clone());
