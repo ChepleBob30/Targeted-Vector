@@ -10,5 +10,37 @@
         "第一章",
         "Chapter 1"
     ],
-    "map_intro": "Resources/assets/images/map_tutorial_intro.png"
+    "map_intro": "Resources/assets/images/map_tutorial_intro.png",
+    "map_content": [
+        {
+            "level_name": "1-1",
+            "level_description": [
+                "施朗",
+                "Shilang"
+            ],
+            "level_type": "main",
+            "level_position": [
+                100.0,
+                400.0
+            ]
+        },
+        {
+            "level_name": "1-2",
+            "level_description": [
+                "施朗",
+                "Shilang"
+            ],
+            "level_type": "hell",
+            "level_position": [
+                2000.0,
+                200.0
+            ]
+        }
+    ],
+    "map_connecting_line": [
+        [
+            "1-1",
+            "1-2"
+        ]
+    ]
 }

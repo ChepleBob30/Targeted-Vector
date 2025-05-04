@@ -109,8 +109,8 @@
       "Page"
     ],
     "debug_game_version": [
-      "靶向载体 v0.11.0-alpha.1",
-      "Targeted Vector v0.11.0-alpha.1"
+      "靶向载体 v0.12.0-alpha.1",
+      "Targeted Vector v0.12.0-alpha.1"
     ],
     "debug_game_now_time": [
       "当前页面运行时间",
@@ -447,6 +447,22 @@
     "error_switch_appearance_mismatch_annotation": [
       "此问题会导致开关无法正常显示，请检查资源数量是否与开启的动画数匹配。",
       "This issue will cause the switch to fail to display normally. Please check whether the number of resources matches the number of animations that are enabled."
+    ],
+    "map_information": [
+      "地图信息",
+      "Map information"
+    ],
+    "map_name": [
+      "地图名称",
+      "Map name"
+    ],
+    "map_author": [
+      "地图作者",
+      "Map author"
+    ],
+    "map_description": [
+      "地图描述",
+      "Map description"
     ]
   }
 }

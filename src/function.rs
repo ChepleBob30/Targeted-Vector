@@ -3,7 +3,6 @@ use anyhow::Context;
 use eframe::emath::Rect;
 use eframe::epaint::textures::TextureOptions;
 use eframe::epaint::Stroke;
-use egui::emath::Numeric;
 use egui::{Color32, FontId, Frame, PointerButton, Pos2, Ui, Vec2};
 use json::JsonValue;
 use kira::manager::backend::cpal;
@@ -275,6 +274,14 @@ impl GameText {
 
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
+pub struct Level {
+    pub level_name: String,
+    pub level_description: Vec<String>,
+    pub level_type: String,
+    pub level_position: [f32; 2],
+}
+
+#[derive(Debug, Clone)]
 pub struct Map {
     pub map_name: Vec<String>,
     pub map_author: String,
@@ -282,45 +289,73 @@ pub struct Map {
     pub map_width: f32,
     pub map_description: Vec<String>,
     pub map_intro: String,
+    pub map_content: Vec<Level>,
+    pub map_connecting_line: Vec<[String; 2]>,
 }
 
 #[allow(dead_code)]
 impl Map {
     pub fn from_json_value(value: &JsonValue) -> Option<Self> {
         Some(Self {
-            // 处理map_name数组
             map_name: value["map_name"]
                 .members()
                 .filter_map(|v| v.as_str().map(String::from))
-                .collect::<Vec<_>>(),
+                .collect(),
 
-            // 安全解包字符串字段
             map_author: value["map_author"].as_str()?.to_string(),
             map_image: value["map_image"].as_str()?.to_string(),
-
-            // 处理浮点数组
             map_width: value["map_width"].as_f32()?,
 
-            // 处理描述数组
             map_description: value["map_description"]
                 .members()
                 .filter_map(|v| v.as_str().map(String::from))
-                .collect::<Vec<_>>(),
+                .collect(),
 
             map_intro: value["map_intro"].as_str()?.to_string(),
+
+            map_content: value["map_content"]
+                .members()
+                .filter_map(|v| {
+                    Some(Level {
+                        level_name: v["level_name"].as_str()?.to_string(),
+                        level_description: v["level_description"]
+                            .members()
+                            .filter_map(|d| d.as_str().map(String::from))
+                            .collect(),
+                        level_type: v["level_type"].as_str()?.to_string(),
+                        level_position: [
+                            v["level_position"][0].as_f32()?,
+                            v["level_position"][1].as_f32()?,
+                        ],
+                    })
+                })
+                .collect(),
+
+            map_connecting_line: value["map_connecting_line"]
+                .members()
+                .filter_map(|v| {
+                    let vec: Vec<String> = v
+                        .members() // 先收集到 Vec
+                        .filter_map(|s| s.as_str().map(String::from))
+                        .collect();
+
+                    let pair: [String; 2] = vec.try_into().ok()?; // 再转数组
+                    Some(pair)
+                })
+                .collect(),
         })
     }
 
-    pub fn to_json_value(&self) -> JsonValue {
-        json::object! {
-            map_name: self.map_name.clone(),
-            map_author: self.map_author.clone(),
-            map_image: self.map_image.clone(),
-            map_width: self.map_width.to_f64(),
-            map_description: self.map_description.clone(),
-            map_intro: self.map_intro.clone(),
-        }
-    }
+    // pub fn to_json_value(&self) -> JsonValue {
+    //     json::object! {
+    //         map_name: self.map_name.clone(),
+    //         map_author: self.map_author.clone(),
+    //         map_image: self.map_image.clone(),
+    //         map_width: self.map_width.to_f64(),
+    //         map_description: self.map_description.clone(),
+    //         map_intro: self.map_intro.clone(),
+    //     }
+    // }
 }
 
 #[allow(dead_code)]
@@ -1010,6 +1045,13 @@ impl App {
             ctx,
         );
         self.add_image_texture(
+            "Background2",
+            "Resources/assets/images/wallpaper.png",
+            [true, false],
+            true,
+            ctx,
+        );
+        self.add_image_texture(
             "Shutdown",
             "Resources/assets/images/shutdown.png",
             [false, false],
@@ -1098,7 +1140,7 @@ impl App {
             [1, 0, 1, 0],
             [true, false, false, false, false],
             [255, 0, 0, 0, 0],
-            "Background",
+            "Background2",
         );
         self.add_scroll_background(
             "ScrollWallpaper",
@@ -1406,7 +1448,7 @@ impl App {
         );
         self.add_image(
             "Forward",
-            [50_f32, -100_f32, 50_f32, 50_f32],
+            [150_f32, -100_f32, 50_f32, 50_f32],
             [1, 2, 1, 1],
             [true, false, false, false, false],
             [255, 0, 0, 0, 0],
@@ -1414,7 +1456,7 @@ impl App {
         );
         self.add_image(
             "Backward",
-            [-50_f32, -100_f32, 50_f32, 50_f32],
+            [-150_f32, -100_f32, 50_f32, 50_f32],
             [1, 2, 1, 1],
             [false, false, false, false, false],
             [255, 0, 0, 0, 0],
@@ -1527,12 +1569,7 @@ impl App {
         );
         self.add_image(
             "Scroll_Forward",
-            [
-                0_f32,
-                0_f32,
-                50_f32,
-                ctx.available_rect().height(),
-            ],
+            [0_f32, 0_f32, 50_f32, ctx.available_rect().height()],
             [1, 1, 1, 2],
             [false, true, false, true, false],
             [100, 0, 0, 0, 0],
@@ -1547,12 +1584,7 @@ impl App {
         );
         self.add_image(
             "Back",
-            [
-                60_f32,
-                10_f32,
-                50_f32,
-                50_f32,
-            ],
+            [60_f32, 10_f32, 50_f32, 50_f32],
             [0, 1, 0, 1],
             [true, true, false, false, false],
             [255, 0, 0, 0, 0],
@@ -1590,12 +1622,7 @@ impl App {
         );
         self.add_image(
             "Scroll_Backward",
-            [
-                0_f32,
-                0_f32,
-                50_f32,
-                ctx.available_rect().height(),
-            ],
+            [0_f32, 0_f32, 50_f32, ctx.available_rect().height()],
             [0, 1, 1, 2],
             [true, true, false, true, false],
             [100, 0, 0, 0, 0],
@@ -1619,19 +1646,15 @@ impl App {
             if fade_in_or_out {
                 if self.resource_rect[cut_to_rect_id].color[3] < 255 {
                     for _ in 0..20 {
-                        if self.resource_rect[cut_to_rect_id].color[3] < 255 {
-                            self.resource_rect[cut_to_rect_id].color[3] += 1;
-                        };
+                        self.resource_rect[cut_to_rect_id].color[3] = self.resource_rect[cut_to_rect_id].color[3].saturating_add(1);
                     }
                 };
-            } else {
-                if self.resource_rect[cut_to_rect_id].color[3] > 0 {
-                    for _ in 0..20 {
-                        if self.resource_rect[cut_to_rect_id].color[3] > 0 {
-                            self.resource_rect[cut_to_rect_id].color[3] -= 1;
-                        };
-                    }
-                };
+            } else if self.resource_rect[cut_to_rect_id].color[3] > 0 {
+                for _ in 0..20 {
+                    if self.resource_rect[cut_to_rect_id].color[3] > 0 {
+                        self.resource_rect[cut_to_rect_id].color[3] -= 1;
+                    };
+                }
             };
         };
         self.rect(ui, resource_name, ctx);
@@ -2702,7 +2725,7 @@ impl App {
                         temp_position -= size_position_boundary[0];
                     };
                 }
-                self.resource_image[image_id[count]].image_position =
+                self.resource_image[image_id[count]].origin_position =
                     [temp_position, size_position_boundary[3]];
             } else {
                 for _j in 0..count {
@@ -2712,14 +2735,14 @@ impl App {
                         temp_position -= size_position_boundary[1];
                     };
                 }
-                self.resource_image[image_id[count]].image_position =
+                self.resource_image[image_id[count]].origin_position =
                     [size_position_boundary[2], temp_position];
             };
         }
         let resume_point = if horizontal_or_vertical {
-            self.resource_image[image_id[image_id.len() - 1]].image_position[0]
+            self.resource_image[image_id[image_id.len() - 1]].origin_position[0]
         } else {
-            self.resource_image[image_id[image_id.len() - 1]].image_position[1]
+            self.resource_image[image_id[image_id.len() - 1]].origin_position[1]
         };
         self.resource_scroll_background.push(ScrollBackground {
             discern_type: "ScrollBackground".to_string(),
@@ -2757,23 +2780,23 @@ impl App {
                 if self.resource_scroll_background[id].horizontal_or_vertical {
                     if self.resource_scroll_background[id].left_and_top_or_right_and_bottom {
                         for _j in 0..self.resource_scroll_background[id].scroll_speed {
-                            self.resource_image[id2].image_position[0] -= 1_f32;
+                            self.resource_image[id2].origin_position[0] -= 1_f32;
                             self.scroll_background_check_boundary(id, id2);
                         }
                     } else {
                         for _j in 0..self.resource_scroll_background[id].scroll_speed {
-                            self.resource_image[id2].image_position[0] += 1_f32;
+                            self.resource_image[id2].origin_position[0] += 1_f32;
                             self.scroll_background_check_boundary(id, id2);
                         }
                     };
                 } else if self.resource_scroll_background[id].left_and_top_or_right_and_bottom {
                     for _j in 0..self.resource_scroll_background[id].scroll_speed {
-                        self.resource_image[id2].image_position[1] -= 1_f32;
+                        self.resource_image[id2].origin_position[1] -= 1_f32;
                         self.scroll_background_check_boundary(id, id2);
                     }
                 } else {
                     for _j in 0..self.resource_scroll_background[id].scroll_speed {
-                        self.resource_image[id2].image_position[1] += 1_f32;
+                        self.resource_image[id2].origin_position[1] += 1_f32;
                         self.scroll_background_check_boundary(id, id2);
                     }
                 };
@@ -2784,29 +2807,29 @@ impl App {
     fn scroll_background_check_boundary(&mut self, id: usize, id2: usize) {
         if self.resource_scroll_background[id].horizontal_or_vertical {
             if self.resource_scroll_background[id].left_and_top_or_right_and_bottom {
-                if self.resource_image[id2].image_position[0]
+                if self.resource_image[id2].origin_position[0]
                     <= self.resource_scroll_background[id].boundary
                 {
-                    self.resource_image[id2].image_position[0] =
+                    self.resource_image[id2].origin_position[0] =
                         self.resource_scroll_background[id].resume_point;
                 };
-            } else if self.resource_image[id2].image_position[0]
+            } else if self.resource_image[id2].origin_position[0]
                 >= self.resource_scroll_background[id].boundary
             {
-                self.resource_image[id2].image_position[0] =
+                self.resource_image[id2].origin_position[0] =
                     self.resource_scroll_background[id].resume_point;
             };
         } else if self.resource_scroll_background[id].left_and_top_or_right_and_bottom {
-            if self.resource_image[id2].image_position[1]
+            if self.resource_image[id2].origin_position[1]
                 <= self.resource_scroll_background[id].boundary
             {
-                self.resource_image[id2].image_position[1] =
+                self.resource_image[id2].origin_position[1] =
                     self.resource_scroll_background[id].resume_point;
             };
-        } else if self.resource_image[id2].image_position[1]
+        } else if self.resource_image[id2].origin_position[1]
             >= self.resource_scroll_background[id].boundary
         {
-            self.resource_image[id2].image_position[1] =
+            self.resource_image[id2].origin_position[1] =
                 self.resource_scroll_background[id].resume_point;
         };
     }
@@ -2888,7 +2911,7 @@ impl App {
         let id = self.track_resource(self.resource_image.clone(), name);
         self.resource_image[id].reg_render_resource(&mut self.render_resource_list);
         self.resource_image[id].image_position[0] = match self.resource_image[id].x_grid[1] {
-            0 => self.resource_image[id].image_position[0],
+            0 => self.resource_image[id].origin_position[0],
             _ => {
                 (ctx.available_rect().width() as f64 / self.resource_image[id].x_grid[1] as f64
                     * self.resource_image[id].x_grid[0] as f64) as f32
@@ -2896,7 +2919,7 @@ impl App {
             }
         };
         self.resource_image[id].image_position[1] = match self.resource_image[id].y_grid[1] {
-            0 => self.resource_image[id].image_position[1],
+            0 => self.resource_image[id].origin_position[1],
             _ => {
                 (ctx.available_rect().height() as f64 / self.resource_image[id].y_grid[1] as f64
                     * self.resource_image[id].y_grid[0] as f64) as f32

@@ -1,6 +1,6 @@
 [package]
 name = "Targeted-Vector"
-version = "0.11.0-alpha.1"
+version = "0.12.0-alpha.1"
 edition = "2021"
 authors = ["ChepleBob <Cheple_Bob@outlook.com>"]
 description = "A simple shooting game."
@@ -17,8 +17,8 @@ path = "src/main.rs"
 identifier = "com.cheplebob.targetedvector"
 short_description = "A simple shooting game."
 name = "Targeted Vector"
-version = "0.11.0"
-short-version-string = "0.11"
+version = "0.12.0"
+short-version-string = "0.12"
 category = "public.app-category.games"
 copyright = "Copyright (C) 2025 ChepleBob. All rights reserved"
 icon = ["Resources/assets/images/icon.icns"]

@@ -7,7 +7,7 @@ use crate::function::{
 use chrono::{Local, Timelike};
 use eframe::egui;
 use eframe::epaint::Rounding;
-use egui::{Frame, Shadow, Stroke};
+use egui::{Color32, Frame, PointerButton, Pos2, Shadow, Stroke};
 use json::object;
 use rfd::FileDialog;
 use std::{fs, path::Path, process::exit, vec::Vec};
@@ -474,7 +474,7 @@ impl eframe::App for App {
                                             self.modify_var("reg_enable_name_error_message", input3.replace(" ", "").replace("/", "").replace("\\", "").is_empty() || check_file_exists(format!("Resources/config/user_{}.json", input3.replace(" ", "").replace("/", "")).replace("\\", "")));
                                             if input4 == input5 && !check_file_exists(format!("Resources/config/user_{}.json", input3.replace(" ", "").replace("/", "")).replace("\\", "")) && !input3.replace(" ", "").replace("/", "").replace("\\", "").is_empty(){
                                                     let user_data = object! {
-                                                        "version": 10,
+                                                        "version": 11,
                                                         "name": input3.replace(" ", "").replace("/", "").replace("\\", "").clone(),
                                                         "password": input4.clone(),
                                                         "language": self.config.language,
@@ -755,7 +755,10 @@ impl eframe::App for App {
                     map_width: 0_f32,
                     map_description: vec![],
                     map_intro: "".to_string(),
+                    map_content: vec![],
+                    map_connecting_line: vec![],
                 };
+                let mut map_intro_window_text = ["".to_string(), "".to_string(), "".to_string()];
                 egui::CentralPanel::default().show(ctx, |ui| {
                     self.wallpaper(ui, ctx);
                     let map_list = list_files_recursive(Path::new("Resources/config"), "map_")
@@ -803,7 +806,7 @@ impl eframe::App for App {
                                 );
                                 self.add_image(
                                     &format!("Map_{:?}", map_list[i]),
-                                    [(450 * i) as f32, 0_f32, 400_f32, 400_f32],
+                                    [(450 * i) as f32, -70_f32, 400_f32, 400_f32],
                                     [1, 2, 1, 2],
                                     [false, false, true, true, true],
                                     [255, 255, 255, 255, 255],
@@ -836,6 +839,17 @@ impl eframe::App for App {
                                     }],
                                 );
                             };
+                            if self.var_u("selected_map") == i as u32 {
+                                map_intro_window_text = [
+                                    map_information.map_name
+                                        [self.login_user_config.language as usize]
+                                        .clone(),
+                                    map_information.map_author.clone(),
+                                    map_information.map_description
+                                        [self.login_user_config.language as usize]
+                                        .clone(),
+                                ];
+                            };
                         };
                         if map_move_animation != 0 {
                             let id = self.track_resource(
@@ -856,6 +870,53 @@ impl eframe::App for App {
                         };
                     }
                     self.modify_var("refreshed_map_data", true);
+                    egui::Window::new("chapter_info")
+                        .open(&mut !self.var_b("cut_to"))
+                        .frame(self.frame)
+                        .resizable(false)
+                        .title_bar(false)
+                        .pivot(egui::Align2::CENTER_BOTTOM)
+                        .scroll(true)
+                        .default_size(egui::Vec2::new(200_f32, 100_f32))
+                        .fixed_pos(egui::Pos2::new(
+                            ctx.available_rect().width() / 2_f32,
+                            ctx.available_rect().height() - 100_f32,
+                        ))
+                        .show(ctx, |ui| {
+                            ui.vertical_centered(|ui| {
+                                ui.heading(
+                                    game_text["map_information"][self.config.language as usize]
+                                        .clone(),
+                                );
+                            });
+                            ui.separator();
+                            egui::ScrollArea::vertical()
+                                .max_height(100_f32)
+                                .max_width(200_f32)
+                                .show(ui, |ui| {
+                                    ui.label(format!(
+                                        "{}: {}",
+                                        game_text["map_name"]
+                                            [self.login_user_config.language as usize]
+                                            .clone(),
+                                        map_intro_window_text[0]
+                                    ));
+                                    ui.label(format!(
+                                        "{}: {}",
+                                        game_text["map_author"]
+                                            [self.login_user_config.language as usize]
+                                            .clone(),
+                                        map_intro_window_text[1]
+                                    ));
+                                    ui.label(format!(
+                                        "{}: {}",
+                                        game_text["map_description"]
+                                            [self.login_user_config.language as usize]
+                                            .clone(),
+                                        map_intro_window_text[2]
+                                    ));
+                                });
+                        });
                     if self.switch("Forward", ui, ctx, enable)[0] == 0
                         && self.var_u("selected_map")
                             < (count_files_recursive(Path::new("Resources/config"), "map_")
@@ -875,7 +936,15 @@ impl eframe::App for App {
                         self.dock(ctx, ui);
                     } else {
                         let fade_in_or_out = self.var_b("fade_in_or_out");
-                        if self.fade(fade_in_or_out, ctx, ui, "cut_to_animation", "Cut_To_Background") == 255 && fade_in_or_out {
+                        if self.fade(
+                            fade_in_or_out,
+                            ctx,
+                            ui,
+                            "cut_to_animation",
+                            "Cut_To_Background",
+                        ) == 255
+                            && fade_in_or_out
+                        {
                             if let Ok(json_value) =
                                 read_from_json(&self.login_user_config.current_map)
                             {
@@ -885,35 +954,54 @@ impl eframe::App for App {
                                     map_information = read_map_information;
                                 }
                             };
-                            self.add_image_texture(
-                                &format!("{}", map_information.map_image),
-                                &format!("{}", map_information.map_image),
-                                [false, false],
-                                true,
-                                ctx,
-                            );
-                            self.add_image(
-                                &format!("{}", map_information.map_image),
-                                [
-                                    0_f32,
-                                    0_f32,
-                                    map_information.map_width,
-                                    ctx.available_rect().height(),
-                                ],
-                                [0, 0, 0, 0],
-                                [true, true, false, false, false],
-                                [255, 0, 0, 0, 0],
-                                &format!("{}", map_information.map_image),
-                            );
+                            if !check_resource_exist(self.resource_image_texture.clone(), &map_information.map_image) {
+                                self.add_image_texture(
+                                    &map_information.map_image,
+                                    &map_information.map_image,
+                                    [false, false],
+                                    true,
+                                    ctx,
+                                );
+                                self.add_image(
+                                    &map_information.map_image,
+                                    [
+                                        0_f32,
+                                        0_f32,
+                                        ctx.available_rect().width() + map_information.map_width / 2_f32,
+                                        ctx.available_rect().height(),
+                                    ],
+                                    [0, 0, 0, 0],
+                                    [true, true, false, false, false],
+                                    [255, 0, 0, 0, 0],
+                                    &map_information.map_image,
+                                );
+                            };
                             self.modify_var("fade_in_or_out", false);
                             self.switch_page("Select_Level");
                             self.timer.start_time = self.timer.total_time;
                             self.update_timer();
                             self.add_split_time("cut_to_animation", true);
-                            if check_resource_exist(self.timer.split_time.clone(), "scroll_animation") {
+                            if check_resource_exist(
+                                self.timer.split_time.clone(),
+                                "scroll_animation",
+                            ) {
                                 self.add_split_time("scroll_animation", true);
                             };
-                        } else if self.fade(fade_in_or_out, ctx, ui, "cut_to_animation", "Cut_To_Background") == 0 && !fade_in_or_out {
+                            if check_resource_exist(
+                                self.variables.clone(),
+                                "scroll_offset",
+                            ) {
+                                self.modify_var("scroll_offset", 0_f32);
+                            };
+                        } else if self.fade(
+                            fade_in_or_out,
+                            ctx,
+                            ui,
+                            "cut_to_animation",
+                            "Cut_To_Background",
+                        ) == 0
+                            && !fade_in_or_out
+                        {
                             self.modify_var("cut_to", false);
                         };
                     };
@@ -927,6 +1015,8 @@ impl eframe::App for App {
                     map_width: 0_f32,
                     map_description: vec![],
                     map_intro: "".to_string(),
+                    map_content: vec![],
+                    map_connecting_line: vec![],
                 };
                 if let Ok(json_value) = read_from_json(&self.login_user_config.current_map) {
                     if let Some(read_map_information) = Map::from_json_value(&json_value) {
@@ -935,57 +1025,211 @@ impl eframe::App for App {
                 };
                 if !self.check_updated(&self.page.clone()) {
                     self.add_split_time("scroll_animation", false);
+                    self.add_var("scroll_offset", 0_f32);
                 };
                 egui::CentralPanel::default().show(ctx, |ui| {
                     let map_background_id = self.track_resource(
                         self.resource_image.clone(),
-                        &format!("{}", map_information.map_image),
+                        &map_information.map_image,
                     );
                     let scroll_remind_id =
                         self.track_resource(self.resource_image.clone(), "Scroll_Forward");
                     let scroll_remind_id2 =
                         self.track_resource(self.resource_image.clone(), "Scroll_Backward");
-                    self.resource_image[map_background_id].image_size[1] =
-                        ctx.available_rect().height();
+                    self.resource_image[map_background_id].image_size =
+                        [ctx.available_rect().width() + map_information.map_width / 2_f32, ctx.available_rect().height()];
+                    self.resource_image[map_background_id].origin_position[0] = self.var_f("scroll_offset") / 2_f32;
                     self.resource_image[scroll_remind_id].image_size[1] =
                         ctx.available_rect().height();
                     self.resource_image[scroll_remind_id2].image_size[1] =
                         ctx.available_rect().height();
-                    self.image(ui, &format!("{}", map_information.map_image), ctx);
+                    self.image(ui, &map_information.map_image, ctx);
                     if self.switch("Back", ui, ctx, true)[0] == 0 {
                         self.modify_var("fade_in_or_out", true);
                         self.modify_var("cut_to", true);
                     };
+                    for u in map_information.map_connecting_line.iter() {
+                        let mut line =
+                            vec![Pos2 { x: 0_f32, y: 0_f32 }, Pos2 { x: 0_f32, y: 0_f32 }];
+                        for j in 0..map_information.map_content.len() {
+                            for n in 0..2 {
+                                if map_information.map_content[j].level_name == u[n] {
+                                    line[n] = Pos2 {
+                                        x: map_information.map_content[j].level_position[0] + self.var_f("scroll_offset"),
+                                        y: map_information.map_content[j].level_position[1],
+                                    };
+                                };
+                            }
+                        }
+                        ui.painter().line(
+                            line,
+                            Stroke {
+                                width: 8.0,
+                                color: Color32::from_rgb(255, 255, 255),
+                            },
+                        );
+                    }
+                    for i in 0..map_information.map_content.len() {
+                        if !check_resource_exist(
+                            self.resource_switch.clone(),
+                            &map_information.map_content[i].level_name,
+                        ) {
+                            if !check_resource_exist(
+                                self.resource_image_texture.clone(),
+                                &format!(
+                                    "Resources/assets/images/level_{}0.png",
+                                    map_information.map_content[i].level_type
+                                ),
+                            ) {
+                                self.add_image_texture(
+                                    &format!(
+                                        "Resources/assets/images/level_{}0.png",
+                                        map_information.map_content[i].level_type
+                                    ),
+                                    &format!(
+                                        "Resources/assets/images/level_{}0.png",
+                                        map_information.map_content[i].level_type
+                                    ),
+                                    [false, false],
+                                    true,
+                                    ctx,
+                                );
+                            };
+                            self.add_image(
+                                &map_information.map_content[i].level_name,
+                                [
+                                    map_information.map_content[i].level_position[0],
+                                    map_information.map_content[i].level_position[1],
+                                    80_f32,
+                                    80_f32,
+                                ],
+                                [0, 0, 0, 0],
+                                [false, false, true, true, true],
+                                [255, 255, 255, 255, 255],
+                                &format!(
+                                    "Resources/assets/images/level_{}0.png",
+                                    map_information.map_content[i].level_type
+                                ),
+                            );
+                            self.add_switch(
+                                [
+                                    &map_information.map_content[i].level_name,
+                                    &map_information.map_content[i].level_name,
+                                ],
+                                vec![
+                                    SwitchData {
+                                        texture: format!(
+                                            "Resources/assets/images/level_{}0.png",
+                                            map_information.map_content[i].level_type
+                                        ),
+                                        color: [255, 255, 255, 255],
+                                    },
+                                    SwitchData {
+                                        texture: format!(
+                                            "Resources/assets/images/level_{}0.png",
+                                            map_information.map_content[i].level_type
+                                        ),
+                                        color: [180, 180, 180, 255],
+                                    },
+                                    SwitchData {
+                                        texture: format!(
+                                            "Resources/assets/images/level_{}0.png",
+                                            map_information.map_content[i].level_type
+                                        ),
+                                        color: [150, 150, 150, 255],
+                                    },
+                                    SwitchData {
+                                        texture: format!(
+                                            "Resources/assets/images/level_{}0.png",
+                                            map_information.map_content[i].level_type
+                                        ),
+                                        color: [200, 200, 200, 255],
+                                    },
+                                    SwitchData {
+                                        texture: format!(
+                                            "Resources/assets/images/level_{}0.png",
+                                            map_information.map_content[i].level_type
+                                        ),
+                                        color: [180, 180, 180, 255],
+                                    },
+                                    SwitchData {
+                                        texture: format!(
+                                            "Resources/assets/images/level_{}0.png",
+                                            map_information.map_content[i].level_type
+                                        ),
+                                        color: [150, 150, 150, 255],
+                                    },
+                                ],
+                                [true, true, true],
+                                2,
+                                vec![SwitchClickAction {
+                                    click_method: PointerButton::Primary,
+                                    action: true,
+                                }],
+                            );
+                        };
+                        let id = self.track_resource(self.resource_image.clone(), &map_information.map_content[i].level_name);
+                        self.resource_image[id].origin_position = [map_information.map_content[i].level_position[0] + self.var_f("scroll_offset"),
+                        map_information.map_content[i].level_position[1]];
+                        let enable = !self.var_b("cut_to");
+                        if self.switch(&map_information.map_content[i].level_name, ui, ctx, enable)
+                            [0]
+                            == 0
+                        {};
+                    }
                     self.image(ui, "Scroll_Forward", ctx);
                     self.image(ui, "Scroll_Backward", ctx);
                     if let Some(mouse_pos) = ui.input(|i| i.pointer.hover_pos()) {
-                        if self.timer.now_time - self.split_time("scroll_animation")[0] >= self.vertrefresh {
-                            if mouse_pos.x < 50_f32 && self.resource_image[map_background_id].image_position[0] < 0_f32 {
-                                for _ in 0..10 {
-                                    if self.resource_image[map_background_id].image_position[0] < 0_f32 {
-                                        self.resource_image[map_background_id].image_position[0] += 1_f32;
+                        if self.timer.now_time - self.split_time("scroll_animation")[0]
+                            >= self.vertrefresh
+                        {
+                            if mouse_pos.x < 50_f32
+                                && self.var_f("scroll_offset") < 0_f32
+                            {
+                                for _ in 0..5 {
+                                    if self.var_f("scroll_offset")
+                                        < 0_f32
+                                    {
+                                        let scroll_offset = self.var_f("scroll_offset");
+                                        self.modify_var("scroll_offset", scroll_offset + 1_f32);
                                     } else {
-                                        break
+                                        break;
                                     };
-                                };
-                            } else if mouse_pos.x > (ctx.available_rect().width() - 50_f32) && self.resource_image[map_background_id].image_position[0] > ctx.available_rect().width() - map_information.map_width {
-                                for _ in 0..10 {
-                                    if self.resource_image[map_background_id].image_position[0] > ctx.available_rect().width() - map_information.map_width {
-                                        self.resource_image[map_background_id].image_position[0] -= 1_f32;
+                                }
+                            } else if mouse_pos.x > (ctx.available_rect().width() - 50_f32)
+                                && self.var_f("scroll_offset")
+                                    > ctx.available_rect().width() - map_information.map_width
+                            {
+                                for _ in 0..5 {
+                                    if self.var_f("scroll_offset")
+                                        > ctx.available_rect().width() - map_information.map_width
+                                    {
+                                        let scroll_offset = self.var_f("scroll_offset");
+                                        self.modify_var("scroll_offset", scroll_offset - 1_f32);
                                     } else {
-                                        break
+                                        break;
                                     };
-                                };
+                                }
                             };
                             self.add_split_time("scroll_animation", true);
                         };
                     };
-                    if self.resource_image[map_background_id].image_position[0] < ctx.available_rect().width() - map_information.map_width {
-                        self.resource_image[map_background_id].image_position[0] = ctx.available_rect().width() - map_information.map_width;
+                    if self.var_f("scroll_offset")
+                        < ctx.available_rect().width() - map_information.map_width
+                    {
+                        self.modify_var("scroll_offset", ctx.available_rect().width() - map_information.map_width);
                     };
                     if self.var_b("cut_to") {
                         let fade_in_or_out = self.var_b("fade_in_or_out");
-                        if self.fade(fade_in_or_out, ctx, ui, "cut_to_animation", "Cut_To_Background") == 255 && fade_in_or_out {
+                        if self.fade(
+                            fade_in_or_out,
+                            ctx,
+                            ui,
+                            "cut_to_animation",
+                            "Cut_To_Background",
+                        ) == 255
+                            && fade_in_or_out
+                        {
                             self.timer.start_time = self.timer.total_time;
                             self.update_timer();
                             self.add_split_time("cut_to_animation", true);
@@ -993,7 +1237,15 @@ impl eframe::App for App {
                             self.add_split_time("map_select_animation", true);
                             self.modify_var("fade_in_or_out", false);
                             self.switch_page("Home_Select_Map");
-                        } else if self.fade(fade_in_or_out, ctx, ui, "cut_to_animation", "Cut_To_Background") == 0 && !fade_in_or_out {
+                        } else if self.fade(
+                            fade_in_or_out,
+                            ctx,
+                            ui,
+                            "cut_to_animation",
+                            "Cut_To_Background",
+                        ) == 0
+                            && !fade_in_or_out
+                        {
                             self.modify_var("cut_to", false);
                         };
                     };
