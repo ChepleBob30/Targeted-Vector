@@ -5,7 +5,10 @@
     ],
     "map_author": "ChepleBob",
     "map_image": "Resources/assets/images/map_tutorial.png",
-    "map_width": 3000.0,
+    "map_width": 3000,
+    "map_scroll_offset": 0,
+    "map_operation_background": "Resources/assets/images/map_tutorial_operation_background.png",
+    "map_operation_background_expand": "Resources/assets/images/map_tutorial_operation_background_expand.png",
     "map_description": [
         "第一章",
         "Chapter 1"
@@ -14,33 +17,64 @@
     "map_content": [
         {
             "level_name": "1-1",
+            "level_name_expand": [
+                "测试",
+                "Test"
+            ],
             "level_description": [
-                "施朗",
+                "这是一个测试关卡的注释",
                 "Shilang"
             ],
             "level_type": "main",
             "level_position": [
-                100.0,
-                400.0
-            ]
+                100,
+                400
+            ],
+            "level_initial_status": 0
         },
         {
             "level_name": "1-2",
+            "level_name_expand": [
+                "测试",
+                "Test"
+            ],
             "level_description": [
-                "施朗",
+                "这是一个测试关卡的注释",
                 "Shilang"
             ],
             "level_type": "hell",
             "level_position": [
-                2000.0,
-                200.0
-            ]
+                1000,
+                200
+            ],
+            "level_initial_status": 0
+        },
+        {
+            "level_name": "1-3",
+            "level_name_expand": [
+                "测试",
+                "Test"
+            ],
+            "level_description": [
+                "这是一个测试关卡的注释",
+                "Shilang"
+            ],
+            "level_type": "side",
+            "level_position": [
+                2000,
+                300
+            ],
+            "level_initial_status": 2
         }
     ],
     "map_connecting_line": [
         [
             "1-1",
             "1-2"
+        ],
+        [
+            "1-2",
+            "1-3"
         ]
     ]
 }

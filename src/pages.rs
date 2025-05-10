@@ -2,13 +2,13 @@
 use crate::function::{
     check_file_exists, check_resource_exist, count_files_recursive, create_pretty_json,
     general_click_feedback, kira_play_wav, list_files_recursive, read_from_json, write_to_json,
-    App, Map, SeverityLevel, SwitchClickAction, SwitchData, User, Value,
+    App, Map, SeverityLevel, SwitchClickAction, SwitchData, User, UserLevelStatus, Value,
 };
 use chrono::{Local, Timelike};
 use eframe::egui;
 use eframe::epaint::Rounding;
 use egui::{Color32, Frame, PointerButton, Pos2, Shadow, Stroke};
-use json::object;
+use json::{object, Array};
 use rfd::FileDialog;
 use std::{fs, path::Path, process::exit, vec::Vec};
 
@@ -269,7 +269,7 @@ impl eframe::App for App {
                             );
                             self.resource_image[id].image_size =
                                 [ctx.available_rect().width(), ctx.available_rect().height()];
-                            self.resource_image[id].image_position[0] =
+                            self.resource_image[id].origin_position[0] =
                                 i as f32 * self.resource_image[id].image_size[0];
                             self.resource_scroll_background[scroll_background].boundary =
                                 -ctx.available_rect().width();
@@ -355,6 +355,7 @@ impl eframe::App for App {
                                 language: 0,
                                 wallpaper: "".to_string(),
                                 current_map: "".to_string(),
+                                level_status: vec![]
                             };
                             if let Ok(json_value) = read_from_json(format!("Resources/config/user_{}.json", input1.replace(" ", "").replace("/", "").replace("\\", ""))) {
                                 if let Some(read_user) = User::from_json_value(&json_value) {
@@ -474,12 +475,13 @@ impl eframe::App for App {
                                             self.modify_var("reg_enable_name_error_message", input3.replace(" ", "").replace("/", "").replace("\\", "").is_empty() || check_file_exists(format!("Resources/config/user_{}.json", input3.replace(" ", "").replace("/", "")).replace("\\", "")));
                                             if input4 == input5 && !check_file_exists(format!("Resources/config/user_{}.json", input3.replace(" ", "").replace("/", "")).replace("\\", "")) && !input3.replace(" ", "").replace("/", "").replace("\\", "").is_empty(){
                                                     let user_data = object! {
-                                                        "version": 11,
+                                                        "version": 12,
                                                         "name": input3.replace(" ", "").replace("/", "").replace("\\", "").clone(),
                                                         "password": input4.clone(),
                                                         "language": self.config.language,
                                                         "wallpaper": "Resources/assets/images/wallpaper.png".to_string(),
                                                         "current_map": "map_tutorial".to_string(),
+                                                        "level_status": Array::new(),
                                                     };
                                                     create_pretty_json(format!("Resources/config/user_{}.json", input3.replace(" ", "").replace("/", "").replace("\\", "")), user_data).unwrap();
                                                     self.modify_var("reg_status", Value::UInt(2));
@@ -747,12 +749,16 @@ impl eframe::App for App {
                 if !self.check_updated(&self.page.clone()) {
                     self.add_split_time("map_select_animation", false);
                     self.add_var("fade_in_or_out", true);
+                    self.add_var("scroll_offset", 0_f32);
                 };
                 let mut map_information = Map {
                     map_name: vec![],
                     map_author: "".to_string(),
                     map_image: "".to_string(),
                     map_width: 0_f32,
+                    map_scroll_offset: 0_f32,
+                    map_operation_background: "".to_string(),
+                    map_operation_background_expand: "".to_string(),
                     map_description: vec![],
                     map_intro: "".to_string(),
                     map_content: vec![],
@@ -954,7 +960,10 @@ impl eframe::App for App {
                                     map_information = read_map_information;
                                 }
                             };
-                            if !check_resource_exist(self.resource_image_texture.clone(), &map_information.map_image) {
+                            if !check_resource_exist(
+                                self.resource_image_texture.clone(),
+                                &map_information.map_image,
+                            ) {
                                 self.add_image_texture(
                                     &map_information.map_image,
                                     &map_information.map_image,
@@ -967,7 +976,8 @@ impl eframe::App for App {
                                     [
                                         0_f32,
                                         0_f32,
-                                        ctx.available_rect().width() + map_information.map_width / 2_f32,
+                                        ctx.available_rect().width()
+                                            + map_information.map_width / 2_f32,
                                         ctx.available_rect().height(),
                                     ],
                                     [0, 0, 0, 0],
@@ -975,7 +985,10 @@ impl eframe::App for App {
                                     [255, 0, 0, 0, 0],
                                     &map_information.map_image,
                                 );
+                                map_information.map_scroll_offset = 0_f32;
+                                self.modify_var("scroll_offset", map_information.map_scroll_offset);
                             };
+                            self.modify_var("scroll_offset", map_information.map_scroll_offset);
                             self.modify_var("fade_in_or_out", false);
                             self.switch_page("Select_Level");
                             self.timer.start_time = self.timer.total_time;
@@ -988,10 +1001,12 @@ impl eframe::App for App {
                                 self.add_split_time("scroll_animation", true);
                             };
                             if check_resource_exist(
-                                self.variables.clone(),
-                                "scroll_offset",
+                                self.timer.split_time.clone(),
+                                "opened_level_animation",
                             ) {
-                                self.modify_var("scroll_offset", 0_f32);
+                                self.timer.start_time = self.timer.total_time;
+                                self.update_timer();
+                                self.add_split_time("opened_level_animation", true);
                             };
                         } else if self.fade(
                             fade_in_or_out,
@@ -1013,6 +1028,9 @@ impl eframe::App for App {
                     map_author: "".to_string(),
                     map_image: "".to_string(),
                     map_width: 0_f32,
+                    map_scroll_offset: 0_f32,
+                    map_operation_background: "".to_string(),
+                    map_operation_background_expand: "".to_string(),
                     map_description: vec![],
                     map_intro: "".to_string(),
                     map_content: vec![],
@@ -1025,70 +1043,167 @@ impl eframe::App for App {
                 };
                 if !self.check_updated(&self.page.clone()) {
                     self.add_split_time("scroll_animation", false);
-                    self.add_var("scroll_offset", 0_f32);
+                    self.add_split_time("opened_level_animation", false);
+                    self.add_var("opened_level", -1_i32);
+                    self.add_var("prepared_operation", false);
                 };
                 egui::CentralPanel::default().show(ctx, |ui| {
-                    let map_background_id = self.track_resource(
-                        self.resource_image.clone(),
-                        &map_information.map_image,
-                    );
+                    let map_background_id = self
+                        .track_resource(self.resource_image.clone(), &map_information.map_image);
                     let scroll_remind_id =
                         self.track_resource(self.resource_image.clone(), "Scroll_Forward");
                     let scroll_remind_id2 =
                         self.track_resource(self.resource_image.clone(), "Scroll_Backward");
-                    self.resource_image[map_background_id].image_size =
-                        [ctx.available_rect().width() + map_information.map_width / 2_f32, ctx.available_rect().height()];
-                    self.resource_image[map_background_id].origin_position[0] = self.var_f("scroll_offset") / 2_f32;
+                    self.resource_image[map_background_id].image_size = [
+                        ctx.available_rect().width() + map_information.map_width / 2_f32,
+                        ctx.available_rect().height(),
+                    ];
+                    self.resource_image[map_background_id].origin_position[0] =
+                        self.var_f("scroll_offset") / 2_f32;
                     self.resource_image[scroll_remind_id].image_size[1] =
                         ctx.available_rect().height();
                     self.resource_image[scroll_remind_id2].image_size[1] =
                         ctx.available_rect().height();
                     self.image(ui, &map_information.map_image, ctx);
-                    if self.switch("Back", ui, ctx, true)[0] == 0 {
-                        self.modify_var("fade_in_or_out", true);
-                        self.modify_var("cut_to", true);
+                    if self.var_i("opened_level") == -1 {
+                        if self.switch("Back", ui, ctx, true)[0] == 0 {
+                            self.modify_var("fade_in_or_out", true);
+                            self.modify_var("cut_to", true);
+                        };
                     };
+                    // 补全缺少的关卡数据
+                    for i in 0..map_information.map_content.len() {
+                        let mut level_status = -2;
+                        for u in 0..self.login_user_config.level_status.len() {
+                            if self.login_user_config.level_status[u].level_name
+                                == map_information.map_content[i].level_name
+                            {
+                                level_status =
+                                    self.login_user_config.level_status[u].level_status as i8;
+                            }
+                        }
+                        if level_status == -2 {
+                            self.login_user_config.level_status.push(UserLevelStatus {
+                                level_name: map_information.map_content[i].level_name.clone(),
+                                level_map: self.login_user_config.current_map.clone(),
+                                level_status: map_information.map_content[i].level_initial_status,
+                            });
+                        };
+                    }
+                    // 显示连接各个关卡的线段
                     for u in map_information.map_connecting_line.iter() {
-                        let mut line =
-                            vec![Pos2 { x: 0_f32, y: 0_f32 }, Pos2 { x: 0_f32, y: 0_f32 }];
+                        let mut line = vec![
+                            Pos2 {
+                                x: 0_f32,
+                                y: -1_f32,
+                            },
+                            Pos2 {
+                                x: 0_f32,
+                                y: -1_f32,
+                            },
+                        ];
                         for j in 0..map_information.map_content.len() {
                             for n in 0..2 {
                                 if map_information.map_content[j].level_name == u[n] {
-                                    line[n] = Pos2 {
-                                        x: map_information.map_content[j].level_position[0] + self.var_f("scroll_offset"),
-                                        y: map_information.map_content[j].level_position[1],
-                                    };
+                                    for i in 0..self.login_user_config.level_status.len() {
+                                        if self.login_user_config.level_status[i].level_name == u[n]
+                                        {
+                                            if self.login_user_config.level_status[i].level_status
+                                                != -1
+                                            {
+                                                line[n] = Pos2 {
+                                                    x: map_information.map_content[j]
+                                                        .level_position[0]
+                                                        + self.var_f("scroll_offset"),
+                                                    y: map_information.map_content[j]
+                                                        .level_position[1],
+                                                };
+                                            };
+                                            break;
+                                        };
+                                    }
                                 };
                             }
                         }
-                        ui.painter().line(
-                            line,
-                            Stroke {
-                                width: 8.0,
-                                color: Color32::from_rgb(255, 255, 255),
-                            },
-                        );
+                        if line[0].y != -1_f32 && line[1].y != -1_f32 {
+                            ui.painter().line(
+                                line,
+                                Stroke {
+                                    width: 8.0,
+                                    color: Color32::from_rgb(255, 255, 255),
+                                },
+                            );
+                        };
                     }
+                    // 显示关卡节点
                     for i in 0..map_information.map_content.len() {
+                        let mut level_status = -1;
+                        for u in 0..self.login_user_config.level_status.len() {
+                            if self.login_user_config.level_status[u].level_name
+                                == map_information.map_content[i].level_name
+                            {
+                                level_status =
+                                    self.login_user_config.level_status[u].level_status as i8;
+                                break;
+                            }
+                        }
                         if !check_resource_exist(
                             self.resource_switch.clone(),
                             &map_information.map_content[i].level_name,
-                        ) {
+                        ) && level_status != -1
+                        {
                             if !check_resource_exist(
                                 self.resource_image_texture.clone(),
                                 &format!(
-                                    "Resources/assets/images/level_{}0.png",
-                                    map_information.map_content[i].level_type
+                                    "Resources/assets/images/level_{}{}.png",
+                                    map_information.map_content[i].level_type, level_status
                                 ),
                             ) {
+                                self.add_text(
+                                    [
+                                        &format!(
+                                            "{}_title",
+                                            map_information.map_content[i].level_name
+                                        ),
+                                        &format!(
+                                            "{} {}",
+                                            map_information.map_content[i].level_name,
+                                            map_information.map_content[i].level_name_expand
+                                                [self.login_user_config.language as usize]
+                                        ),
+                                    ],
+                                    [-200_f32, 30_f32, 60_f32, 300_f32, 0.0],
+                                    [255, 255, 255, 255, 0, 0, 0],
+                                    [true, true, true, false],
+                                    false,
+                                    [1, 1, 0, 0],
+                                );
+                                self.add_text(
+                                    [
+                                        &format!(
+                                            "{}_description",
+                                            map_information.map_content[i].level_name
+                                        ),
+                                        &format!(
+                                            "{}",
+                                            map_information.map_content[i].level_description
+                                                [self.login_user_config.language as usize]
+                                        ),
+                                    ],
+                                    [-200_f32, 0_f32, 20_f32, 300_f32, 0.0],
+                                    [255, 255, 255, 255, 0, 0, 0],
+                                    [true, true, true, false],
+                                    false,
+                                    [1, 1, 1, 4],
+                                );
                                 self.add_image_texture(
                                     &format!(
-                                        "Resources/assets/images/level_{}0.png",
-                                        map_information.map_content[i].level_type
+                                        "Resources/assets/images/level_{}{}.png",
+                                        map_information.map_content[i].level_type, level_status
                                     ),
                                     &format!(
-                                        "Resources/assets/images/level_{}0.png",
-                                        map_information.map_content[i].level_type
+                                        "Resources/assets/images/level_{}{}.png",
+                                        map_information.map_content[i].level_type, level_status
                                     ),
                                     [false, false],
                                     true,
@@ -1107,8 +1222,8 @@ impl eframe::App for App {
                                 [false, false, true, true, true],
                                 [255, 255, 255, 255, 255],
                                 &format!(
-                                    "Resources/assets/images/level_{}0.png",
-                                    map_information.map_content[i].level_type
+                                    "Resources/assets/images/level_{}{}.png",
+                                    map_information.map_content[i].level_type, level_status
                                 ),
                             );
                             self.add_switch(
@@ -1119,48 +1234,34 @@ impl eframe::App for App {
                                 vec![
                                     SwitchData {
                                         texture: format!(
-                                            "Resources/assets/images/level_{}0.png",
-                                            map_information.map_content[i].level_type
+                                            "Resources/assets/images/level_{}{}.png",
+                                            map_information.map_content[i].level_type, level_status
                                         ),
                                         color: [255, 255, 255, 255],
                                     },
                                     SwitchData {
                                         texture: format!(
-                                            "Resources/assets/images/level_{}0.png",
-                                            map_information.map_content[i].level_type
-                                        ),
-                                        color: [180, 180, 180, 255],
-                                    },
-                                    SwitchData {
-                                        texture: format!(
-                                            "Resources/assets/images/level_{}0.png",
-                                            map_information.map_content[i].level_type
+                                            "Resources/assets/images/level_{}{}.png",
+                                            map_information.map_content[i].level_type, level_status
                                         ),
                                         color: [150, 150, 150, 255],
                                     },
                                     SwitchData {
                                         texture: format!(
-                                            "Resources/assets/images/level_{}0.png",
-                                            map_information.map_content[i].level_type
+                                            "Resources/assets/images/level_{}{}.png",
+                                            map_information.map_content[i].level_type, level_status
                                         ),
                                         color: [200, 200, 200, 255],
                                     },
                                     SwitchData {
                                         texture: format!(
-                                            "Resources/assets/images/level_{}0.png",
-                                            map_information.map_content[i].level_type
-                                        ),
-                                        color: [180, 180, 180, 255],
-                                    },
-                                    SwitchData {
-                                        texture: format!(
-                                            "Resources/assets/images/level_{}0.png",
-                                            map_information.map_content[i].level_type
+                                            "Resources/assets/images/level_{}{}.png",
+                                            map_information.map_content[i].level_type, level_status
                                         ),
                                         color: [150, 150, 150, 255],
                                     },
                                 ],
-                                [true, true, true],
+                                [false, true, true],
                                 2,
                                 vec![SwitchClickAction {
                                     click_method: PointerButton::Primary,
@@ -1168,56 +1269,190 @@ impl eframe::App for App {
                                 }],
                             );
                         };
-                        let id = self.track_resource(self.resource_image.clone(), &map_information.map_content[i].level_name);
-                        self.resource_image[id].origin_position = [map_information.map_content[i].level_position[0] + self.var_f("scroll_offset"),
-                        map_information.map_content[i].level_position[1]];
-                        let enable = !self.var_b("cut_to");
-                        if self.switch(&map_information.map_content[i].level_name, ui, ctx, enable)
-                            [0]
-                            == 0
-                        {};
-                    }
-                    self.image(ui, "Scroll_Forward", ctx);
-                    self.image(ui, "Scroll_Backward", ctx);
-                    if let Some(mouse_pos) = ui.input(|i| i.pointer.hover_pos()) {
-                        if self.timer.now_time - self.split_time("scroll_animation")[0]
-                            >= self.vertrefresh
-                        {
-                            if mouse_pos.x < 50_f32
-                                && self.var_f("scroll_offset") < 0_f32
-                            {
-                                for _ in 0..5 {
-                                    if self.var_f("scroll_offset")
-                                        < 0_f32
-                                    {
-                                        let scroll_offset = self.var_f("scroll_offset");
-                                        self.modify_var("scroll_offset", scroll_offset + 1_f32);
-                                    } else {
-                                        break;
-                                    };
-                                }
-                            } else if mouse_pos.x > (ctx.available_rect().width() - 50_f32)
-                                && self.var_f("scroll_offset")
-                                    > ctx.available_rect().width() - map_information.map_width
-                            {
-                                for _ in 0..5 {
-                                    if self.var_f("scroll_offset")
-                                        > ctx.available_rect().width() - map_information.map_width
-                                    {
-                                        let scroll_offset = self.var_f("scroll_offset");
-                                        self.modify_var("scroll_offset", scroll_offset - 1_f32);
-                                    } else {
-                                        break;
-                                    };
-                                }
+                        if level_status != -1 {
+                            let id = self.track_resource(
+                                self.resource_image.clone(),
+                                &map_information.map_content[i].level_name,
+                            );
+                            let id2 = self.track_resource(
+                                self.resource_switch.clone(),
+                                &map_information.map_content[i].level_name,
+                            );
+                            if self.resource_switch[id2].state == 1 {
+                                self.modify_var("opened_level", i as i32);
                             };
-                            self.add_split_time("scroll_animation", true);
+                            self.resource_image[id].origin_position = [
+                                map_information.map_content[i].level_position[0]
+                                    + self.var_f("scroll_offset"),
+                                map_information.map_content[i].level_position[1],
+                            ];
+                            let enable;
+                            if !self.var_b("cut_to") && self.var_i("opened_level") == -1 {
+                                enable = true;
+                            } else {
+                                enable = false;
+                            };
+                            if self.switch(
+                                &map_information.map_content[i].level_name,
+                                ui,
+                                ctx,
+                                enable,
+                            )[0] == 0
+                            {
+                                for u in 0..map_information.map_content.len() {
+                                    let mut another_level_status = -1;
+                                    for j in 0..self.login_user_config.level_status.len() {
+                                        if self.login_user_config.level_status[j].level_name
+                                            == map_information.map_content[u].level_name
+                                        {
+                                            another_level_status =
+                                                self.login_user_config.level_status[j].level_status;
+                                            break;
+                                        }
+                                    }
+                                    if u != i && another_level_status != -1 {
+                                        let switch_id = self.track_resource(
+                                            self.resource_switch.clone(),
+                                            &map_information.map_content[u].level_name,
+                                        );
+                                        self.resource_switch[switch_id].state = 0;
+                                    };
+                                }
+                            } else if ui.input(|i| i.pointer.primary_released()) {
+                                if let Some(mouse_pos) = ui.input(|i| i.pointer.hover_pos()) {
+                                    let rect_id = self.track_resource(
+                                        self.resource_rect.clone(),
+                                        "Level_Information_Background",
+                                    );
+                                    if mouse_pos.x < self.resource_rect[rect_id].position[0] {
+                                        let id = self.track_resource(
+                                            self.resource_switch.clone(),
+                                            &map_information.map_content[i].level_name,
+                                        );
+                                        self.resource_switch[id].state = 0;
+                                        self.modify_var("opened_level", -1);
+                                    };
+                                };
+                            };
+                        };
+                    }
+                    let rect_id = self
+                        .track_resource(self.resource_rect.clone(), "Level_Information_Background");
+                    self.resource_rect[rect_id].size[1] = ctx.available_rect().height();
+                    self.rect(ui, "Level_Information_Background", ctx);
+                    if self.var_i("opened_level") != -1 {
+                        let opened_level = self.var_i("opened_level") as usize;
+                        let text_id = self.track_resource(
+                            self.resource_text.clone(),
+                            &format!(
+                                "{}_title",
+                                map_information.map_content[opened_level].level_name
+                            ),
+                        );
+                        let text_id2 = self.track_resource(
+                            self.resource_text.clone(),
+                            &format!(
+                                "{}_description",
+                                map_information.map_content[opened_level].level_name
+                            ),
+                        );
+                        let image_id =
+                            self.track_resource(self.resource_image.clone(), "Start_Operation");
+                        self.resource_text[text_id].text_content = format!(
+                            "{} {}",
+                            map_information.map_content[opened_level].level_name,
+                            map_information.map_content[opened_level].level_name_expand
+                                [self.login_user_config.language as usize]
+                        );
+                        self.resource_text[text_id2].text_content = format!(
+                            "{}",
+                            map_information.map_content[opened_level].level_description
+                                [self.login_user_config.language as usize]
+                        );
+                        self.resource_text[text_id].origin_position[0] =
+                            self.resource_rect[rect_id].origin_position[0] + 200_f32;
+                        self.resource_text[text_id2].origin_position[0] =
+                            self.resource_rect[rect_id].origin_position[0] + 200_f32;
+                        self.resource_image[image_id].origin_position[0] =
+                            self.resource_rect[rect_id].origin_position[0] + 200_f32;
+                        self.text(
+                            ui,
+                            &format!(
+                                "{}_title",
+                                map_information.map_content[opened_level].level_name
+                            ),
+                            ctx,
+                        );
+                        self.text(
+                            ui,
+                            &format!(
+                                "{}_description",
+                                map_information.map_content[opened_level].level_name
+                            ),
+                            ctx,
+                        );
+                        if self.switch("Start_Operation", ui, ctx, true)[0] == 0 {
+                            self.modify_var("cut_to", true);
+                            self.modify_var("fade_in_or_out", true);
+                        };
+                        if self.resource_rect[rect_id].origin_position[0] != -400_f32
+                            && self.timer.now_time - self.split_time("opened_level_animation")[0]
+                                >= self.vertrefresh
+                        {
+                            self.add_split_time("opened_level_animation", true);
+                            self.resource_rect[rect_id].origin_position[0] -= 50_f32;
+                        };
+                    } else {
+                        self.image(ui, "Scroll_Backward", ctx);
+                        if self.resource_rect[rect_id].origin_position[0] != 0_f32
+                            && self.timer.now_time - self.split_time("opened_level_animation")[0]
+                                >= self.vertrefresh
+                        {
+                            self.add_split_time("opened_level_animation", true);
+                            self.resource_rect[rect_id].origin_position[0] += 50_f32;
+                        } else if self.resource_rect[rect_id].origin_position[0] == 0_f32 {
+                            self.image(ui, "Scroll_Forward", ctx);
+                        };
+                        if let Some(mouse_pos) = ui.input(|i| i.pointer.hover_pos()) {
+                            if self.timer.now_time - self.split_time("scroll_animation")[0]
+                                >= self.vertrefresh
+                            {
+                                if mouse_pos.x < 50_f32 && self.var_f("scroll_offset") < 0_f32 {
+                                    for _ in 0..5 {
+                                        if self.var_f("scroll_offset") < 0_f32 {
+                                            let scroll_offset = self.var_f("scroll_offset");
+                                            self.modify_var("scroll_offset", scroll_offset + 1_f32);
+                                        } else {
+                                            break;
+                                        };
+                                    }
+                                } else if mouse_pos.x > (ctx.available_rect().width() - 50_f32)
+                                    && self.var_f("scroll_offset")
+                                        > ctx.available_rect().width() - map_information.map_width
+                                {
+                                    for _ in 0..5 {
+                                        if self.var_f("scroll_offset")
+                                            > ctx.available_rect().width()
+                                                - map_information.map_width
+                                        {
+                                            let scroll_offset = self.var_f("scroll_offset");
+                                            self.modify_var("scroll_offset", scroll_offset - 1_f32);
+                                        } else {
+                                            break;
+                                        };
+                                    }
+                                };
+                                self.add_split_time("scroll_animation", true);
+                            };
                         };
                     };
                     if self.var_f("scroll_offset")
                         < ctx.available_rect().width() - map_information.map_width
                     {
-                        self.modify_var("scroll_offset", ctx.available_rect().width() - map_information.map_width);
+                        self.modify_var(
+                            "scroll_offset",
+                            ctx.available_rect().width() - map_information.map_width,
+                        );
                     };
                     if self.var_b("cut_to") {
                         let fade_in_or_out = self.var_b("fade_in_or_out");
@@ -1230,13 +1465,24 @@ impl eframe::App for App {
                         ) == 255
                             && fade_in_or_out
                         {
+                            map_information.map_scroll_offset = self.var_f("scroll_offset");
+                            write_to_json(
+                                self.login_user_config.current_map.clone(),
+                                map_information.to_json_value(),
+                            )
+                            .unwrap();
+                            self.modify_var("fade_in_or_out", false);
                             self.timer.start_time = self.timer.total_time;
                             self.update_timer();
                             self.add_split_time("cut_to_animation", true);
-                            self.add_split_time("dock_animation", true);
-                            self.add_split_time("map_select_animation", true);
-                            self.modify_var("fade_in_or_out", false);
-                            self.switch_page("Home_Select_Map");
+                            if self.var_i("opened_level") == -1 {
+                                self.add_split_time("dock_animation", true);
+                                self.add_split_time("map_select_animation", true);
+                                self.switch_page("Home_Select_Map");
+                            } else {
+                                self.modify_var("prepared_operation", false);
+                                self.switch_page("Operation");
+                            };
                         } else if self.fade(
                             fade_in_or_out,
                             ctx,
@@ -1250,6 +1496,202 @@ impl eframe::App for App {
                         };
                     };
                 });
+            }
+            "Operation" => {
+                let mut map_information = Map {
+                    map_name: vec![],
+                    map_author: "".to_string(),
+                    map_image: "".to_string(),
+                    map_width: 0_f32,
+                    map_scroll_offset: 0_f32,
+                    map_operation_background: "".to_string(),
+                    map_operation_background_expand: "".to_string(),
+                    map_description: vec![],
+                    map_intro: "".to_string(),
+                    map_content: vec![],
+                    map_connecting_line: vec![],
+                };
+                if let Ok(json_value) = read_from_json(&self.login_user_config.current_map) {
+                    if let Some(read_map_information) = Map::from_json_value(&json_value) {
+                        map_information = read_map_information;
+                    }
+                };
+                if !self.check_updated(&self.page.clone()) {
+                    self.add_rect(
+                        "Operation_Background_Border",
+                        [
+                            0_f32,
+                            0_f32,
+                            1280_f32,
+                            720_f32,
+                            0_f32,
+                        ],
+                        [1, 2, 1, 2],
+                        [false, false, true, true],
+                        [0, 0, 0, 0, 0, 0, 0, 255],
+                        5.0,
+                    );
+                    self.add_image_texture(
+                        "Operation",
+                        &map_information.map_operation_background,
+                        [false, false],
+                        true,
+                        ctx,
+                    );
+                    self.add_image_texture(
+                        "Operation_Expand1",
+                        &map_information.map_operation_background_expand,
+                        [false, false],
+                        true,
+                        ctx,
+                    );
+                    self.add_image_texture(
+                        "Operation_Expand2",
+                        &map_information.map_operation_background_expand,
+                        [false, true],
+                        true,
+                        ctx,
+                    );
+                    self.add_image(
+                        "Operation",
+                        [0_f32, 0_f32, 1280_f32, 720_f32],
+                        [1, 2, 1, 2],
+                        [true, true, true, true, false],
+                        [255, 0, 0, 0, 0],
+                        "Operation",
+                    );
+                    self.add_image(
+                        "Operation_Expand1",
+                        [0_f32, 0_f32, 1280_f32, 720_f32],
+                        [0, 0, 0, 0],
+                        [true, true, false, false, false],
+                        [200, 0, 0, 0, 0],
+                        "Operation_Expand1",
+                    );
+                    self.add_image(
+                        "Operation_Expand2",
+                        [0_f32, 0_f32, 1280_f32, 720_f32],
+                        [0, 0, 0, 0],
+                        [true, true, false, false, false],
+                        [200, 0, 0, 0, 0],
+                        "Operation_Expand2",
+                    );
+                    self.add_scroll_background(
+                        "Operation_Expand",
+                        vec![
+                            "Operation_Expand1".to_string(),
+                            "Operation_Expand2".to_string(),
+                        ],
+                        false,
+                        false,
+                        6,
+                        [
+                            ctx.available_rect().width(),
+                            ctx.available_rect().height(),
+                            0_f32,
+                            0_f32,
+                            ctx.available_rect().height(),
+                        ],
+                    );
+                    self.add_var(
+                        "operation_last_window_size",
+                        vec![ctx.available_rect().width(), ctx.available_rect().height()],
+                    );
+                };
+                egui::CentralPanel::default().show(ctx, |ui| {
+                    if !self.var_b("prepared_operation") {
+                        self.add_image_texture(
+                            "Operation",
+                            &map_information.map_operation_background,
+                            [false, false],
+                            false,
+                            ctx,
+                        );
+                        self.add_image_texture(
+                            "Operation_Expand1",
+                            &map_information.map_operation_background_expand,
+                            [false, false],
+                            false,
+                            ctx,
+                        );
+                        self.add_image_texture(
+                            "Operation_Expand2",
+                            &map_information.map_operation_background_expand,
+                            [false, true],
+                            false,
+                            ctx,
+                        );
+                        let id = self.track_resource(self.resource_image.clone(), "Operation");
+                        let id2 =
+                            self.track_resource(self.resource_image_texture.clone(), "Operation");
+                        let id3 =
+                            self.track_resource(self.resource_image.clone(), "Operation_Expand1");
+                        let id4 = self.track_resource(
+                            self.resource_image_texture.clone(),
+                            "Operation_Expand1",
+                        );
+                        let id5 =
+                            self.track_resource(self.resource_image.clone(), "Operation_Expand2");
+                        let id6 = self.track_resource(
+                            self.resource_image_texture.clone(),
+                            "Operation_Expand2",
+                        );
+                        self.resource_image[id].image_texture =
+                            self.resource_image_texture[id2].texture.clone();
+                        self.resource_image[id3].image_texture =
+                            self.resource_image_texture[id4].texture.clone();
+                        self.resource_image[id5].image_texture =
+                            self.resource_image_texture[id6].texture.clone();
+                        self.modify_var("prepared_operation", true);
+                    };
+                    if self.var_decode_f(self.clone().var_v("operation_last_window_size")[0].clone())
+                        != ctx.available_rect().width()
+                        || self.var_decode_f(self.clone().var_v("operation_last_window_size")[1].clone())
+                            != ctx.available_rect().height()
+                    {
+                        let scroll_background = self.track_resource(
+                            self.resource_scroll_background.clone(),
+                            "Operation_Expand",
+                        );
+                        self.resource_scroll_background[scroll_background].resume_point =
+                            -ctx.available_rect().height();
+                        for i in 0..self.resource_scroll_background[scroll_background]
+                            .image_name
+                            .len()
+                        {
+                            let id = self.track_resource(
+                                self.resource_image.clone(),
+                                &self.resource_scroll_background[scroll_background].image_name[i]
+                                    .clone(),
+                            );
+                            self.resource_image[id].image_size =
+                                [ctx.available_rect().width(), ctx.available_rect().height()];
+                            self.resource_image[id].origin_position[1] =
+                                i as f32 * self.resource_image[id].image_size[1];
+                            self.resource_scroll_background[scroll_background].boundary =
+                                ctx.available_rect().height();
+                        }
+                    };
+                    self.scroll_background(ui, "Operation_Expand", ctx);
+                    self.rect(ui, "Operation_Background_Border", ctx);
+                    self.image(ui, "Operation", ctx);
+                    let fade_in_or_out = self.var_b("fade_in_or_out");
+                    if self.fade(
+                        fade_in_or_out,
+                        ctx,
+                        ui,
+                        "cut_to_animation",
+                        "Cut_To_Background",
+                    ) == 0
+                        && !fade_in_or_out
+                    {
+                        self.modify_var("cut_to", false);
+                    };
+                });
+                self.modify_var(
+                    "operation_last_window_size",
+                    vec![ctx.available_rect().width(), ctx.available_rect().height()],
+                );
             }
             "Error" => {
                 self.check_updated(&self.page.clone());

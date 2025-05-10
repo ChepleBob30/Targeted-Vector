@@ -276,9 +276,11 @@ impl GameText {
 #[derive(Debug, Clone)]
 pub struct Level {
     pub level_name: String,
+    pub level_name_expand: Vec<String>,
     pub level_description: Vec<String>,
     pub level_type: String,
     pub level_position: [f32; 2],
+    pub level_initial_status: i8,
 }
 
 #[derive(Debug, Clone)]
@@ -287,6 +289,9 @@ pub struct Map {
     pub map_author: String,
     pub map_image: String,
     pub map_width: f32,
+    pub map_scroll_offset: f32,
+    pub map_operation_background: String,
+    pub map_operation_background_expand: String,
     pub map_description: Vec<String>,
     pub map_intro: String,
     pub map_content: Vec<Level>,
@@ -301,23 +306,28 @@ impl Map {
                 .members()
                 .filter_map(|v| v.as_str().map(String::from))
                 .collect(),
-
             map_author: value["map_author"].as_str()?.to_string(),
             map_image: value["map_image"].as_str()?.to_string(),
             map_width: value["map_width"].as_f32()?,
-
+            map_scroll_offset: value["map_scroll_offset"].as_f32()?,
+            map_operation_background: value["map_operation_background"].as_str()?.to_string(),
+            map_operation_background_expand: value["map_operation_background_expand"]
+                .as_str()?
+                .to_string(),
             map_description: value["map_description"]
                 .members()
                 .filter_map(|v| v.as_str().map(String::from))
                 .collect(),
-
             map_intro: value["map_intro"].as_str()?.to_string(),
-
             map_content: value["map_content"]
                 .members()
                 .filter_map(|v| {
                     Some(Level {
                         level_name: v["level_name"].as_str()?.to_string(),
+                        level_name_expand: v["level_name_expand"]
+                            .members()
+                            .filter_map(|v| v.as_str().map(String::from))
+                            .collect(),
                         level_description: v["level_description"]
                             .members()
                             .filter_map(|d| d.as_str().map(String::from))
@@ -327,10 +337,10 @@ impl Map {
                             v["level_position"][0].as_f32()?,
                             v["level_position"][1].as_f32()?,
                         ],
+                        level_initial_status: v["level_initial_status"].as_i8()?,
                     })
                 })
                 .collect(),
-
             map_connecting_line: value["map_connecting_line"]
                 .members()
                 .filter_map(|v| {
@@ -338,24 +348,45 @@ impl Map {
                         .members() // 先收集到 Vec
                         .filter_map(|s| s.as_str().map(String::from))
                         .collect();
-
                     let pair: [String; 2] = vec.try_into().ok()?; // 再转数组
                     Some(pair)
                 })
                 .collect(),
         })
     }
+    pub fn to_json_value(&self) -> JsonValue {
+        json::object! {
+            map_name: self.map_name.clone(),
+            map_author: self.map_author.clone(),
+            map_image: self.map_image.clone(),
+            map_width: self.map_width,
+            map_scroll_offset: self.map_scroll_offset,
+            map_operation_background: self.map_operation_background.clone(),
+            map_operation_background_expand: self.map_operation_background_expand.clone(),
+            map_description: self.map_description.clone(),
+            map_intro: self.map_intro.clone(),
+            map_content: self.map_content.iter().map(|l| {
+                json::object! {
+                    level_name: l.level_name.clone(),
+                    level_name_expand: l.level_name_expand.clone(),
+                    level_description: l.level_description.clone(),
+                    level_type: l.level_type.clone(),
+                    level_position: [l.level_position[0], l.level_position[1]],
+                    level_initial_status: l.level_initial_status // 新增缺失字段
+                }
+            }).collect::<Vec<_>>(),
+            map_connecting_line: self.map_connecting_line.iter().map(|pair| { // 新增连接线字段
+                json::array![pair[0].clone(), pair[1].clone()]
+            }).collect::<Vec<_>>()
+        }
+    }
+}
 
-    // pub fn to_json_value(&self) -> JsonValue {
-    //     json::object! {
-    //         map_name: self.map_name.clone(),
-    //         map_author: self.map_author.clone(),
-    //         map_image: self.map_image.clone(),
-    //         map_width: self.map_width.to_f64(),
-    //         map_description: self.map_description.clone(),
-    //         map_intro: self.map_intro.clone(),
-    //     }
-    // }
+#[derive(Debug, Clone)]
+pub struct UserLevelStatus {
+    pub level_name: String,
+    pub level_map: String,
+    pub level_status: i8,
 }
 
 #[allow(dead_code)]
@@ -367,6 +398,7 @@ pub struct User {
     pub language: u8,
     pub wallpaper: String,
     pub current_map: String,
+    pub level_status: Vec<UserLevelStatus>,
 }
 
 #[allow(dead_code)]
@@ -379,6 +411,16 @@ impl User {
             language: value["language"].as_u8()?,
             wallpaper: value["wallpaper"].as_str()?.to_string(),
             current_map: value["current_map"].as_str()?.to_string(),
+            level_status: value["level_status"]
+                .members()
+                .filter_map(|v| {
+                    Some(UserLevelStatus {
+                        level_name: v["level_name"].as_str()?.to_string(),
+                        level_map: v["level_map"].as_str()?.to_string(),
+                        level_status: v["level_status"].as_i8()?,
+                    })
+                })
+                .collect(),
         })
     }
 
@@ -390,6 +432,11 @@ impl User {
             language: self.language,
             wallpaper: self.wallpaper.clone(),
             current_map: self.current_map.clone(),
+            level_status: self.level_status.iter().map(|l| json::object! {
+                level_name: l.level_name.clone(),
+                level_map: l.level_map.clone(),
+                level_status: l.level_status,
+            }).collect::<Vec<_>>(),
         }
     }
 }
@@ -833,6 +880,7 @@ impl App {
                 language: 0,
                 wallpaper: "".to_string(),
                 current_map: "".to_string(),
+                level_status: vec![],
             },
             frame: Frame {
                 ..Default::default()
@@ -873,6 +921,12 @@ impl App {
                 PageData {
                     discern_type: "PageData".to_string(),
                     name: "Select_Level".to_string(),
+                    forced_update: true,
+                    change_page_updated: false,
+                },
+                PageData {
+                    discern_type: "PageData".to_string(),
+                    name: "Operation".to_string(),
                     forced_update: true,
                     change_page_updated: false,
                 },
@@ -1446,6 +1500,28 @@ impl App {
             true,
             ctx,
         );
+        self.add_image_texture(
+            "Login",
+            "Resources/assets/images/login.png",
+            [false, false],
+            true,
+            ctx,
+        );
+        self.add_image_texture(
+            "Start_Operation",
+            "Resources/assets/images/start_operation.png",
+            [false, false],
+            true,
+            ctx,
+        );
+        self.add_image(
+            "Start_Operation",
+            [-200_f32, 0_f32, 50_f32, 50_f32],
+            [1, 1, 3, 4],
+            [true, true, true, false, false],
+            [255, 0, 0, 0, 0],
+            "Start_Operation",
+        );
         self.add_image(
             "Forward",
             [150_f32, -100_f32, 50_f32, 50_f32],
@@ -1461,6 +1537,29 @@ impl App {
             [false, false, false, false, false],
             [255, 0, 0, 0, 0],
             "Backward",
+        );
+        self.add_switch(
+            ["Start_Operation", "Start_Operation"],
+            vec![
+                SwitchData {
+                    texture: "Start_Operation".to_string(),
+                    color: [255, 255, 255, 255],
+                },
+                SwitchData {
+                    texture: "Start_Operation".to_string(),
+                    color: [180, 180, 180, 255],
+                },
+                SwitchData {
+                    texture: "Start_Operation".to_string(),
+                    color: [150, 150, 150, 255],
+                },
+            ],
+            [true, true, true],
+            1,
+            vec![SwitchClickAction {
+                click_method: PointerButton::Primary,
+                action: false,
+            }],
         );
         self.add_switch(
             ["Forward", "Forward"],
@@ -1628,6 +1727,14 @@ impl App {
             [100, 0, 0, 0, 0],
             "Scroll_Backward",
         );
+        self.add_rect(
+            "Level_Information_Background",
+            [0_f32, 0_f32, 400_f32, ctx.available_rect().height(), 0_f32],
+            [1, 1, 1, 2],
+            [true, false, false, true],
+            [0, 0, 0, 240, 255, 255, 255, 255],
+            0.0,
+        );
     }
 
     pub fn fade(
@@ -1646,7 +1753,8 @@ impl App {
             if fade_in_or_out {
                 if self.resource_rect[cut_to_rect_id].color[3] < 255 {
                     for _ in 0..20 {
-                        self.resource_rect[cut_to_rect_id].color[3] = self.resource_rect[cut_to_rect_id].color[3].saturating_add(1);
+                        self.resource_rect[cut_to_rect_id].color[3] =
+                            self.resource_rect[cut_to_rect_id].color[3].saturating_add(1);
                     }
                 };
             } else if self.resource_rect[cut_to_rect_id].color[3] > 0 {
