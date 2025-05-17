@@ -382,11 +382,68 @@ impl Map {
     }
 }
 
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct Gun {
+    pub gun_recognition_name: String,
+    pub gun_name: Vec<String>,
+    pub gun_size: [f32; 2],
+    pub gun_image: String,
+    pub gun_shoot_sound: String,
+    pub gun_shoot_speed: f32,
+    pub gun_reload_time: f32,
+    pub gun_basic_damage: f32,
+    pub gun_catridge_clip: u32,
+    pub gun_recoil: f32,
+    pub gun_temperature_degree: u32,
+    pub gun_tag: Vec<String>,
+    pub gun_initial_level: i32,
+}
+
+#[allow(dead_code)]
+impl Gun {
+    pub fn from_json_value(value: &JsonValue) -> Option<Gun> {
+        Some(Gun {
+            gun_recognition_name: value["gun_recognition_name"].as_str()?.to_string(),
+            gun_name: value["gun_name"]
+                .members()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect(),
+            gun_size: value["gun_size"]
+                .members()
+                .filter_map(|v: &JsonValue| v.as_f32())
+                .collect::<Vec<f32>>()
+                .try_into()
+                .ok()
+                .unwrap_or([0.0, 0.0]),
+            gun_image: value["gun_image"].as_str()?.to_string(),
+            gun_shoot_sound: value["gun_shoot_sound"].as_str()?.to_string(),
+            gun_shoot_speed: value["gun_shoot_speed"].as_f32()?,
+            gun_reload_time: value["gun_reload_time"].as_f32()?,
+            gun_basic_damage: value["gun_basic_damage"].as_f32()?,
+            gun_catridge_clip: value["gun_catridge_clip"].as_u32()?,
+            gun_recoil: value["gun_recoil"].as_f32()?,
+            gun_temperature_degree: value["gun_temperature_degree"].as_u32()?,
+            gun_tag: value["gun_tag"]
+                .members()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect(),
+            gun_initial_level: value["gun_initial_level"].as_i32()?,
+        })
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct UserLevelStatus {
     pub level_name: String,
     pub level_map: String,
     pub level_status: i8,
+}
+
+#[derive(Debug, Clone)]
+pub struct UserGunStatus {
+    pub gun_recognition_name: String,
+    pub gun_level: i32,
 }
 
 #[allow(dead_code)]
@@ -399,6 +456,7 @@ pub struct User {
     pub wallpaper: String,
     pub current_map: String,
     pub level_status: Vec<UserLevelStatus>,
+    pub gun_status: Vec<UserGunStatus>,
 }
 
 #[allow(dead_code)]
@@ -421,6 +479,15 @@ impl User {
                     })
                 })
                 .collect(),
+            gun_status: value["gun_status"]
+                .members()
+                .filter_map(|v| {
+                    Some(UserGunStatus {
+                        gun_recognition_name: v["gun_recognition_name"].as_str()?.to_string(),
+                        gun_level: v["gun_level"].as_i32()?,
+                    })
+                })
+                .collect(),
         })
     }
 
@@ -436,6 +503,10 @@ impl User {
                 level_name: l.level_name.clone(),
                 level_map: l.level_map.clone(),
                 level_status: l.level_status,
+            }).collect::<Vec<_>>(),
+            gun_status: self.gun_status.iter().map(|l| json::object! {
+                gun_recognition_name: l.gun_recognition_name.clone(),
+                gun_level: l.gun_level,
             }).collect::<Vec<_>>(),
         }
     }
@@ -827,6 +898,7 @@ pub struct App {
     pub game_text: GameText,
     pub render_resource_list: Vec<RenderResource>,
     pub problem_list: Vec<Problem>,
+    pub storage_gun_content: Vec<Gun>,
     pub login_user_config: User,
     pub frame: Frame,
     pub vertrefresh: f32,
@@ -873,6 +945,7 @@ impl App {
             game_text,
             render_resource_list: Vec::new(),
             problem_list: Vec::new(),
+            storage_gun_content: Vec::new(),
             login_user_config: User {
                 version: 0,
                 name: "".to_string(),
@@ -881,6 +954,7 @@ impl App {
                 wallpaper: "".to_string(),
                 current_map: "".to_string(),
                 level_status: vec![],
+                gun_status: vec![],
             },
             frame: Frame {
                 ..Default::default()
@@ -1735,6 +1809,74 @@ impl App {
             [0, 0, 0, 240, 255, 255, 255, 255],
             0.0,
         );
+        self.add_rect(
+            "Operation_Status_Bar",
+            [0_f32, 0_f32, 1280_f32, 80_f32, 0_f32],
+            [1, 2, 0, 0],
+            [true, true, true, false],
+            [120, 120, 120, 255, 255, 255, 255, 255],
+            0.0,
+        );
+        self.add_image_texture(
+            "Health",
+            "Resources/assets/images/health.png",
+            [false, false],
+            true,
+            ctx,
+        );
+        self.add_image(
+            "Health",
+            [0_f32, 0_f32, 50_f32, 50_f32],
+            [0, 0, 0, 0],
+            [true, true, true, false, false],
+            [255, 0, 0, 0, 0],
+            "Health",
+        );
+        self.add_image_texture(
+            "Enemy",
+            "Resources/assets/images/enemy.png",
+            [false, false],
+            true,
+            ctx,
+        );
+        self.add_image(
+            "Enemy",
+            [0_f32, 0_f32, 50_f32, 50_f32],
+            [0, 0, 0, 0],
+            [true, true, true, false, false],
+            [255, 0, 0, 0, 0],
+            "Enemy",
+        );
+        self.add_image_texture(
+            "Bullet",
+            "Resources/assets/images/bullet.png",
+            [false, false],
+            true,
+            ctx,
+        );
+        self.add_image(
+            "Bullet",
+            [0_f32, 0_f32, 50_f32, 50_f32],
+            [0, 0, 0, 0],
+            [true, true, true, false, false],
+            [255, 0, 0, 0, 0],
+            "Bullet",
+        );
+        self.add_image_texture(
+            "Cost",
+            "Resources/assets/images/cost.png",
+            [false, false],
+            true,
+            ctx,
+        );
+        self.add_image(
+            "Cost",
+            [0_f32, 0_f32, 50_f32, 50_f32],
+            [0, 0, 0, 0],
+            [true, true, true, false, false],
+            [255, 0, 0, 0, 0],
+            "Cost",
+        );
     }
 
     pub fn fade(
@@ -1916,21 +2058,21 @@ impl App {
                 };
             };
             self.rect(ui, "Dock_Background", ctx);
-            if self.switch("Home_Home", ui, ctx, true)[0] == 0 {
+            if self.switch("Home_Home", ui, ctx, true, true)[0] == 0 {
                 self.timer.start_time = self.timer.total_time;
                 self.update_timer();
                 self.add_split_time("dock_animation", true);
                 self.add_split_time("title_animation", true);
                 self.switch_page("Home_Page");
             };
-            if self.switch("Home_Settings", ui, ctx, true)[0] == 0 {
+            if self.switch("Home_Settings", ui, ctx, true, true)[0] == 0 {
                 self.timer.start_time = self.timer.total_time;
                 self.update_timer();
                 self.add_split_time("dock_animation", true);
                 self.switch_page("Home_Setting");
             };
             let id2 = self.track_resource(self.resource_switch.clone(), "Home_Power");
-            if self.switch("Home_Power", ui, ctx, true)[0] == 0 {
+            if self.switch("Home_Power", ui, ctx, true, true)[0] == 0 {
                 write_to_json(
                     format!("Resources/config/user_{}.json", self.config.login_user_name),
                     self.login_user_config.to_json_value(),
@@ -1951,7 +2093,7 @@ impl App {
                     self.switch_page("Login");
                 }
             };
-            if self.switch("Home_Journey", ui, ctx, true)[0] == 0 {
+            if self.switch("Home_Journey", ui, ctx, true, true)[0] == 0 {
                 self.timer.start_time = self.timer.total_time;
                 self.update_timer();
                 self.add_split_time("dock_animation", true);
@@ -3154,6 +3296,7 @@ impl App {
         ui: &mut Ui,
         ctx: &egui::Context,
         enable: bool,
+        play_sound: bool,
     ) -> [usize; 2] {
         let mut activated = [5, 0];
         let id = self.track_resource(self.resource_switch.clone(), name);
@@ -3255,7 +3398,9 @@ impl App {
                         };
                     } else {
                         if self.resource_switch[id].last_time_clicked {
-                            general_click_feedback();
+                            if play_sound {
+                                general_click_feedback();
+                            };
                             let mut count = 1;
                             if self.resource_switch[id].enable_hover_click_image[0] {
                                 count += 1;

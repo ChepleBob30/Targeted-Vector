@@ -2,7 +2,8 @@
 use crate::function::{
     check_file_exists, check_resource_exist, count_files_recursive, create_pretty_json,
     general_click_feedback, kira_play_wav, list_files_recursive, read_from_json, write_to_json,
-    App, Map, SeverityLevel, SwitchClickAction, SwitchData, User, UserLevelStatus, Value,
+    App, Gun, Map, SeverityLevel, SwitchClickAction, SwitchData, User, UserGunStatus,
+    UserLevelStatus, Value,
 };
 use chrono::{Local, Timelike};
 use eframe::egui;
@@ -341,11 +342,11 @@ impl eframe::App for App {
                             };
                         });
                     let no_window = !self.var_b("open_reg_window");
-                    if self.switch("Shutdown", ui, ctx, no_window)[0] != 5 {
+                    if self.switch("Shutdown", ui, ctx, no_window, true)[0] != 5 {
                         write_to_json("Resources/config/Preferences.json", self.config.to_json_value()).unwrap();
                         exit(0);
                     };
-                    if self.switch("Login", ui, ctx, no_window)[0] != 5 {
+                    if self.switch("Login", ui, ctx, no_window, true)[0] != 5 {
                         self.modify_var("login_enable_name_error_message", !check_file_exists(format!("Resources/config/user_{}.json", input1.replace(" ", "").replace("/", "").replace("\\", ""))));
                         if check_file_exists(format!("Resources/config/user_{}.json", input1.replace(" ", "").replace("/", "").replace("\\", ""))) {
                             let mut user = User {
@@ -355,7 +356,8 @@ impl eframe::App for App {
                                 language: 0,
                                 wallpaper: "".to_string(),
                                 current_map: "".to_string(),
-                                level_status: vec![]
+                                level_status: vec![],
+                                gun_status: vec![],
                             };
                             if let Ok(json_value) = read_from_json(format!("Resources/config/user_{}.json", input1.replace(" ", "").replace("/", "").replace("\\", ""))) {
                                 if let Some(read_user) = User::from_json_value(&json_value) {
@@ -392,7 +394,7 @@ impl eframe::App for App {
                             self.modify_var("login_enable_password_error_message", user.password != input2);
                         };
                     };
-                    if self.switch("Register", ui, ctx, no_window)[0] != 5 {
+                    if self.switch("Register", ui, ctx, no_window, true)[0] != 5 {
                         self.modify_var("reg_status", Value::UInt(0));
                         self.modify_var("open_reg_window", true);
                     };
@@ -475,7 +477,7 @@ impl eframe::App for App {
                                             self.modify_var("reg_enable_name_error_message", input3.replace(" ", "").replace("/", "").replace("\\", "").is_empty() || check_file_exists(format!("Resources/config/user_{}.json", input3.replace(" ", "").replace("/", "")).replace("\\", "")));
                                             if input4 == input5 && !check_file_exists(format!("Resources/config/user_{}.json", input3.replace(" ", "").replace("/", "")).replace("\\", "")) && !input3.replace(" ", "").replace("/", "").replace("\\", "").is_empty(){
                                                     let user_data = object! {
-                                                        "version": 12,
+                                                        "version": 13,
                                                         "name": input3.replace(" ", "").replace("/", "").replace("\\", "").clone(),
                                                         "password": input4.clone(),
                                                         "language": self.config.language,
@@ -868,7 +870,7 @@ impl eframe::App for App {
                                 self.resource_image[id].origin_position[0] += 30_f32;
                             };
                         };
-                        if self.switch(&format!("Map_{:?}", map_list[i]), ui, ctx, enable)[0] == 0 {
+                        if self.switch(&format!("Map_{:?}", map_list[i]), ui, ctx, enable, true)[0] == 0 {
                             self.modify_var("cut_to", true);
                             self.modify_var("fade_in_or_out", true);
                             self.login_user_config.current_map =
@@ -923,7 +925,7 @@ impl eframe::App for App {
                                     ));
                                 });
                         });
-                    if self.switch("Forward", ui, ctx, enable)[0] == 0
+                    if self.switch("Forward", ui, ctx, enable, true)[0] == 0
                         && self.var_u("selected_map")
                             < (count_files_recursive(Path::new("Resources/config"), "map_")
                                 .unwrap_or(0)
@@ -932,7 +934,7 @@ impl eframe::App for App {
                         let selected_map = self.var_u("selected_map");
                         self.modify_var("selected_map", Value::UInt(selected_map + 1));
                     };
-                    if self.switch("Backward", ui, ctx, enable)[0] == 0
+                    if self.switch("Backward", ui, ctx, enable, true)[0] == 0
                         && self.var_u("selected_map") > 0
                     {
                         let selected_map = self.var_u("selected_map");
@@ -1065,11 +1067,9 @@ impl eframe::App for App {
                     self.resource_image[scroll_remind_id2].image_size[1] =
                         ctx.available_rect().height();
                     self.image(ui, &map_information.map_image, ctx);
-                    if self.var_i("opened_level") == -1 {
-                        if self.switch("Back", ui, ctx, true)[0] == 0 {
-                            self.modify_var("fade_in_or_out", true);
-                            self.modify_var("cut_to", true);
-                        };
+                    if self.var_i("opened_level") == -1 && self.switch("Back", ui, ctx, true, true)[0] == 0 {
+                        self.modify_var("fade_in_or_out", true);
+                        self.modify_var("cut_to", true);
                     };
                     // 补全缺少的关卡数据
                     for i in 0..map_information.map_content.len() {
@@ -1079,7 +1079,7 @@ impl eframe::App for App {
                                 == map_information.map_content[i].level_name
                             {
                                 level_status =
-                                    self.login_user_config.level_status[u].level_status as i8;
+                                    self.login_user_config.level_status[u].level_status;
                             }
                         }
                         if level_status == -2 {
@@ -1143,7 +1143,7 @@ impl eframe::App for App {
                                 == map_information.map_content[i].level_name
                             {
                                 level_status =
-                                    self.login_user_config.level_status[u].level_status as i8;
+                                    self.login_user_config.level_status[u].level_status;
                                 break;
                             }
                         }
@@ -1184,11 +1184,8 @@ impl eframe::App for App {
                                             "{}_description",
                                             map_information.map_content[i].level_name
                                         ),
-                                        &format!(
-                                            "{}",
-                                            map_information.map_content[i].level_description
-                                                [self.login_user_config.language as usize]
-                                        ),
+                                        &map_information.map_content[i].level_description
+                                                [self.login_user_config.language as usize],
                                     ],
                                     [-200_f32, 0_f32, 20_f32, 300_f32, 0.0],
                                     [255, 255, 255, 255, 0, 0, 0],
@@ -1286,17 +1283,13 @@ impl eframe::App for App {
                                     + self.var_f("scroll_offset"),
                                 map_information.map_content[i].level_position[1],
                             ];
-                            let enable;
-                            if !self.var_b("cut_to") && self.var_i("opened_level") == -1 {
-                                enable = true;
-                            } else {
-                                enable = false;
-                            };
+                            let enable = !self.var_b("cut_to") && self.var_i("opened_level") == -1;
                             if self.switch(
                                 &map_information.map_content[i].level_name,
                                 ui,
                                 ctx,
                                 enable,
+                                true
                             )[0] == 0
                             {
                                 for u in 0..map_information.map_content.len() {
@@ -1364,11 +1357,8 @@ impl eframe::App for App {
                             map_information.map_content[opened_level].level_name_expand
                                 [self.login_user_config.language as usize]
                         );
-                        self.resource_text[text_id2].text_content = format!(
-                            "{}",
-                            map_information.map_content[opened_level].level_description
-                                [self.login_user_config.language as usize]
-                        );
+                        self.resource_text[text_id2].text_content = map_information.map_content[opened_level].level_description
+                                [self.login_user_config.language as usize].clone();
                         self.resource_text[text_id].origin_position[0] =
                             self.resource_rect[rect_id].origin_position[0] + 200_f32;
                         self.resource_text[text_id2].origin_position[0] =
@@ -1391,7 +1381,7 @@ impl eframe::App for App {
                             ),
                             ctx,
                         );
-                        if self.switch("Start_Operation", ui, ctx, true)[0] == 0 {
+                        if self.switch("Start_Operation", ui, ctx, true, true)[0] == 0 {
                             self.modify_var("cut_to", true);
                             self.modify_var("fade_in_or_out", true);
                         };
@@ -1517,20 +1507,6 @@ impl eframe::App for App {
                     }
                 };
                 if !self.check_updated(&self.page.clone()) {
-                    self.add_rect(
-                        "Operation_Background_Border",
-                        [
-                            0_f32,
-                            0_f32,
-                            1280_f32,
-                            720_f32,
-                            0_f32,
-                        ],
-                        [1, 2, 1, 2],
-                        [false, false, true, true],
-                        [0, 0, 0, 0, 0, 0, 0, 255],
-                        5.0,
-                    );
                     self.add_image_texture(
                         "Operation",
                         &map_information.map_operation_background,
@@ -1565,7 +1541,7 @@ impl eframe::App for App {
                         [0_f32, 0_f32, 1280_f32, 720_f32],
                         [0, 0, 0, 0],
                         [true, true, false, false, false],
-                        [200, 0, 0, 0, 0],
+                        [255, 0, 0, 0, 0],
                         "Operation_Expand1",
                     );
                     self.add_image(
@@ -1573,7 +1549,7 @@ impl eframe::App for App {
                         [0_f32, 0_f32, 1280_f32, 720_f32],
                         [0, 0, 0, 0],
                         [true, true, false, false, false],
-                        [200, 0, 0, 0, 0],
+                        [255, 0, 0, 0, 0],
                         "Operation_Expand2",
                     );
                     self.add_scroll_background(
@@ -1593,13 +1569,120 @@ impl eframe::App for App {
                             ctx.available_rect().height(),
                         ],
                     );
+                    self.add_var("gun_selected", Value::UInt(0));
+                    self.add_var("gun_selectable_len", Value::UInt(0));
                     self.add_var(
                         "operation_last_window_size",
                         vec![ctx.available_rect().width(), ctx.available_rect().height()],
                     );
+                    
                 };
                 egui::CentralPanel::default().show(ctx, |ui| {
+                    let bar_id = self.track_resource(self.resource_rect.clone(), "Operation_Status_Bar");
+                    let bar_id2 = self.track_resource(self.resource_image.clone(), "Health");
+                    let bar_id3 = self.track_resource(self.resource_image.clone(), "Enemy");
+                    let bar_id4 = self.track_resource(self.resource_image.clone(), "Bullet");
+                    let bar_id5 = self.track_resource(self.resource_image.clone(), "Cost");
                     if !self.var_b("prepared_operation") {
+                        self.resource_rect[bar_id].origin_position[1] = ctx.available_rect().height() / 2_f32 - 360_f32;
+                        self.resource_image[bar_id2].origin_position = [ctx.available_rect().width() / 2_f32 - 640_f32 + 1280_f32 / 3_f32, ctx.available_rect().height() / 2_f32 - 360_f32];
+                        self.resource_image[bar_id3].origin_position = [ctx.available_rect().width() / 2_f32 - 640_f32 + 1280_f32 / 2_f32, ctx.available_rect().height() / 2_f32 - 360_f32];
+                        self.resource_image[bar_id4].origin_position = [ctx.available_rect().width() / 2_f32 - 640_f32 + 1280_f32 / 3_f32 * 2_f32, ctx.available_rect().height() / 2_f32 - 360_f32];
+                        self.resource_image[bar_id5].origin_position = [ctx.available_rect().width() / 2_f32 - 640_f32 + 1280_f32 / 6_f32 * 5_f32, ctx.available_rect().height() / 2_f32 - 360_f32];
+                        let gun_list =
+                            list_files_recursive(Path::new("Resources/config"), "gun_").unwrap();
+                        let mut gun_list_content = Vec::new();
+                        for (i, _) in gun_list.iter().enumerate().take(count_files_recursive(Path::new("Resources/config"), "gun_").unwrap())
+                        {
+                            if let Ok(gun_json_message) = read_from_json(gun_list[i].clone()) {
+                                if let Some(gun_message) = Gun::from_json_value(&gun_json_message) {
+                                    let mut gun_unlock_id = 0;
+                                    if !self.login_user_config.gun_status.iter().any(|x| {
+                                        x.gun_recognition_name == gun_message.gun_recognition_name
+                                    }) {
+                                        self.login_user_config.gun_status.push(UserGunStatus {
+                                            gun_recognition_name: gun_message
+                                                .gun_recognition_name
+                                                .clone(),
+                                            gun_level: gun_message.gun_initial_level,
+                                        });
+                                        gun_unlock_id = self.login_user_config.gun_status.len();
+                                    };
+                                    for u in 0..self.login_user_config.gun_status.len() {
+                                        if self.login_user_config.gun_status[u].gun_recognition_name == gun_message.gun_recognition_name {
+                                            gun_unlock_id = u;
+                                        };
+                                    };
+                                    for u in 0..self.login_user_config.gun_status.len() {
+                                        if self.login_user_config.gun_status[u].gun_recognition_name
+                                            == gun_message.gun_recognition_name.clone()
+                                            && self.login_user_config.gun_status[gun_unlock_id].gun_level != -1
+                                        {
+                                            if !check_resource_exist(
+                                                self.resource_image_texture.clone(),
+                                                &gun_message.gun_recognition_name.clone(),
+                                            ) {
+                                                self.add_image_texture(
+                                                    &gun_message.gun_recognition_name.clone(),
+                                                    &gun_message.gun_image.clone(),
+                                                    [false, false],
+                                                    true,
+                                                    ctx,
+                                                );
+                                                self.add_image(
+                                                    &gun_message.gun_recognition_name.clone(),
+                                                    [
+                                                        0_f32,
+                                                        0_f32,
+                                                        gun_message.gun_size[0],
+                                                        gun_message.gun_size[1],
+                                                    ],
+                                                    [0, 0, 0, 0],
+                                                    [true, true, true, true, true],
+                                                    [255, 255, 255, 255, 255],
+                                                    &gun_message.gun_recognition_name.clone(),
+                                                );
+                                                self.add_switch(
+                                                    [
+                                                        &gun_message.gun_recognition_name.clone(),
+                                                        &gun_message.gun_recognition_name.clone(),
+                                                    ],
+                                                    vec![
+                                                        SwitchData {
+                                                            texture: gun_message
+                                                                .gun_recognition_name
+                                                                .clone(),
+                                                            color: [255, 255, 255, 255],
+                                                        },
+                                                        SwitchData {
+                                                            texture: gun_message
+                                                                .gun_recognition_name
+                                                                .clone(),
+                                                            color: [255, 255, 0, 255],
+                                                        },
+                                                        SwitchData {
+                                                            texture: gun_message
+                                                                .gun_recognition_name
+                                                                .clone(),
+                                                            color: [0, 0, 0, 255],
+                                                        },
+                                                    ],
+                                                    [false, false, true],
+                                                    3,
+                                                    vec![SwitchClickAction {
+                                                        click_method: PointerButton::Primary,
+                                                        action: false,
+                                                    }],
+                                                );
+                                            };
+                                            gun_list_content.push(gun_message.clone());
+                                        };
+                                    }
+                                };
+                            };
+                        };
+                        self.modify_var("gun_selectable_len", gun_list_content.len() as u32);
+                        self.storage_gun_content = gun_list_content;
                         self.add_image_texture(
                             "Operation",
                             &map_information.map_operation_background,
@@ -1644,11 +1727,18 @@ impl eframe::App for App {
                             self.resource_image_texture[id6].texture.clone();
                         self.modify_var("prepared_operation", true);
                     };
-                    if self.var_decode_f(self.clone().var_v("operation_last_window_size")[0].clone())
+                    if self
+                        .var_decode_f(self.clone().var_v("operation_last_window_size")[0].clone())
                         != ctx.available_rect().width()
-                        || self.var_decode_f(self.clone().var_v("operation_last_window_size")[1].clone())
-                            != ctx.available_rect().height()
+                        || self.var_decode_f(
+                            self.clone().var_v("operation_last_window_size")[1].clone(),
+                        ) != ctx.available_rect().height()
                     {
+                        self.resource_rect[bar_id].origin_position[1] = ctx.available_rect().height() / 2_f32 - 360_f32;
+                        self.resource_image[bar_id2].origin_position = [ctx.available_rect().width() / 2_f32 - 640_f32 + 1280_f32 / 3_f32, ctx.available_rect().height() / 2_f32 - 360_f32];
+                        self.resource_image[bar_id3].origin_position = [ctx.available_rect().width() / 2_f32 - 640_f32 + 1280_f32 / 2_f32, ctx.available_rect().height() / 2_f32 - 360_f32];
+                        self.resource_image[bar_id4].origin_position = [ctx.available_rect().width() / 2_f32 - 640_f32 + 1280_f32 / 3_f32 * 2_f32, ctx.available_rect().height() / 2_f32 - 360_f32];
+                        self.resource_image[bar_id5].origin_position = [ctx.available_rect().width() / 2_f32 - 640_f32 + 1280_f32 / 6_f32 * 5_f32, ctx.available_rect().height() / 2_f32 - 360_f32];
                         let scroll_background = self.track_resource(
                             self.resource_scroll_background.clone(),
                             "Operation_Expand",
@@ -1672,9 +1762,46 @@ impl eframe::App for App {
                                 ctx.available_rect().height();
                         }
                     };
+                    if ui.input(|i| {
+                            i.pointer.button_released(
+                                PointerButton::Middle,
+                            )
+                        }) {
+                        if self.var_u("gun_selected") < self.var_u("gun_selectable_len") - 1 {
+                            let gun_selected = self.var_u("gun_selected");
+                            self.modify_var("gun_selected", gun_selected + 1);
+                        } else {
+                            self.modify_var("gun_selected", Value::UInt(0));
+                        };
+                        std::thread::spawn(|| {
+                            kira_play_wav("Resources/assets/sounds/Reload.wav").unwrap();
+                        });
+                    };
+                    let id_id = self.var_u("gun_selected") as usize;
+                    let id = self.track_resource(
+                        self.resource_image.clone(),
+                        &self.storage_gun_content[id_id].gun_recognition_name.clone(),
+                    );
+                    if let Some(mouse_pos) = ui.input(|i| i.pointer.hover_pos()) {
+                        if ctx.available_rect().width() / 2_f32 - 640_f32 <= mouse_pos.x && mouse_pos.x <= ctx.available_rect().width() / 2_f32 + 640_f32 && mouse_pos.y <= ctx.available_rect().height() / 2_f32 + 360_f32 && mouse_pos.y >= ctx.available_rect().height() / 2_f32 - 360_f32 {
+                            self.resource_image[id].origin_position = [mouse_pos.x, mouse_pos.y];
+                        };
+                    };
                     self.scroll_background(ui, "Operation_Expand", ctx);
-                    self.rect(ui, "Operation_Background_Border", ctx);
                     self.image(ui, "Operation", ctx);
+                    let gun_id = self.track_resource(self.resource_switch.clone(), &self.storage_gun_content[id_id].gun_recognition_name.clone());
+                    if self.switch(&self.storage_gun_content[id_id].gun_recognition_name.clone(), ui, ctx, true, false)[0] == 0 && self.resource_switch[gun_id].state == 0 {
+                        let sound = self.storage_gun_content[id_id].gun_shoot_sound.clone();
+                        std::thread::spawn(move || {
+                            kira_play_wav(&sound).unwrap();
+                        });
+
+                    };
+                    // self.rect(ui, "Operation_Status_Bar", ctx);
+                    // self.image(ui, "Health", ctx);
+                    // self.image(ui, "Enemy", ctx);
+                    // self.image(ui, "Bullet", ctx);
+                    // self.image(ui, "Cost", ctx);
                     let fade_in_or_out = self.var_b("fade_in_or_out");
                     if self.fade(
                         fade_in_or_out,
@@ -1760,7 +1887,7 @@ impl eframe::App for App {
                             ui.heading(game_text["debug_frame_number_details"][self.config.language as usize].clone());
                         });
                         ui.separator();
-                        ui.label(format!("{}: {:.1}{}", game_text["debug_fps"][self.config.language as usize].clone(), self.current_fps(), game_text["debug_fps2"][self.config.language as usize].clone()));
+                        ui.label(format!("{}: {:.3}{}", game_text["debug_fps"][self.config.language as usize].clone(), self.current_fps(), game_text["debug_fps2"][self.config.language as usize].clone()));
                         ui.separator();
                         ui.label(format!("{}:", game_text["debug_last_ten_frames"][self.config.language as usize].clone()));
                         self.frame_times

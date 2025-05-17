@@ -1,0 +1,18 @@
+{
+    "gun_recognition_name": "Pistol",
+    "gun_name": [
+        "手枪",
+        "Pistol"
+    ],
+    "gun_size": [60.0, 60.0],
+    "gun_image": "Resources/assets/images/gun_normal.png",
+    "gun_shoot_sound": "Resources/assets/sounds/Charge_Shoot.wav",
+    "gun_shoot_speed": 0.05,
+    "gun_reload_time":  0.05,
+    "gun_basic_damage": 3.0,
+    "gun_catridge_clip": 20,
+    "gun_recoil": 1.0,
+    "gun_temperature_degree": 4,
+    "gun_tag": [],
+    "gun_initial_level": 0
+}
