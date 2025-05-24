@@ -9,9 +9,14 @@ use chrono::{Local, Timelike};
 use eframe::egui;
 use eframe::epaint::Rounding;
 use egui::{Color32, Frame, PointerButton, Pos2, Shadow, Stroke};
-use json::{object, Array};
 use rfd::FileDialog;
-use std::{fs, path::Path, process::exit, vec::Vec};
+use std::{
+    collections::{hash_map, HashMap},
+    fs,
+    path::Path,
+    process::exit,
+    vec::Vec,
+};
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
@@ -254,8 +259,10 @@ impl eframe::App for App {
                 let mut input4 = self.var_s("reg_account_password_str");
                 let mut input5 = self.var_s("reg_account_check_password_str");
                 egui::CentralPanel::default().show(ctx, |ui| {
-                    if self.var_decode_f(self.clone().var_v("last_window_size")[0].clone()) != ctx.available_rect().width()
-                        || self.var_decode_f(self.clone().var_v("last_window_size")[1].clone()) != ctx.available_rect().height()
+                    if self.var_decode_f(self.clone().var_v("last_window_size")[0].clone())
+                        != ctx.available_rect().width()
+                        || self.var_decode_f(self.clone().var_v("last_window_size")[1].clone())
+                            != ctx.available_rect().height()
                     {
                         self.resource_scroll_background[scroll_background].resume_point =
                             ctx.available_rect().width();
@@ -266,7 +273,7 @@ impl eframe::App for App {
                             let id = self.track_resource(
                                 self.resource_image.clone(),
                                 &self.resource_scroll_background[scroll_background].image_name[i]
-                                    .clone()
+                                    .clone(),
                             );
                             self.resource_image[id].image_size =
                                 [ctx.available_rect().width(), ctx.available_rect().height()];
@@ -278,7 +285,13 @@ impl eframe::App for App {
                     };
                     self.scroll_background(ui, "ScrollWallpaper", ctx);
                     let id = self.track_resource(self.resource_text.clone(), "Date");
-                    self.resource_text[id].text_content = Local::now().format(&format!("{} {}", &game_text["date"][self.config.language as usize], &game_text["week"][self.config.language as usize])).to_string();
+                    self.resource_text[id].text_content = Local::now()
+                        .format(&format!(
+                            "{} {}",
+                            &game_text["date"][self.config.language as usize],
+                            &game_text["week"][self.config.language as usize]
+                        ))
+                        .to_string();
                     if self.config.language == 0 {
                         let week = match Local::now().format("%A").to_string().as_str() {
                             "Monday" => "一",
@@ -290,10 +303,17 @@ impl eframe::App for App {
                             "Sunday" => "日",
                             _ => "一",
                         };
-                        self.resource_text[id].text_content = format!("{} {}{}", Local::now().format(&game_text["date"][self.config.language as usize]), game_text["week"][self.config.language as usize], week);
+                        self.resource_text[id].text_content = format!(
+                            "{} {}{}",
+                            Local::now().format(&game_text["date"][self.config.language as usize]),
+                            game_text["week"][self.config.language as usize],
+                            week
+                        );
                     }
                     let id2 = self.track_resource(self.resource_text.clone(), "Time");
-                    self.resource_text[id2].text_content = Local::now().format(&game_text["time"][self.config.language as usize]).to_string();
+                    self.resource_text[id2].text_content = Local::now()
+                        .format(&game_text["time"][self.config.language as usize])
+                        .to_string();
                     self.text(ui, "Date", ctx);
                     self.text(ui, "Time", ctx);
                     egui::Area::new("Login".into())
@@ -304,16 +324,28 @@ impl eframe::App for App {
                         .show(ui.ctx(), |ui| {
                             if !self.var_b("open_reg_window") {
                                 egui::ComboBox::from_label("")
-                                .selected_text(game_text["language"][self.config.language as usize].clone())
-                                .width(200_f32)
-                                .close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside)
-                                .show_ui(ui, |ui| {
-                                    let lang = self.config.language;
-                                    for i in 0..self.config.amount_languages {
-                                        ui.selectable_value(&mut self.config.language, i, format!("{}({})", game_text["language"][i as usize].clone(), game_text[&format!("{}_language", lang)][i as usize].clone())); 
-                                    };
-                                }
-                            );
+                                    .selected_text(
+                                        game_text["language"][self.config.language as usize]
+                                            .clone(),
+                                    )
+                                    .width(200_f32)
+                                    .close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside)
+                                    .show_ui(ui, |ui| {
+                                        let lang = self.config.language;
+                                        for i in 0..self.config.amount_languages {
+                                            ui.selectable_value(
+                                                &mut self.config.language,
+                                                i,
+                                                format!(
+                                                    "{}({})",
+                                                    game_text["language"][i as usize].clone(),
+                                                    game_text[&format!("{}_language", lang)]
+                                                        [i as usize]
+                                                        .clone()
+                                                ),
+                                            );
+                                        }
+                                    });
                             };
                             ui.add(
                                 egui::TextEdit::singleline(&mut input1)
@@ -321,11 +353,18 @@ impl eframe::App for App {
                                     .desired_width(200_f32)
                                     .char_limit(20)
                                     .interactive(!self.var_b("open_reg_window"))
-                                    .hint_text(game_text["account_name"][self.config.language as usize].clone())
+                                    .hint_text(
+                                        game_text["account_name"][self.config.language as usize]
+                                            .clone(),
+                                    )
                                     .font(egui::FontId::proportional(16.0)), // 字体大小
                             );
                             if self.var_b("login_enable_name_error_message") {
-                                ui.colored_label(egui::Color32::RED, game_text["login_name_error"][self.config.language as usize].clone());
+                                ui.colored_label(
+                                    egui::Color32::RED,
+                                    game_text["login_name_error"][self.config.language as usize]
+                                        .clone(),
+                                );
                             };
                             ui.add(
                                 egui::TextEdit::singleline(&mut input2)
@@ -333,22 +372,44 @@ impl eframe::App for App {
                                     .desired_width(200_f32)
                                     .char_limit(20)
                                     .interactive(!self.var_b("open_reg_window"))
-                                    .hint_text(game_text["account_password"][self.config.language as usize].clone())
+                                    .hint_text(
+                                        game_text["account_password"]
+                                            [self.config.language as usize]
+                                            .clone(),
+                                    )
                                     .password(true)
                                     .font(egui::FontId::proportional(16.0)), // 字体大小
                             );
                             if self.var_b("login_enable_password_error_message") {
-                                ui.colored_label(egui::Color32::RED, game_text["login_password_error"][self.config.language as usize].clone());
+                                ui.colored_label(
+                                    egui::Color32::RED,
+                                    game_text["login_password_error"]
+                                        [self.config.language as usize]
+                                        .clone(),
+                                );
                             };
                         });
                     let no_window = !self.var_b("open_reg_window");
                     if self.switch("Shutdown", ui, ctx, no_window, true)[0] != 5 {
-                        write_to_json("Resources/config/Preferences.json", self.config.to_json_value()).unwrap();
+                        write_to_json(
+                            "Resources/config/Preferences.json",
+                            self.config.to_json_value(),
+                        )
+                        .unwrap();
                         exit(0);
                     };
                     if self.switch("Login", ui, ctx, no_window, true)[0] != 5 {
-                        self.modify_var("login_enable_name_error_message", !check_file_exists(format!("Resources/config/user_{}.json", input1.replace(" ", "").replace("/", "").replace("\\", ""))));
-                        if check_file_exists(format!("Resources/config/user_{}.json", input1.replace(" ", "").replace("/", "").replace("\\", ""))) {
+                        self.modify_var(
+                            "login_enable_name_error_message",
+                            !check_file_exists(format!(
+                                "Resources/config/user_{}.json",
+                                input1.replace(" ", "").replace("/", "").replace("\\", "")
+                            )),
+                        );
+                        if check_file_exists(format!(
+                            "Resources/config/user_{}.json",
+                            input1.replace(" ", "").replace("/", "").replace("\\", "")
+                        )) {
                             let mut user = User {
                                 version: 0,
                                 name: "".to_string(),
@@ -358,8 +419,12 @@ impl eframe::App for App {
                                 current_map: "".to_string(),
                                 level_status: vec![],
                                 gun_status: vec![],
+                                settings: hash_map::HashMap::new(),
                             };
-                            if let Ok(json_value) = read_from_json(format!("Resources/config/user_{}.json", input1.replace(" ", "").replace("/", "").replace("\\", ""))) {
+                            if let Ok(json_value) = read_from_json(format!(
+                                "Resources/config/user_{}.json",
+                                input1.replace(" ", "").replace("/", "").replace("\\", "")
+                            )) {
                                 if let Some(read_user) = User::from_json_value(&json_value) {
                                     user = read_user;
                                 }
@@ -371,7 +436,10 @@ impl eframe::App for App {
                                 input2 = "".to_string();
                                 self.timer.start_time = self.timer.total_time;
                                 self.update_timer();
-                                if check_resource_exist(self.timer.split_time.clone(), "dock_animation") {
+                                if check_resource_exist(
+                                    self.timer.split_time.clone(),
+                                    "dock_animation",
+                                ) {
                                     self.add_split_time("dock_animation", true);
                                     self.add_split_time("title_animation", true);
                                 };
@@ -384,14 +452,33 @@ impl eframe::App for App {
                                         self.login_user_config = read_user;
                                     };
                                 };
-                                if check_resource_exist(self.resource_image_texture.clone(), "Home_Wallpaper") {
-                                    self.add_image_texture("Home_Wallpaper", &self.login_user_config.wallpaper.clone(), [false, false], false, ctx);
-                                    let id = self.track_resource(self.resource_image_texture.clone(), "Home_Wallpaper");
-                                    let id2 = self.track_resource(self.resource_image.clone(), "Home_Wallpaper");
-                                    self.resource_image[id2].image_texture = self.resource_image_texture[id].texture.clone();
+                                if check_resource_exist(
+                                    self.resource_image_texture.clone(),
+                                    "Home_Wallpaper",
+                                ) {
+                                    self.add_image_texture(
+                                        "Home_Wallpaper",
+                                        &self.login_user_config.wallpaper.clone(),
+                                        [false, false],
+                                        false,
+                                        ctx,
+                                    );
+                                    let id = self.track_resource(
+                                        self.resource_image_texture.clone(),
+                                        "Home_Wallpaper",
+                                    );
+                                    let id2 = self.track_resource(
+                                        self.resource_image.clone(),
+                                        "Home_Wallpaper",
+                                    );
+                                    self.resource_image[id2].image_texture =
+                                        self.resource_image_texture[id].texture.clone();
                                 };
                             };
-                            self.modify_var("login_enable_password_error_message", user.password != input2);
+                            self.modify_var(
+                                "login_enable_password_error_message",
+                                user.password != input2,
+                            );
                         };
                     };
                     if self.switch("Register", ui, ctx, no_window, true)[0] != 5 {
@@ -413,33 +500,60 @@ impl eframe::App for App {
                         .show(ctx, |ui| {
                             ui.vertical_centered(|ui| {
                                 if self.var_u("reg_status") == 0 {
-                                    ui.heading(game_text["welcome"][self.config.language as usize].clone());
+                                    ui.heading(
+                                        game_text["welcome"][self.config.language as usize].clone(),
+                                    );
                                 } else if self.var_u("reg_status") == 1 {
-                                    ui.heading(game_text["reg_account"][self.config.language as usize].clone());
+                                    ui.heading(
+                                        game_text["reg_account"][self.config.language as usize]
+                                            .clone(),
+                                    );
                                 } else if self.var_u("reg_status") == 2 {
-                                    ui.heading(game_text["reg_complete"][self.config.language as usize].clone());
+                                    ui.heading(
+                                        game_text["reg_complete"][self.config.language as usize]
+                                            .clone(),
+                                    );
                                 };
                                 ui.separator();
                                 if self.var_u("reg_status") == 0 {
                                     self.image(ui, "Gun_Logo", ctx);
-                                    ui.label(game_text["intro"][self.config.language as usize].clone());
+                                    ui.label(
+                                        game_text["intro"][self.config.language as usize].clone(),
+                                    );
                                 } else if self.var_u("reg_status") == 1 {
                                     ui.add(
                                         egui::TextEdit::singleline(&mut input3)
                                             .cursor_at_end(true)
                                             .desired_width(200_f32)
                                             .char_limit(20)
-                                            .hint_text(game_text["reg_account_name"][self.config.language as usize].clone())
+                                            .hint_text(
+                                                game_text["reg_account_name"]
+                                                    [self.config.language as usize]
+                                                    .clone(),
+                                            )
                                             .font(egui::FontId::proportional(16.0)),
                                     );
-                                    ui.label(format!("{}{}", game_text["reg_name_preview"][self.config.language as usize].clone(), input3.replace(" ", "").replace("/", "")).replace("\\", ""));
+                                    ui.label(
+                                        format!(
+                                            "{}{}",
+                                            game_text["reg_name_preview"]
+                                                [self.config.language as usize]
+                                                .clone(),
+                                            input3.replace(" ", "").replace("/", "")
+                                        )
+                                        .replace("\\", ""),
+                                    );
                                     ui.add(
                                         egui::TextEdit::singleline(&mut input4)
                                             .cursor_at_end(true)
                                             .desired_width(200_f32)
                                             .char_limit(20)
                                             .password(true)
-                                            .hint_text(game_text["reg_account_password"][self.config.language as usize].clone())
+                                            .hint_text(
+                                                game_text["reg_account_password"]
+                                                    [self.config.language as usize]
+                                                    .clone(),
+                                            )
                                             .font(egui::FontId::proportional(16.0)),
                                     );
                                     ui.add(
@@ -448,68 +562,174 @@ impl eframe::App for App {
                                             .desired_width(200_f32)
                                             .char_limit(20)
                                             .password(true)
-                                            .hint_text(game_text["reg_account_check_password"][self.config.language as usize].clone())
+                                            .hint_text(
+                                                game_text["reg_account_check_password"]
+                                                    [self.config.language as usize]
+                                                    .clone(),
+                                            )
                                             .font(egui::FontId::proportional(16.0)),
                                     );
                                 } else if self.var_u("reg_status") == 2 {
                                     self.image(ui, "Reg_Complete", ctx);
-                                    ui.label(game_text["reg_success"][self.config.language as usize].clone());
+                                    ui.label(
+                                        game_text["reg_success"][self.config.language as usize]
+                                            .clone(),
+                                    );
                                 };
-                                    if self.var_u("reg_status") == 0 {
-                                        if ui.button(game_text["cancel"][self.config.language as usize].clone()).clicked() {
-                                            general_click_feedback();
-                                            self.modify_var("open_reg_window", false);
-                                        };
-                                        if ui.button(game_text["continue"][self.config.language as usize].clone()).clicked() {
-                                            general_click_feedback();
-                                            self.modify_var("reg_enable_name_error_message", false);
-                                            self.modify_var("reg_enable_password_error_message", false);
-                                            self.modify_var("reg_status", Value::UInt(1));
-                                        };
-                                    } else if self.var_u("reg_status") == 1 {
-                                        if ui.button(game_text["cancel"][self.config.language as usize].clone()).clicked() {
-                                            general_click_feedback();
-                                            self.modify_var("reg_status", Value::UInt(0));
-                                        };
-                                        if ui.button(game_text["continue"][self.config.language as usize].clone()).clicked() {
-                                            general_click_feedback();
-                                            self.modify_var("reg_enable_password_error_message", input4 != input5);
-                                            self.modify_var("reg_enable_name_error_message", input3.replace(" ", "").replace("/", "").replace("\\", "").is_empty() || check_file_exists(format!("Resources/config/user_{}.json", input3.replace(" ", "").replace("/", "")).replace("\\", "")));
-                                            if input4 == input5 && !check_file_exists(format!("Resources/config/user_{}.json", input3.replace(" ", "").replace("/", "")).replace("\\", "")) && !input3.replace(" ", "").replace("/", "").replace("\\", "").is_empty(){
-                                                    let user_data = object! {
-                                                        "version": 13,
-                                                        "name": input3.replace(" ", "").replace("/", "").replace("\\", "").clone(),
-                                                        "password": input4.clone(),
-                                                        "language": self.config.language,
-                                                        "wallpaper": "Resources/assets/images/wallpaper.png".to_string(),
-                                                        "current_map": "map_tutorial".to_string(),
-                                                        "level_status": Array::new(),
-                                                    };
-                                                    create_pretty_json(format!("Resources/config/user_{}.json", input3.replace(" ", "").replace("/", "").replace("\\", "")), user_data).unwrap();
-                                                    self.modify_var("reg_status", Value::UInt(2));
-                                            };
-                                        };
-                                        if self.var_b("reg_enable_password_error_message") {
-                                            ui.colored_label(egui::Color32::RED, game_text["reg_check_password_error"][self.config.language as usize].clone());
-                                        };
-                                        if self.var_b("reg_enable_name_error_message") {
-                                            ui.colored_label(egui::Color32::RED, game_text["reg_name_error"][self.config.language as usize].clone());
-                                        };
-                                    } else if self.var_u("reg_status") == 2 {
-                                        if ui.button(game_text["re_reg"][self.config.language as usize].clone()).clicked() {
-                                            general_click_feedback();
-                                            self.modify_var("reg_status", Value::UInt(0));
-                                        };
-                                        if ui.button(game_text["reg_complete"][self.config.language as usize].clone()).clicked() {
-                                            general_click_feedback();
-                                            input1 = input3.replace(" ", "").replace("/", "").replace("\\", "");
-                                            input2 = input5.clone();
-                                            input3 = "".to_string();
-                                            input4 = "".to_string();
-                                            input5 = "".to_string();
-                                            self.modify_var("open_reg_window", false);
+                                if self.var_u("reg_status") == 0 {
+                                    if ui
+                                        .button(
+                                            game_text["cancel"][self.config.language as usize]
+                                                .clone(),
+                                        )
+                                        .clicked()
+                                    {
+                                        general_click_feedback();
+                                        self.modify_var("open_reg_window", false);
+                                    };
+                                    if ui
+                                        .button(
+                                            game_text["continue"][self.config.language as usize]
+                                                .clone(),
+                                        )
+                                        .clicked()
+                                    {
+                                        general_click_feedback();
+                                        self.modify_var("reg_enable_name_error_message", false);
+                                        self.modify_var("reg_enable_password_error_message", false);
+                                        self.modify_var("reg_status", Value::UInt(1));
+                                    };
+                                } else if self.var_u("reg_status") == 1 {
+                                    if ui
+                                        .button(
+                                            game_text["cancel"][self.config.language as usize]
+                                                .clone(),
+                                        )
+                                        .clicked()
+                                    {
+                                        general_click_feedback();
+                                        self.modify_var("reg_status", Value::UInt(0));
+                                    };
+                                    if ui
+                                        .button(
+                                            game_text["continue"][self.config.language as usize]
+                                                .clone(),
+                                        )
+                                        .clicked()
+                                    {
+                                        general_click_feedback();
+                                        self.modify_var(
+                                            "reg_enable_password_error_message",
+                                            input4 != input5,
+                                        );
+                                        self.modify_var(
+                                            "reg_enable_name_error_message",
+                                            input3
+                                                .replace(" ", "")
+                                                .replace("/", "")
+                                                .replace("\\", "")
+                                                .is_empty()
+                                                || check_file_exists(
+                                                    format!(
+                                                        "Resources/config/user_{}.json",
+                                                        input3.replace(" ", "").replace("/", "")
+                                                    )
+                                                    .replace("\\", ""),
+                                                ),
+                                        );
+                                        if input4 == input5
+                                            && !check_file_exists(
+                                                format!(
+                                                    "Resources/config/user_{}.json",
+                                                    input3.replace(" ", "").replace("/", "")
+                                                )
+                                                .replace("\\", ""),
+                                            )
+                                            && !input3
+                                                .replace(" ", "")
+                                                .replace("/", "")
+                                                .replace("\\", "")
+                                                .is_empty()
+                                        {
+                                            let hashmap = HashMap::new();
+                                            let user_data = User {
+                                                version: 14,
+                                                name: input3
+                                                    .replace(" ", "")
+                                                    .replace("/", "")
+                                                    .replace("\\", "")
+                                                    .clone(),
+                                                password: input4.clone(),
+                                                language: self.config.language,
+                                                wallpaper: "Resources/assets/images/wallpaper.png"
+                                                    .to_string(),
+                                                current_map: "map_tutorial".to_string(),
+                                                gun_status: Vec::new(),
+                                                level_status: Vec::new(),
+                                                settings: hashmap,
+                                            }
+                                            .to_json_value();
+                                            create_pretty_json(
+                                                format!(
+                                                    "Resources/config/user_{}.json",
+                                                    input3
+                                                        .replace(" ", "")
+                                                        .replace("/", "")
+                                                        .replace("\\", "")
+                                                ),
+                                                user_data,
+                                            )
+                                            .unwrap();
+                                            self.modify_var("reg_status", Value::UInt(2));
                                         };
                                     };
+                                    if self.var_b("reg_enable_password_error_message") {
+                                        ui.colored_label(
+                                            egui::Color32::RED,
+                                            game_text["reg_check_password_error"]
+                                                [self.config.language as usize]
+                                                .clone(),
+                                        );
+                                    };
+                                    if self.var_b("reg_enable_name_error_message") {
+                                        ui.colored_label(
+                                            egui::Color32::RED,
+                                            game_text["reg_name_error"]
+                                                [self.config.language as usize]
+                                                .clone(),
+                                        );
+                                    };
+                                } else if self.var_u("reg_status") == 2 {
+                                    if ui
+                                        .button(
+                                            game_text["re_reg"][self.config.language as usize]
+                                                .clone(),
+                                        )
+                                        .clicked()
+                                    {
+                                        general_click_feedback();
+                                        self.modify_var("reg_status", Value::UInt(0));
+                                    };
+                                    if ui
+                                        .button(
+                                            game_text["reg_complete"]
+                                                [self.config.language as usize]
+                                                .clone(),
+                                        )
+                                        .clicked()
+                                    {
+                                        general_click_feedback();
+                                        input1 = input3
+                                            .replace(" ", "")
+                                            .replace("/", "")
+                                            .replace("\\", "");
+                                        input2 = input5.clone();
+                                        input3 = "".to_string();
+                                        input4 = "".to_string();
+                                        input5 = "".to_string();
+                                        self.modify_var("open_reg_window", false);
+                                    };
+                                };
                             });
                         });
                     self.modify_var("account_name_str", input1);
@@ -870,7 +1090,9 @@ impl eframe::App for App {
                                 self.resource_image[id].origin_position[0] += 30_f32;
                             };
                         };
-                        if self.switch(&format!("Map_{:?}", map_list[i]), ui, ctx, enable, true)[0] == 0 {
+                        if self.switch(&format!("Map_{:?}", map_list[i]), ui, ctx, enable, true)[0]
+                            == 0
+                        {
                             self.modify_var("cut_to", true);
                             self.modify_var("fade_in_or_out", true);
                             self.login_user_config.current_map =
@@ -1067,7 +1289,9 @@ impl eframe::App for App {
                     self.resource_image[scroll_remind_id2].image_size[1] =
                         ctx.available_rect().height();
                     self.image(ui, &map_information.map_image, ctx);
-                    if self.var_i("opened_level") == -1 && self.switch("Back", ui, ctx, true, true)[0] == 0 {
+                    if self.var_i("opened_level") == -1
+                        && self.switch("Back", ui, ctx, true, true)[0] == 0
+                    {
                         self.modify_var("fade_in_or_out", true);
                         self.modify_var("cut_to", true);
                     };
@@ -1078,8 +1302,7 @@ impl eframe::App for App {
                             if self.login_user_config.level_status[u].level_name
                                 == map_information.map_content[i].level_name
                             {
-                                level_status =
-                                    self.login_user_config.level_status[u].level_status;
+                                level_status = self.login_user_config.level_status[u].level_status;
                             }
                         }
                         if level_status == -2 {
@@ -1142,8 +1365,7 @@ impl eframe::App for App {
                             if self.login_user_config.level_status[u].level_name
                                 == map_information.map_content[i].level_name
                             {
-                                level_status =
-                                    self.login_user_config.level_status[u].level_status;
+                                level_status = self.login_user_config.level_status[u].level_status;
                                 break;
                             }
                         }
@@ -1159,40 +1381,6 @@ impl eframe::App for App {
                                     map_information.map_content[i].level_type, level_status
                                 ),
                             ) {
-                                self.add_text(
-                                    [
-                                        &format!(
-                                            "{}_title",
-                                            map_information.map_content[i].level_name
-                                        ),
-                                        &format!(
-                                            "{} {}",
-                                            map_information.map_content[i].level_name,
-                                            map_information.map_content[i].level_name_expand
-                                                [self.login_user_config.language as usize]
-                                        ),
-                                    ],
-                                    [-200_f32, 30_f32, 60_f32, 300_f32, 0.0],
-                                    [255, 255, 255, 255, 0, 0, 0],
-                                    [true, true, true, false],
-                                    false,
-                                    [1, 1, 0, 0],
-                                );
-                                self.add_text(
-                                    [
-                                        &format!(
-                                            "{}_description",
-                                            map_information.map_content[i].level_name
-                                        ),
-                                        &map_information.map_content[i].level_description
-                                                [self.login_user_config.language as usize],
-                                    ],
-                                    [-200_f32, 0_f32, 20_f32, 300_f32, 0.0],
-                                    [255, 255, 255, 255, 0, 0, 0],
-                                    [true, true, true, false],
-                                    false,
-                                    [1, 1, 1, 4],
-                                );
                                 self.add_image_texture(
                                     &format!(
                                         "Resources/assets/images/level_{}{}.png",
@@ -1289,7 +1477,7 @@ impl eframe::App for App {
                                 ui,
                                 ctx,
                                 enable,
-                                true
+                                true,
                             )[0] == 0
                             {
                                 for u in 0..map_information.map_content.len() {
@@ -1335,20 +1523,10 @@ impl eframe::App for App {
                     self.rect(ui, "Level_Information_Background", ctx);
                     if self.var_i("opened_level") != -1 {
                         let opened_level = self.var_i("opened_level") as usize;
-                        let text_id = self.track_resource(
-                            self.resource_text.clone(),
-                            &format!(
-                                "{}_title",
-                                map_information.map_content[opened_level].level_name
-                            ),
-                        );
-                        let text_id2 = self.track_resource(
-                            self.resource_text.clone(),
-                            &format!(
-                                "{}_description",
-                                map_information.map_content[opened_level].level_name
-                            ),
-                        );
+                        let text_id =
+                            self.track_resource(self.resource_text.clone(), "Level_Title");
+                        let text_id2 =
+                            self.track_resource(self.resource_text.clone(), "Level_Description");
                         let image_id =
                             self.track_resource(self.resource_image.clone(), "Start_Operation");
                         self.resource_text[text_id].text_content = format!(
@@ -1357,30 +1535,18 @@ impl eframe::App for App {
                             map_information.map_content[opened_level].level_name_expand
                                 [self.login_user_config.language as usize]
                         );
-                        self.resource_text[text_id2].text_content = map_information.map_content[opened_level].level_description
-                                [self.login_user_config.language as usize].clone();
+                        self.resource_text[text_id2].text_content =
+                            map_information.map_content[opened_level].level_description
+                                [self.login_user_config.language as usize]
+                                .clone();
                         self.resource_text[text_id].origin_position[0] =
                             self.resource_rect[rect_id].origin_position[0] + 200_f32;
                         self.resource_text[text_id2].origin_position[0] =
                             self.resource_rect[rect_id].origin_position[0] + 200_f32;
                         self.resource_image[image_id].origin_position[0] =
                             self.resource_rect[rect_id].origin_position[0] + 200_f32;
-                        self.text(
-                            ui,
-                            &format!(
-                                "{}_title",
-                                map_information.map_content[opened_level].level_name
-                            ),
-                            ctx,
-                        );
-                        self.text(
-                            ui,
-                            &format!(
-                                "{}_description",
-                                map_information.map_content[opened_level].level_name
-                            ),
-                            ctx,
-                        );
+                        self.text(ui, "Level_Title", ctx);
+                        self.text(ui, "Level_Description", ctx);
                         if self.switch("Start_Operation", ui, ctx, true, true)[0] == 0 {
                             self.modify_var("cut_to", true);
                             self.modify_var("fade_in_or_out", true);
@@ -1488,6 +1654,7 @@ impl eframe::App for App {
                 });
             }
             "Operation" => {
+                ctx.set_cursor_icon(egui::CursorIcon::None);
                 let mut map_information = Map {
                     map_name: vec![],
                     map_author: "".to_string(),
@@ -1538,7 +1705,7 @@ impl eframe::App for App {
                     );
                     self.add_image(
                         "Operation_Expand1",
-                        [0_f32, 0_f32, 1280_f32, 720_f32],
+                        [0_f32, 0_f32, 1280_f32, 721_f32],
                         [0, 0, 0, 0],
                         [true, true, false, false, false],
                         [255, 0, 0, 0, 0],
@@ -1546,7 +1713,7 @@ impl eframe::App for App {
                     );
                     self.add_image(
                         "Operation_Expand2",
-                        [0_f32, 0_f32, 1280_f32, 720_f32],
+                        [0_f32, 0_f32, 1280_f32, 721_f32],
                         [0, 0, 0, 0],
                         [true, true, false, false, false],
                         [255, 0, 0, 0, 0],
@@ -1569,31 +1736,31 @@ impl eframe::App for App {
                             ctx.available_rect().height(),
                         ],
                     );
+                    self.add_split_time("gun_shooting_time", false);
+                    self.add_split_time("gun_end_shooting_time", false);
                     self.add_var("gun_selected", Value::UInt(0));
                     self.add_var("gun_selectable_len", Value::UInt(0));
+                    self.add_var("forced_cooling", false);
+                    self.add_split_time("operation_refresh_time", false);
                     self.add_var(
                         "operation_last_window_size",
                         vec![ctx.available_rect().width(), ctx.available_rect().height()],
                     );
-                    
                 };
                 egui::CentralPanel::default().show(ctx, |ui| {
-                    let bar_id = self.track_resource(self.resource_rect.clone(), "Operation_Status_Bar");
+                    let bar_id =
+                        self.track_resource(self.resource_rect.clone(), "Operation_Status_Bar");
                     let bar_id2 = self.track_resource(self.resource_image.clone(), "Health");
                     let bar_id3 = self.track_resource(self.resource_image.clone(), "Enemy");
                     let bar_id4 = self.track_resource(self.resource_image.clone(), "Bullet");
                     let bar_id5 = self.track_resource(self.resource_image.clone(), "Cost");
                     if !self.var_b("prepared_operation") {
-                        self.resource_rect[bar_id].origin_position[1] = ctx.available_rect().height() / 2_f32 - 360_f32;
-                        self.resource_image[bar_id2].origin_position = [ctx.available_rect().width() / 2_f32 - 640_f32 + 1280_f32 / 3_f32, ctx.available_rect().height() / 2_f32 - 360_f32];
-                        self.resource_image[bar_id3].origin_position = [ctx.available_rect().width() / 2_f32 - 640_f32 + 1280_f32 / 2_f32, ctx.available_rect().height() / 2_f32 - 360_f32];
-                        self.resource_image[bar_id4].origin_position = [ctx.available_rect().width() / 2_f32 - 640_f32 + 1280_f32 / 3_f32 * 2_f32, ctx.available_rect().height() / 2_f32 - 360_f32];
-                        self.resource_image[bar_id5].origin_position = [ctx.available_rect().width() / 2_f32 - 640_f32 + 1280_f32 / 6_f32 * 5_f32, ctx.available_rect().height() / 2_f32 - 360_f32];
                         let gun_list =
                             list_files_recursive(Path::new("Resources/config"), "gun_").unwrap();
                         let mut gun_list_content = Vec::new();
-                        for (i, _) in gun_list.iter().enumerate().take(count_files_recursive(Path::new("Resources/config"), "gun_").unwrap())
-                        {
+                        for (i, _) in gun_list.iter().enumerate().take(
+                            count_files_recursive(Path::new("Resources/config"), "gun_").unwrap(),
+                        ) {
                             if let Ok(gun_json_message) = read_from_json(gun_list[i].clone()) {
                                 if let Some(gun_message) = Gun::from_json_value(&gun_json_message) {
                                     let mut gun_unlock_id = 0;
@@ -1609,14 +1776,18 @@ impl eframe::App for App {
                                         gun_unlock_id = self.login_user_config.gun_status.len();
                                     };
                                     for u in 0..self.login_user_config.gun_status.len() {
-                                        if self.login_user_config.gun_status[u].gun_recognition_name == gun_message.gun_recognition_name {
+                                        if self.login_user_config.gun_status[u].gun_recognition_name
+                                            == gun_message.gun_recognition_name
+                                        {
                                             gun_unlock_id = u;
                                         };
-                                    };
+                                    }
                                     for u in 0..self.login_user_config.gun_status.len() {
                                         if self.login_user_config.gun_status[u].gun_recognition_name
                                             == gun_message.gun_recognition_name.clone()
-                                            && self.login_user_config.gun_status[gun_unlock_id].gun_level != -1
+                                            && self.login_user_config.gun_status[gun_unlock_id]
+                                                .gun_level
+                                                != -1
                                         {
                                             if !check_resource_exist(
                                                 self.resource_image_texture.clone(),
@@ -1676,11 +1847,73 @@ impl eframe::App for App {
                                                 );
                                             };
                                             gun_list_content.push(gun_message.clone());
+                                            if !check_resource_exist(
+                                                self.variables.clone(),
+                                                &format!("gun{}_recoil", gun_list_content.len()),
+                                            ) {
+                                                self.add_var(
+                                                    &format!(
+                                                        "gun{}_recoil",
+                                                        gun_list_content.len() - 1
+                                                    ),
+                                                    Value::Float(0_f32),
+                                                );
+                                                self.add_var(
+                                                    &format!(
+                                                        "gun{}_temperature",
+                                                        gun_list_content.len() - 1
+                                                    ),
+                                                    Value::UInt(0),
+                                                );
+                                                self.add_var(
+                                                    &format!(
+                                                        "gun{}_surplus_bullets",
+                                                        gun_list_content.len() - 1
+                                                    ),
+                                                    Value::UInt(gun_message.gun_catridge_clip),
+                                                );
+                                                self.add_var(
+                                                    &format!(
+                                                        "gun{}_reload",
+                                                        gun_list_content.len() - 1
+                                                    ),
+                                                    false,
+                                                );
+                                            } else {
+                                                self.modify_var(
+                                                    &format!(
+                                                        "gun{}_recoil",
+                                                        gun_list_content.len() - 1
+                                                    ),
+                                                    Value::Float(0_f32),
+                                                );
+                                                self.modify_var(
+                                                    &format!(
+                                                        "gun{}_temperature",
+                                                        gun_list_content.len() - 1
+                                                    ),
+                                                    Value::UInt(0),
+                                                );
+                                                self.modify_var(
+                                                    &format!(
+                                                        "gun{}_surplus_bullets",
+                                                        gun_list_content.len() - 1
+                                                    ),
+                                                    Value::UInt(gun_message.gun_catridge_clip),
+                                                );
+                                                self.modify_var(
+                                                    &format!(
+                                                        "gun{}_reload",
+                                                        gun_list_content.len() - 1
+                                                    ),
+                                                    false,
+                                                );
+                                            };
                                         };
                                     }
                                 };
                             };
-                        };
+                        }
                         self.modify_var("gun_selectable_len", gun_list_content.len() as u32);
                         self.storage_gun_content = gun_list_content;
                         self.add_image_texture(
@@ -1726,7 +1959,36 @@ impl eframe::App for App {
                         self.resource_image[id5].image_texture =
                             self.resource_image_texture[id6].texture.clone();
                         self.modify_var("prepared_operation", true);
+                        self.add_split_time("operation_refresh_time", true);
                     };
+                    let refresh = self.timer.now_time
+                        - self.split_time("operation_refresh_time")[0]
+                        >= self.vertrefresh;
+                    if refresh {
+                        self.add_split_time("operation_refresh_time", true);
+                    };
+                    self.resource_rect[bar_id].origin_position[1] =
+                        ctx.available_rect().height() / 2_f32 - 350_f32;
+                    self.resource_image[bar_id2].origin_position = [
+                        ctx.available_rect().width() / 2_f32 - 640_f32 + 1280_f32 / 5_f32,
+                        ctx.available_rect().height() / 2_f32 - 340_f32,
+                    ];
+                    self.resource_image[bar_id3].origin_position = [
+                        ctx.available_rect().width() / 2_f32 - 640_f32 + 1280_f32 / 5_f32 * 2_f32,
+                        ctx.available_rect().height() / 2_f32 - 340_f32,
+                    ];
+                    self.resource_image[bar_id4].origin_position = [
+                        ctx.available_rect().width() / 2_f32 - 640_f32 + 1280_f32 / 5_f32 * 3_f32,
+                        ctx.available_rect().height() / 2_f32 - 340_f32,
+                    ];
+                    self.resource_image[bar_id5].origin_position = [
+                        ctx.available_rect().width() / 2_f32 - 640_f32 + 1280_f32 / 5_f32 * 4_f32,
+                        ctx.available_rect().height() / 2_f32 - 340_f32,
+                    ];
+                    let scroll_background = self.track_resource(
+                        self.resource_scroll_background.clone(),
+                        "Operation_Expand",
+                    );
                     if self
                         .var_decode_f(self.clone().var_v("operation_last_window_size")[0].clone())
                         != ctx.available_rect().width()
@@ -1734,15 +1996,6 @@ impl eframe::App for App {
                             self.clone().var_v("operation_last_window_size")[1].clone(),
                         ) != ctx.available_rect().height()
                     {
-                        self.resource_rect[bar_id].origin_position[1] = ctx.available_rect().height() / 2_f32 - 360_f32;
-                        self.resource_image[bar_id2].origin_position = [ctx.available_rect().width() / 2_f32 - 640_f32 + 1280_f32 / 3_f32, ctx.available_rect().height() / 2_f32 - 360_f32];
-                        self.resource_image[bar_id3].origin_position = [ctx.available_rect().width() / 2_f32 - 640_f32 + 1280_f32 / 2_f32, ctx.available_rect().height() / 2_f32 - 360_f32];
-                        self.resource_image[bar_id4].origin_position = [ctx.available_rect().width() / 2_f32 - 640_f32 + 1280_f32 / 3_f32 * 2_f32, ctx.available_rect().height() / 2_f32 - 360_f32];
-                        self.resource_image[bar_id5].origin_position = [ctx.available_rect().width() / 2_f32 - 640_f32 + 1280_f32 / 6_f32 * 5_f32, ctx.available_rect().height() / 2_f32 - 360_f32];
-                        let scroll_background = self.track_resource(
-                            self.resource_scroll_background.clone(),
-                            "Operation_Expand",
-                        );
                         self.resource_scroll_background[scroll_background].resume_point =
                             -ctx.available_rect().height();
                         for i in 0..self.resource_scroll_background[scroll_background]
@@ -1754,19 +2007,66 @@ impl eframe::App for App {
                                 &self.resource_scroll_background[scroll_background].image_name[i]
                                     .clone(),
                             );
-                            self.resource_image[id].image_size =
-                                [ctx.available_rect().width(), ctx.available_rect().height()];
+                            self.resource_image[id].image_size = [
+                                ctx.available_rect().width(),
+                                ctx.available_rect().height() + 1_f32,
+                            ];
                             self.resource_image[id].origin_position[1] =
                                 i as f32 * self.resource_image[id].image_size[1];
                             self.resource_scroll_background[scroll_background].boundary =
                                 ctx.available_rect().height();
                         }
                     };
-                    if ui.input(|i| {
-                            i.pointer.button_released(
-                                PointerButton::Middle,
-                            )
-                        }) {
+                    let id_id = self.var_u("gun_selected") as usize;
+                    let id = self.track_resource(
+                        self.resource_image.clone(),
+                        &self.storage_gun_content[id_id].gun_recognition_name.clone(),
+                    );
+                    if let Some(mouse_pos) = ui.input(|i| i.pointer.hover_pos()) {
+                        self.resource_image[id].origin_position = [
+                            mouse_pos.x,
+                            mouse_pos.y - self.var_f(&format!("gun{}_recoil", id_id)),
+                        ];
+                    };
+                    if self.resource_image[id].origin_position[0]
+                        - self.resource_image[id].image_size[0] / 2_f32
+                        < ctx.available_rect().width() / 2_f32 - 640_f32
+                    {
+                        self.resource_image[id].origin_position[0] =
+                            ctx.available_rect().width() / 2_f32 - 640_f32
+                                + self.resource_image[id].image_size[0] / 2_f32;
+                    } else if self.resource_image[id].origin_position[0]
+                        + self.resource_image[id].image_size[0] / 2_f32
+                        > ctx.available_rect().width() / 2_f32 + 640_f32
+                    {
+                        self.resource_image[id].origin_position[0] =
+                            ctx.available_rect().width() / 2_f32 + 640_f32
+                                - self.resource_image[id].image_size[0] / 2_f32;
+                    };
+                    if self.resource_image[id].origin_position[1]
+                        - self.resource_image[id].image_size[1] / 2_f32
+                        < ctx.available_rect().height() / 2_f32 - 360_f32
+                    {
+                        self.resource_image[id].origin_position[1] =
+                            ctx.available_rect().height() / 2_f32 - 360_f32
+                                + self.resource_image[id].image_size[1] / 2_f32;
+                    } else if self.resource_image[id].origin_position[1]
+                        + self.resource_image[id].image_size[1] / 2_f32
+                        > ctx.available_rect().height() / 2_f32 + 360_f32
+                    {
+                        self.resource_image[id].origin_position[1] =
+                            ctx.available_rect().height() / 2_f32 + 360_f32
+                                - self.resource_image[id].image_size[1] / 2_f32;
+                    };
+                    self.scroll_background(ui, "Operation_Expand", ctx);
+                    self.image(ui, "Operation", ctx);
+                    let gun_id = self.track_resource(
+                        self.resource_switch.clone(),
+                        &self.storage_gun_content[id_id].gun_recognition_name.clone(),
+                    );
+                    if ui.input(|i| i.pointer.button_released(PointerButton::Middle))
+                        && self.resource_switch[gun_id].state == 0
+                    {
                         if self.var_u("gun_selected") < self.var_u("gun_selectable_len") - 1 {
                             let gun_selected = self.var_u("gun_selected");
                             self.modify_var("gun_selected", gun_selected + 1);
@@ -1777,31 +2077,263 @@ impl eframe::App for App {
                             kira_play_wav("Resources/assets/sounds/Reload.wav").unwrap();
                         });
                     };
-                    let id_id = self.var_u("gun_selected") as usize;
-                    let id = self.track_resource(
-                        self.resource_image.clone(),
+                    self.resource_switch[gun_id].appearance[0].color = [
+                        255,
+                        255 - self.var_u(&format!("gun{}_temperature", id_id)) as u8,
+                        255 - self.var_u(&format!("gun{}_temperature", id_id)) as u8,
+                        255,
+                    ];
+                    if self.var_b("forced_cooling") {
+                        self.resource_switch[gun_id].appearance[2].color = [
+                            255,
+                            255 - self.var_u(&format!("gun{}_temperature", id_id)) as u8,
+                            255 - self.var_u(&format!("gun{}_temperature", id_id)) as u8,
+                            255,
+                        ];
+                    } else {
+                        self.resource_switch[gun_id].appearance[2].color = [0, 0, 0, 255];
+                    };
+                    self.switch(
                         &self.storage_gun_content[id_id].gun_recognition_name.clone(),
+                        ui,
+                        ctx,
+                        true,
+                        false,
                     );
-                    if let Some(mouse_pos) = ui.input(|i| i.pointer.hover_pos()) {
-                        if ctx.available_rect().width() / 2_f32 - 640_f32 <= mouse_pos.x && mouse_pos.x <= ctx.available_rect().width() / 2_f32 + 640_f32 && mouse_pos.y <= ctx.available_rect().height() / 2_f32 + 360_f32 && mouse_pos.y >= ctx.available_rect().height() / 2_f32 - 360_f32 {
-                            self.resource_image[id].origin_position = [mouse_pos.x, mouse_pos.y];
+                    let bullets_id = self.track_resource(self.resource_image.clone(), "Bullets");
+                    let surplus_bullets_id =
+                        self.track_resource(self.resource_text.clone(), "Surplus_Bullets");
+                    self.resource_text[surplus_bullets_id].text_content = format!(
+                        "{}/{}",
+                        self.var_u(&format!("gun{}_surplus_bullets", id_id)),
+                        self.storage_gun_content[id_id].gun_catridge_clip
+                    );
+                    let bullets_total_size = 30_f32 + self.get_text_size("Surplus_Bullets", ui)[0];
+                    self.resource_text[surplus_bullets_id].origin_position = [
+                        self.resource_image[id].origin_position[0] + bullets_total_size / 2_f32,
+                        self.resource_image[id].origin_position[1]
+                            + self.storage_gun_content[id_id].gun_size[1] / 2_f32
+                            + 6_f32,
+                    ];
+                    self.resource_image[bullets_id].origin_position = [
+                        self.resource_image[id].origin_position[0] - bullets_total_size / 2_f32,
+                        self.resource_image[id].origin_position[1]
+                            + self.storage_gun_content[id_id].gun_size[1] / 2_f32
+                            + 10_f32,
+                    ];
+                    self.text(ui, "Surplus_Bullets", ctx);
+                    self.image(ui, "Bullets", ctx);
+                    ui.painter().line(
+                        vec![
+                            Pos2 {
+                                x: self.resource_image[id].origin_position[0]
+                                    + self.storage_gun_content[id_id].gun_size[0] / 2_f32
+                                    + 10_f32,
+                                y: self.resource_image[id].origin_position[1]
+                                    + self.storage_gun_content[id_id].gun_size[1] / 2_f32,
+                            },
+                            Pos2 {
+                                x: self.resource_image[id].origin_position[0]
+                                    + self.storage_gun_content[id_id].gun_size[0] / 2_f32
+                                    + 10_f32,
+                                y: self.resource_image[id].origin_position[1]
+                                    - self.storage_gun_content[id_id].gun_size[1] / 2_f32,
+                            },
+                        ],
+                        Stroke {
+                            width: 8.0,
+                            color: Color32::from_rgba_unmultiplied(
+                                0,
+                                0,
+                                0,
+                                self.var_u(&format!("gun{}_temperature", id_id)) as u8,
+                            ),
+                        },
+                    );
+                    ui.painter().line(
+                        vec![
+                            Pos2 {
+                                x: self.resource_image[id].origin_position[0]
+                                    + self.storage_gun_content[id_id].gun_size[0] / 2_f32
+                                    + 10_f32,
+                                y: self.resource_image[id].origin_position[1]
+                                    + self.storage_gun_content[id_id].gun_size[1] / 2_f32,
+                            },
+                            Pos2 {
+                                x: self.resource_image[id].origin_position[0]
+                                    + self.storage_gun_content[id_id].gun_size[0] / 2_f32
+                                    + 10_f32,
+                                y: self.resource_image[id].origin_position[1]
+                                    + self.storage_gun_content[id_id].gun_size[1] / 2_f32
+                                    - self.storage_gun_content[id_id].gun_size[1]
+                                        * (self.var_u(&format!("gun{}_temperature", id_id)) as f32
+                                            / 255_f32),
+                            },
+                        ],
+                        Stroke {
+                            width: 5.0,
+                            color: Color32::from_rgba_unmultiplied(
+                                self.var_u(&format!("gun{}_temperature", id_id)) as u8,
+                                0,
+                                0,
+                                self.var_u(&format!("gun{}_temperature", id_id)) as u8,
+                            ),
+                        },
+                    );
+                    if self.var_b(&format!("gun{}_reload", id_id)) && refresh {
+                        let scroll_delta = ui.input(|i| i.smooth_scroll_delta);
+                        if scroll_delta.y != 0.0 {
+                            let mut sound;
+                            if scroll_delta.y > 0.0 {
+                                let surplus_bullets =
+                                    self.var_u(&format!("gun{}_surplus_bullets", id_id));
+                                self.modify_var(
+                                    &format!("gun{}_surplus_bullets", id_id),
+                                    surplus_bullets + 1,
+                                );
+                                sound = self.storage_gun_content[id_id]
+                                    .gun_reload_bullet_sound
+                                    .clone();
+                                std::thread::spawn(move || {
+                                    kira_play_wav(&sound).unwrap();
+                                });
+                                if self.var_u(&format!("gun{}_surplus_bullets", id_id))
+                                    == self.storage_gun_content[id_id].gun_catridge_clip
+                                {
+                                    self.modify_var(&format!("gun{}_reload", id_id), false);
+                                    sound =
+                                        self.storage_gun_content[id_id].gun_reload_sound.clone();
+                                    std::thread::spawn(move || {
+                                        kira_play_wav(&sound).unwrap();
+                                    });
+                                };
+                            } else if self.var_u(&format!("gun{}_surplus_bullets", id_id)) > 0 {
+                                sound = self.storage_gun_content[id_id].gun_reload_sound.clone();
+                                self.modify_var(&format!("gun{}_reload", id_id), false);
+                                std::thread::spawn(move || {
+                                    kira_play_wav(&sound).unwrap();
+                                });
+                            };
                         };
                     };
-                    self.scroll_background(ui, "Operation_Expand", ctx);
-                    self.image(ui, "Operation", ctx);
-                    let gun_id = self.track_resource(self.resource_switch.clone(), &self.storage_gun_content[id_id].gun_recognition_name.clone());
-                    if self.switch(&self.storage_gun_content[id_id].gun_recognition_name.clone(), ui, ctx, true, false)[0] == 0 && self.resource_switch[gun_id].state == 0 {
-                        let sound = self.storage_gun_content[id_id].gun_shoot_sound.clone();
-                        std::thread::spawn(move || {
-                            kira_play_wav(&sound).unwrap();
-                        });
-
+                    if self.resource_switch[gun_id].state == 0 {
+                        let shoot = self.storage_gun_content[id_id]
+                            .gun_tag
+                            .contains(&"released_shoot".to_string())
+                            && ui.input(|i| i.pointer.button_released(PointerButton::Primary))
+                            || self.storage_gun_content[id_id]
+                                .gun_tag
+                                .contains(&"down_shoot".to_string())
+                                && ui.input(|i| i.pointer.button_down(PointerButton::Primary));
+                        if shoot {
+                            if self.var_u(&format!("gun{}_surplus_bullets", id_id)) > 0 {
+                                let sound = self.storage_gun_content[id_id].gun_shoot_sound.clone();
+                                self.add_split_time("gun_shooting_time", true);
+                                std::thread::spawn(move || {
+                                    kira_play_wav(&sound).unwrap();
+                                });
+                                self.resource_switch[gun_id].state = 1;
+                                let recoil = self.var_f(&format!("gun{}_recoil", id_id));
+                                self.modify_var(
+                                    &format!("gun{}_recoil", id_id),
+                                    Value::Float(
+                                        recoil + self.storage_gun_content[id_id].gun_recoil,
+                                    ),
+                                );
+                                for _ in 0..self.storage_gun_content[id_id].gun_temperature_degree {
+                                    if self.var_u(&format!("gun{}_temperature", id_id)) < 255 {
+                                        let temperature =
+                                            self.var_u(&format!("gun{}_temperature", id_id));
+                                        self.modify_var(
+                                            &format!("gun{}_temperature", id_id),
+                                            Value::UInt(temperature + 1),
+                                        );
+                                    } else {
+                                        break;
+                                    };
+                                }
+                                let surplus_bullets =
+                                    self.var_u(&format!("gun{}_surplus_bullets", id_id));
+                                self.modify_var(
+                                    &format!("gun{}_surplus_bullets", id_id),
+                                    surplus_bullets - 1,
+                                );
+                                if self.var_u(&format!("gun{}_surplus_bullets", id_id)) == 0 {
+                                    self.modify_var(&format!("gun{}_reload", id_id), true);
+                                };
+                                if self.var_u(&format!("gun{}_temperature", id_id)) == 255 {
+                                    self.modify_var("forced_cooling", true);
+                                };
+                            } else if ui
+                                .input(|i| i.pointer.button_released(PointerButton::Primary))
+                                && self.storage_gun_content[id_id]
+                                    .gun_tag
+                                    .contains(&"released_shoot".to_string())
+                                || ui.input(|i| i.pointer.button_pressed(PointerButton::Primary))
+                                    && !self.storage_gun_content[id_id]
+                                        .gun_tag
+                                        .contains(&"released_shoot".to_string())
+                            {
+                                let sound_path = self.storage_gun_content[id_id]
+                                    .gun_no_bullet_shoot_sound
+                                    .clone();
+                                std::thread::spawn(move || kira_play_wav(&sound_path));
+                            };
+                        };
+                    } else if self.resource_switch[gun_id].state == 1
+                        && self.timer.now_time - self.split_time("gun_shooting_time")[0]
+                            >= self.storage_gun_content[id_id].gun_shoot_speed
+                    {
+                        self.resource_switch[gun_id].state = 2;
+                        self.add_split_time("gun_end_shooting_time", true);
+                    } else if self.resource_switch[gun_id].state == 2
+                        && self.timer.now_time - self.split_time("gun_end_shooting_time")[0]
+                            >= self.storage_gun_content[id_id].gun_reload_time
+                        && !self.var_b("forced_cooling")
+                    {
+                        self.resource_switch[gun_id].state = 0;
                     };
-                    // self.rect(ui, "Operation_Status_Bar", ctx);
-                    // self.image(ui, "Health", ctx);
-                    // self.image(ui, "Enemy", ctx);
-                    // self.image(ui, "Bullet", ctx);
-                    // self.image(ui, "Cost", ctx);
+                    if self.var_f(&format!("gun{}_recoil", id_id)) != 0_f32 && refresh {
+                        if self.var_f(&format!("gun{}_recoil", id_id)) > 0_f32 {
+                            let recoil = self.var_f(&format!("gun{}_recoil", id_id));
+                            if self.resource_switch[gun_id].state == 0
+                                || self.var_b("forced_cooling")
+                            {
+                                self.modify_var(
+                                    &format!("gun{}_recoil", id_id),
+                                    Value::Float(recoil - 1_f32),
+                                );
+                            } else {
+                                self.modify_var(
+                                    &format!("gun{}_recoil", id_id),
+                                    Value::Float(recoil - 0.01_f32),
+                                );
+                            };
+                        } else {
+                            self.modify_var(&format!("gun{}_recoil", id_id), Value::Float(0_f32));
+                        };
+                    };
+                    if self.var_u(&format!("gun{}_temperature", id_id)) != 0
+                        && refresh
+                        && self.var_u(&format!("gun{}_temperature", id_id)) > 0
+                        && self.resource_switch[gun_id].state != 1
+                    {
+                        if self.var_u(&format!("gun{}_temperature", id_id)) >= 1 {
+                            let temperature = self.var_u(&format!("gun{}_temperature", id_id));
+                            self.modify_var(
+                                &format!("gun{}_temperature", id_id),
+                                Value::UInt(temperature - 1),
+                            );
+                        };
+                        if self.var_u(&format!("gun{}_temperature", id_id)) == 0 {
+                            self.modify_var("forced_cooling", false);
+                        };
+                    };
+                    self.rect(ui, "Operation_Status_Bar", ctx);
+                    self.image(ui, "Health", ctx);
+                    self.image(ui, "Enemy", ctx);
+                    self.image(ui, "Bullet", ctx);
+                    self.image(ui, "Cost", ctx);
                     let fade_in_or_out = self.var_b("fade_in_or_out");
                     if self.fade(
                         fade_in_or_out,

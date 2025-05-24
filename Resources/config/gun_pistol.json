@@ -7,12 +7,15 @@
     "gun_size": [60.0, 60.0],
     "gun_image": "Resources/assets/images/gun_normal.png",
     "gun_shoot_sound": "Resources/assets/sounds/Charge_Shoot.wav",
-    "gun_shoot_speed": 0.05,
+    "gun_shoot_speed": 0.1,
     "gun_reload_time":  0.05,
     "gun_basic_damage": 3.0,
-    "gun_catridge_clip": 20,
-    "gun_recoil": 1.0,
-    "gun_temperature_degree": 4,
-    "gun_tag": [],
-    "gun_initial_level": 0
+    "gun_catridge_clip": 10,
+    "gun_recoil": 10.0,
+    "gun_temperature_degree": 30,
+    "gun_tag": ["released_shoot"],
+    "gun_initial_level": 0,
+    "gun_no_bullet_shoot_sound": "Resources/assets/sounds/No_Bullet_Shoot.wav",
+    "gun_reload_bullet_sound": "Resources/assets/sounds/Reload_Bullet.wav",
+    "gun_reload_sound": "Resources/assets/sounds/Reload.wav"
 }

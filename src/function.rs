@@ -8,6 +8,7 @@ use json::JsonValue;
 use kira::manager::backend::cpal;
 use kira::manager::AudioManager;
 use kira::sound::static_sound::StaticSoundData;
+use std::collections::hash_map;
 use std::collections::HashMap;
 use std::fs;
 use std::fs::File;
@@ -398,6 +399,9 @@ pub struct Gun {
     pub gun_temperature_degree: u32,
     pub gun_tag: Vec<String>,
     pub gun_initial_level: i32,
+    pub gun_no_bullet_shoot_sound: String,
+    pub gun_reload_sound: String,
+    pub gun_reload_bullet_sound: String,
 }
 
 #[allow(dead_code)]
@@ -429,6 +433,9 @@ impl Gun {
                 .filter_map(|v| v.as_str().map(String::from))
                 .collect(),
             gun_initial_level: value["gun_initial_level"].as_i32()?,
+            gun_no_bullet_shoot_sound: value["gun_no_bullet_shoot_sound"].as_str()?.to_string(),
+            gun_reload_bullet_sound: value["gun_reload_bullet_sound"].as_str()?.to_string(),
+            gun_reload_sound: value["gun_reload_sound"].as_str()?.to_string(),
         })
     }
 }
@@ -457,11 +464,19 @@ pub struct User {
     pub current_map: String,
     pub level_status: Vec<UserLevelStatus>,
     pub gun_status: Vec<UserGunStatus>,
+    pub settings: HashMap<String, String>,
 }
 
 #[allow(dead_code)]
 impl User {
     pub fn from_json_value(value: &JsonValue) -> Option<User> {
+        let mut parsed = HashMap::new();
+        for (key, val) in value["game_text"].entries() {
+            if let JsonValue::String(string) = val {
+                let str: String = string.clone();
+                parsed.insert(key.to_string(), str);
+            };
+        }
         Some(User {
             version: value["version"].as_u8()?,
             name: value["name"].as_str()?.to_string(),
@@ -488,6 +503,7 @@ impl User {
                     })
                 })
                 .collect(),
+            settings: parsed,
         })
     }
 
@@ -508,6 +524,10 @@ impl User {
                 gun_recognition_name: l.gun_recognition_name.clone(),
                 gun_level: l.gun_level,
             }).collect::<Vec<_>>(),
+            settings: self.settings.iter().fold(json::object! {}, |mut obj, (k, v)| {
+                obj.insert(k, v.clone()).expect("插入设置项失败");
+                obj
+            })
         }
     }
 }
@@ -919,7 +939,6 @@ pub struct App {
 impl App {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         load_fonts(&cc.egui_ctx);
-        egui_extras::install_image_loaders(&cc.egui_ctx);
         let mut config = Config {
             launch_path: "".to_string(),
             language: 0,
@@ -955,6 +974,7 @@ impl App {
                 current_map: "".to_string(),
                 level_status: vec![],
                 gun_status: vec![],
+                settings: hash_map::HashMap::new(),
             },
             frame: Frame {
                 ..Default::default()
@@ -1809,12 +1829,28 @@ impl App {
             [0, 0, 0, 240, 255, 255, 255, 255],
             0.0,
         );
+        self.add_text(
+            ["Level_Title", ""],
+            [-200_f32, 30_f32, 60_f32, 300_f32, 0.0],
+            [255, 255, 255, 255, 0, 0, 0],
+            [true, true, true, false],
+            false,
+            [1, 1, 0, 0],
+        );
+        self.add_text(
+            ["Level_Description", ""],
+            [-200_f32, 0_f32, 20_f32, 300_f32, 0.0],
+            [255, 255, 255, 255, 0, 0, 0],
+            [true, true, true, false],
+            false,
+            [1, 1, 1, 4],
+        );
         self.add_rect(
             "Operation_Status_Bar",
-            [0_f32, 0_f32, 1280_f32, 80_f32, 0_f32],
+            [0_f32, 0_f32, 1080_f32, 70_f32, 20_f32],
             [1, 2, 0, 0],
             [true, true, true, false],
-            [120, 120, 120, 255, 255, 255, 255, 255],
+            [100, 100, 100, 125, 240, 255, 255, 255],
             0.0,
         );
         self.add_image_texture(
@@ -1829,7 +1865,7 @@ impl App {
             [0_f32, 0_f32, 50_f32, 50_f32],
             [0, 0, 0, 0],
             [true, true, true, false, false],
-            [255, 0, 0, 0, 0],
+            [200, 0, 0, 0, 0],
             "Health",
         );
         self.add_image_texture(
@@ -1844,7 +1880,7 @@ impl App {
             [0_f32, 0_f32, 50_f32, 50_f32],
             [0, 0, 0, 0],
             [true, true, true, false, false],
-            [255, 0, 0, 0, 0],
+            [200, 0, 0, 0, 0],
             "Enemy",
         );
         self.add_image_texture(
@@ -1859,7 +1895,7 @@ impl App {
             [0_f32, 0_f32, 50_f32, 50_f32],
             [0, 0, 0, 0],
             [true, true, true, false, false],
-            [255, 0, 0, 0, 0],
+            [200, 0, 0, 0, 0],
             "Bullet",
         );
         self.add_image_texture(
@@ -1874,8 +1910,31 @@ impl App {
             [0_f32, 0_f32, 50_f32, 50_f32],
             [0, 0, 0, 0],
             [true, true, true, false, false],
-            [255, 0, 0, 0, 0],
+            [200, 0, 0, 0, 0],
             "Cost",
+        );
+        self.add_image_texture(
+            "Bullets",
+            "Resources/assets/images/bullets.png",
+            [false, false],
+            true,
+            ctx,
+        );
+        self.add_image(
+            "Bullets",
+            [0_f32, 10_f32, 20_f32, 20_f32],
+            [0, 0, 0, 0],
+            [true, true, false, false, false],
+            [255, 0, 0, 0, 0],
+            "Bullets",
+        );
+        self.add_text(
+            ["Surplus_Bullets", ""],
+            [0_f32, 0_f32, 20_f32, 300_f32, 0.0],
+            [255, 255, 255, 255, 0, 0, 0],
+            [false, true, false, false],
+            false,
+            [0, 0, 0, 0],
         );
     }
 
@@ -2186,7 +2245,7 @@ impl App {
         let id = self.track_resource(self.resource_rect.clone(), name);
         self.resource_rect[id].reg_render_resource(&mut self.render_resource_list);
         self.resource_rect[id].position[0] = match self.resource_rect[id].x_grid[1] {
-            0 => self.resource_rect[id].position[0],
+            0 => self.resource_rect[id].origin_position[0],
             _ => {
                 (ctx.available_rect().width() as f64 / self.resource_rect[id].x_grid[1] as f64
                     * self.resource_rect[id].x_grid[0] as f64) as f32
@@ -2194,7 +2253,7 @@ impl App {
             }
         };
         self.resource_rect[id].position[1] = match self.resource_rect[id].y_grid[1] {
-            0 => self.resource_rect[id].position[1],
+            0 => self.resource_rect[id].origin_position[1],
             _ => {
                 (ctx.available_rect().height() as f64 / self.resource_rect[id].y_grid[1] as f64
                     * self.resource_rect[id].y_grid[0] as f64) as f32
@@ -2296,7 +2355,7 @@ impl App {
         });
         let text_size = galley.size();
         self.resource_text[id].position[0] = match self.resource_text[id].x_grid[1] {
-            0 => self.resource_text[id].position[0],
+            0 => self.resource_text[id].origin_position[0],
             _ => {
                 (ctx.available_rect().width() as f64 / self.resource_text[id].x_grid[1] as f64
                     * self.resource_text[id].x_grid[0] as f64) as f32
@@ -2304,7 +2363,7 @@ impl App {
             }
         };
         self.resource_text[id].position[1] = match self.resource_text[id].y_grid[1] {
-            0 => self.resource_text[id].position[1],
+            0 => self.resource_text[id].origin_position[1],
             _ => {
                 (ctx.available_rect().height() as f64 / self.resource_text[id].y_grid[1] as f64
                     * self.resource_text[id].y_grid[0] as f64) as f32
@@ -2353,6 +2412,28 @@ impl App {
                 self.resource_text[id].rgba[3], // 应用透明度
             ),
         );
+    }
+
+    pub fn get_text_size(&mut self, resource_name: &str, ui: &mut Ui) -> [f32; 2] {
+        if check_resource_exist(self.resource_text.clone(), resource_name) {
+            let id = self.track_resource(self.resource_text.clone(), resource_name);
+            let galley = ui.fonts(|f| {
+                f.layout(
+                    self.resource_text[id].text_content.to_string(),
+                    FontId::proportional(self.resource_text[id].font_size),
+                    Color32::from_rgba_unmultiplied(
+                        self.resource_text[id].rgba[0],
+                        self.resource_text[id].rgba[1],
+                        self.resource_text[id].rgba[2],
+                        self.resource_text[id].rgba[3],
+                    ),
+                    self.resource_text[id].wrap_width,
+                )
+            });
+            [galley.size().x, galley.size().y]
+        } else {
+            [0_f32, 0_f32]
+        }
     }
 
     fn read_image_to_vec(&mut self, path: &str) -> Vec<u8> {

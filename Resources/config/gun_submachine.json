@@ -11,8 +11,11 @@
     "gun_reload_time":  0.05,
     "gun_basic_damage": 3.0,
     "gun_catridge_clip": 20,
-    "gun_recoil": 1.0,
-    "gun_temperature_degree": 4,
-    "gun_tag": [],
-    "gun_initial_level": 0
+    "gun_recoil": 5.0,
+    "gun_temperature_degree": 15,
+    "gun_tag": ["down_shoot"],
+    "gun_initial_level": 0,
+    "gun_no_bullet_shoot_sound": "Resources/assets/sounds/No_Bullet_Shoot.wav",
+    "gun_reload_bullet_sound": "Resources/assets/sounds/Reload_Bullet.wav",
+    "gun_reload_sound": "Resources/assets/sounds/Reload.wav"
 }
