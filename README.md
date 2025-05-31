@@ -7,7 +7,7 @@
 [![Language: Rust](https://img.shields.io/badge/Language-Rust-5F4C49)](https://www.rust-lang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 ![Github Stars](https://img.shields.io/github/stars/ChepleBob30/targeted-vector?style=flat&color=red)
-[![Version](https://img.shields.io/badge/Version-v0.15.0_alpha.1-blue)](https://github.com/ChepleBob30/Targeted-Vector/releases)
+[![Version](https://img.shields.io/badge/Version-v0.16.0_alpha.1-blue)](https://github.com/ChepleBob30/Targeted-Vector/releases)
 
 [English](./README.md) | [简体中文](./README_zh.md)
 
@@ -23,15 +23,19 @@
 
 ---
 
+Due to the development time factor, the content of the Chinese version of the README is more complete than that of the English version. If you find any translation problems in the English version, please raise an issue and give me feedback.
+
+---
+
 ## The purpose of creating the Targeted Vector
-In the past, I made a Python game called "Shilang Hunter" in 2024. However, we found that there was a significant problem with the efficiency. So I decided to create a new game called "Targeted Vector" to solve this problem.
+I made a Python game called "Shilang Hunter" in 2024. However, the performance of "Shilang Hunter" is too poor (it causes severe lag when running on any device), so I decided to rewrite a game with better performance and more complete content in Rust.
 
 ---
 
 ## How to Contribute to Targeted Vector
-Targeted Vector is an open-source project, It's normal to want to contribute to Targeted Vector. However, I do not expect anyone to contribute codes to the Targeted Vector itself in the development phase. Because Targeted Vector is moving at the pace of my development and it will be confusions if someone wants to contribute codes to the Targeted Vector.
+Targeted Vector is an open-source project. However, due to personal factors, I don't want someone to submit the code directly (because this would make the development and code submission work chaotic and difficult).
 
-*While I don't expect anyone to contribute code to the Targeted Vector itself during the development phase, I do expect anyone to contribute bug reports and feature suggestions.*
+*But I hope everyone can contribute bug reports and functional suggestions.*
 
 You can contribute to Targeted Vector in the following ways:
 1. Submit bug reports and Feature Suggestions: If you encounter any bugs while playing Targeted Vector or have any feature suggestions, please create an issue in the GitHub repository or send it directly to me (Cheple_Bob@outlook.com).
@@ -39,8 +43,7 @@ You can contribute to Targeted Vector in the following ways:
 ---
 
 ## Special Thanks
-We sincerely thank the following individuals who have made outstanding contributions to Targeted Vector:
-- [GavZheng](https://github.com/GavZheng): He has made effective decisions on various trade-offs in the Targeted Vector development process.
+Special thanks to the following for their outstanding contributions to the construction Targeted Vector of hard: - (https://github.com/GavZheng) : [GavZheng] for Targeted Vector of all sorts of problems in the development process has made an effective decision making.
 
 ---
 
@@ -62,13 +65,13 @@ We sincerely thank the following individuals who have made outstanding contribut
 
     *Targeted Vector is currently in the development phase (alpha stage).*
 
-- When will you provide .dmg and .msi?
+- When can the installation program be provided?
 
-    *I will provide .dmg and .msi when the development phase is over.*
+    *I will provide .dmg (macOS installer) and.msi (Windows installer) at the end of the development stage.*
 
 - What languages will the Targeted Vector support? 
 
-    *The Targeted Vector ontology supports simplified Chinese and English, and other languages are planned to be added by the developer through the mod.*
+    *The Targeted Vector ontology supports Simplified Chinese and English. Other languages are planned to be added by the developers themselves.*
 
 
 ---

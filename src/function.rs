@@ -244,6 +244,74 @@ impl Config {
     }
 }
 
+#[derive(Debug, Clone)]
+#[allow(dead_code)]
+pub struct MovePath {
+    pub move_status: [bool; 4],
+    pub move_time: f32,
+}
+
+impl MovePath {
+    #[allow(dead_code)]
+    pub fn from_json_value(value: &JsonValue) -> Option<MovePath> {
+        Some(MovePath {
+            move_status: [
+                value["move_status"][0].as_bool()?,
+                value["move_status"][1].as_bool()?,
+                value["move_status"][2].as_bool()?,
+                value["move_status"][3].as_bool()?,
+            ],
+            move_time: value["move_time"].as_f32()?,
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+#[allow(dead_code)]
+pub struct Enemy {
+    pub enemy_hp: f32,
+    pub enemy_def: f32,
+    pub enemy_speed: f32,
+    pub enemy_invincible_time: f32,
+    pub enemy_image_count: u32,
+    pub enemy_tag: Vec<String>,
+    pub enemy_image: String,
+    pub enemy_image_type: String,
+    pub enemy_minus_target_point: u32,
+    pub enemy_position: [f32; 2],
+    pub enemy_move_path: Vec<MovePath>,
+    pub enemy_detected: bool,
+}
+
+impl Enemy {
+    #[allow(dead_code)]
+    pub fn from_json_value(value: &JsonValue) -> Option<Enemy> {
+        Some(Enemy {
+            enemy_hp: value["enemy_hp"].as_f32()?,
+            enemy_def: value["enemy_def"].as_f32()?,
+            enemy_speed: value["enemy_speed"].as_f32()?,
+            enemy_invincible_time: value["enemy_invincible_time"].as_f32()?,
+            enemy_image_count: value["enemy_image_count"].as_u32()?,
+            enemy_tag: value["enemy_tag"]
+                .members()
+                .map(|s| s.to_string())
+                .collect(),
+            enemy_image: value["enemy_image"].as_str()?.to_string(),
+            enemy_image_type: value["enemy_image_type"].as_str()?.to_string(),
+            enemy_minus_target_point: value["enemy_minus_target_point"].as_u32()?,
+            enemy_position: [
+                value["enemy_position"][0].as_f32()?,
+                value["enemy_position"][1].as_f32()?,
+            ],
+            enemy_move_path: value["enemy_move_path"]
+                .members()
+                .map(|v| MovePath::from_json_value(v).unwrap())
+                .collect(),
+            enemy_detected: value["detected_enemy"].as_bool()?,
+        })
+    }
+}
+
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct GameText {
@@ -402,6 +470,7 @@ pub struct Gun {
     pub gun_no_bullet_shoot_sound: String,
     pub gun_reload_sound: String,
     pub gun_reload_bullet_sound: String,
+    pub gun_reload_interval: f32,
 }
 
 #[allow(dead_code)]
@@ -436,6 +505,7 @@ impl Gun {
             gun_no_bullet_shoot_sound: value["gun_no_bullet_shoot_sound"].as_str()?.to_string(),
             gun_reload_bullet_sound: value["gun_reload_bullet_sound"].as_str()?.to_string(),
             gun_reload_sound: value["gun_reload_sound"].as_str()?.to_string(),
+            gun_reload_interval: value["gun_reload_interval"].as_f32()?,
         })
     }
 }
@@ -465,6 +535,7 @@ pub struct User {
     pub level_status: Vec<UserLevelStatus>,
     pub gun_status: Vec<UserGunStatus>,
     pub settings: HashMap<String, String>,
+    pub current_level: String,
 }
 
 #[allow(dead_code)]
@@ -504,6 +575,7 @@ impl User {
                 })
                 .collect(),
             settings: parsed,
+            current_level: value["current_level"].as_str()?.to_string(),
         })
     }
 
@@ -527,7 +599,8 @@ impl User {
             settings: self.settings.iter().fold(json::object! {}, |mut obj, (k, v)| {
                 obj.insert(k, v.clone()).expect("插入设置项失败");
                 obj
-            })
+            }),
+            current_level: self.current_level.clone(),
         }
     }
 }
@@ -934,6 +1007,7 @@ pub struct App {
     pub resource_switch: Vec<Switch>,
     pub frame_times: Vec<f32>,
     pub last_frame_time: Option<f64>,
+    pub enemy_list: Vec<Enemy>,
 }
 
 impl App {
@@ -975,6 +1049,7 @@ impl App {
                 level_status: vec![],
                 gun_status: vec![],
                 settings: hash_map::HashMap::new(),
+                current_level: "".to_string()
             },
             frame: Frame {
                 ..Default::default()
@@ -1047,6 +1122,7 @@ impl App {
             resource_switch: Vec::new(),
             frame_times: Vec::new(),
             last_frame_time: None,
+            enemy_list: Vec::new(),
         }
     }
 
@@ -1928,6 +2004,21 @@ impl App {
             [255, 0, 0, 0, 0],
             "Bullets",
         );
+        self.add_image_texture(
+            "Bullets_Reload",
+            "Resources/assets/images/bullets_reload.png",
+            [false, false],
+            true,
+            ctx,
+        );
+        self.add_image(
+            "Bullets_Reload",
+            [0_f32, 10_f32, 20_f32, 20_f32],
+            [0, 0, 0, 0],
+            [true, true, false, false, false],
+            [255, 0, 0, 0, 0],
+            "Bullets_Reload",
+        );
         self.add_text(
             ["Surplus_Bullets", ""],
             [0_f32, 0_f32, 20_f32, 300_f32, 0.0],
@@ -1935,6 +2026,22 @@ impl App {
             [false, true, false, false],
             false,
             [0, 0, 0, 0],
+        );
+        self.add_rect(
+            "Pause_Background",
+            [0_f32, 0_f32, 1280_f32, 720_f32, 0_f32],
+            [1, 2, 1, 2],
+            [true, true, true, true],
+            [0, 0, 0, 125, 255, 255, 255, 255],
+            0.0,
+        );
+        self.add_text(
+            ["Pause_Text", ""],
+            [0_f32, 0_f32, 40_f32, 500_f32, 0.0],
+            [255, 255, 255, 255, 0, 0, 0],
+            [true, true, true, true],
+            false,
+            [1, 2, 1, 4],
         );
     }
 
@@ -1968,6 +2075,32 @@ impl App {
         };
         self.rect(ui, resource_name, ctx);
         self.resource_rect[cut_to_rect_id].color[3]
+    }
+
+    #[allow(dead_code)]
+    pub fn add_enemy(
+        &mut self,
+        enemy_hp_def_speed_invincible_time_and_position: [f32; 6],
+        enemy_image_count_minus_target_point: [u32; 2],
+        enemy_tag: Vec<String>,
+        enemy_image_and_type: [String; 2],
+        enemy_move_path: Vec<MovePath>,
+        enemy_detected: bool,
+    ) {
+        self.enemy_list.push(Enemy {
+            enemy_hp: enemy_hp_def_speed_invincible_time_and_position[0],
+            enemy_def: enemy_hp_def_speed_invincible_time_and_position[1],
+            enemy_speed: enemy_hp_def_speed_invincible_time_and_position[2],
+            enemy_invincible_time: enemy_hp_def_speed_invincible_time_and_position[3],
+            enemy_image_count: enemy_image_count_minus_target_point[0],
+            enemy_tag,
+            enemy_image: enemy_image_and_type[0].clone(),
+            enemy_image_type: enemy_image_and_type[1].clone(),
+            enemy_minus_target_point: enemy_image_count_minus_target_point[1],
+            enemy_position: [enemy_hp_def_speed_invincible_time_and_position[4], enemy_hp_def_speed_invincible_time_and_position[5]],
+            enemy_move_path,
+            enemy_detected,
+        });
     }
 
     pub fn problem_report(

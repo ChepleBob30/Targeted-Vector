@@ -1,0 +1,19 @@
+{
+    "global": {
+        "target_point": 3,
+        "bullets": 100,
+        "cost_recover_speed": 0.1,
+        "instrument_ceiling": [5, 1],
+        "target_line": [640, 720]
+    },
+    "target_enemy": [
+        {
+            "enemy_recognition_name": "Train_Enemy",
+            "enemy_position": [640, 0],
+            "enemy_path": [
+                "straight"
+            ],
+            "enemy_approach_time": 1
+        }
+    ]
+}

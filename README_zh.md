@@ -6,8 +6,8 @@
 [![作者: ChepleBob](https://img.shields.io/badge/作者-ChepleBob-00B4D8)](https://github.com/ChepleBob30)
 [![语言: Rust](https://img.shields.io/badge/语言-Rust-5F4C49)](https://www.rust-lang.org/)
 [![许可证: MIT](https://img.shields.io/badge/许可证-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Github Stars](https://img.shields.io/github/stars/ChepleBob30/targeted-vector?style=flat&color=red)
-[![版本](https://img.shields.io/badge/版本-v0.15.0_alpha.1-blue)](https://github.com/ChepleBob30/Targeted-Vector/releases)
+![Github 星星](https://img.shields.io/github/stars/ChepleBob30/targeted-vector?style=flat&color=red)
+[![版本](https://img.shields.io/badge/版本-v0.16.0_alpha.1-blue)](https://github.com/ChepleBob30/Targeted-Vector/releases)
 
 [English](./README.md) | [简体中文](./README_zh.md)
 
@@ -23,19 +23,19 @@
 
 ---
 
-中文版README部分内容由英文版README翻译所得，我向README内容一致性做出了妥协，所以可能存在部分地方翻译生硬甚至错误，请见谅。
+由于开发时间因素，中文版README的内容比英文版更加完整，如发现英文版的翻译问题，请提issue反馈给我。
 
 ---
 
 ## 创造靶向载体的目的
-以前我在2024年做过一个Python游戏叫“施朗猎人”。然而，我们发现在效率方面存在一个重大问题。所以我决定创造一款名为“靶向载体”的新游戏去解决这个问题。
+我在2024年做过一个Python游戏叫“施朗猎人”。但是，“施朗猎人”的性能太差了（在什么设备上运行都会产生严重卡顿），所以我决定用Rust重写一个性能更好、内容更完整的游戏。
 
 ---
 
 ## 如何给靶向载体做贡献
-靶向载体是一个开源项目，想要给靶向载体做贡献是很正常的。然而，我不期望任何人在开发阶段为靶向载体本身贡献代码。因为靶向载体正在以我的开发节奏前进，如果有人为靶向载体贡献代码，那将是混乱的。
+靶向载体是一个开源项目，但是由于个人因素，我并不希望有人直接提交代码（因为这样会让开发与提交代码工作变得混乱且困难）。
 
-*虽然我不期望任何人在开发阶段为靶向载体本身贡献代码，但我确实希望大家都能贡献bug报告和功能建议。*
+*但我希望大家能贡献bug报告和功能建议。*
 
 您可以通过以下方式为靶向载体做出贡献:
 1. 提交bug报告和功能建议：如果您在玩靶向载体时遇到任何bug或有任何功能建议，请在GitHub存储库中创建issue或直接发送给我（Cheple_Bob@outlook.com）。
@@ -43,8 +43,8 @@
 ---
 
 ## 特别感谢
-我们衷心感谢以下对靶向载体做出杰出贡献的人士：
-- [GavZheng](https://github.com/GavZheng): 他在靶向载体开发过程中对各种权衡做出了有效的决策。
+特别感谢以下为靶向载体的辛勤建设做出杰出贡献的人士：
+- [GavZheng](https://github.com/GavZheng): 为靶向载体开发过程中各种问题作出了行之有效的决策。
 
 ---
 
@@ -66,13 +66,13 @@
 
     *靶向载体目前处于开发阶段（alpha阶段）。*
 
-- 什么时候能提供.dmg和.msi？
+- 什么时候能提供安装程序？
 
-    *我将在开发阶段结束时提供.dmg和.msi。*
+    *我将在开发阶段结束时提供.dmg（macOS安装程序）和.msi（Windows安装程序）。*
 
 - 靶向载体会支持什么语言？
 
-    *靶向载体本体支持简体中文和英文，其他语言计划通过模组由开发者自行添加。*
+    *靶向载体本体支持简体中文和英文，其他语言计划由开发者自行添加。*
 
 ---
 

@@ -420,6 +420,7 @@ impl eframe::App for App {
                                 level_status: vec![],
                                 gun_status: vec![],
                                 settings: hash_map::HashMap::new(),
+                                current_level: "".to_string()
                             };
                             if let Ok(json_value) = read_from_json(format!(
                                 "Resources/config/user_{}.json",
@@ -653,7 +654,7 @@ impl eframe::App for App {
                                         {
                                             let hashmap = HashMap::new();
                                             let user_data = User {
-                                                version: 14,
+                                                version: 15,
                                                 name: input3
                                                     .replace(" ", "")
                                                     .replace("/", "")
@@ -667,6 +668,7 @@ impl eframe::App for App {
                                                 gun_status: Vec::new(),
                                                 level_status: Vec::new(),
                                                 settings: hashmap,
+                                                current_level: "".to_string()
                                             }
                                             .to_json_value();
                                             create_pretty_json(
@@ -1547,9 +1549,13 @@ impl eframe::App for App {
                             self.resource_rect[rect_id].origin_position[0] + 200_f32;
                         self.text(ui, "Level_Title", ctx);
                         self.text(ui, "Level_Description", ctx);
-                        if self.switch("Start_Operation", ui, ctx, true, true)[0] == 0 {
+                        if self.switch("Start_Operation", ui, ctx, true, false)[0] == 0 {
+                            std::thread::spawn(|| {
+                                kira_play_wav("Resources/assets/sounds/Operation_Start.wav").unwrap();
+                            });
                             self.modify_var("cut_to", true);
                             self.modify_var("fade_in_or_out", true);
+                            self.login_user_config.current_level = format!("{}_{}", self.login_user_config.current_map.replace("map_", ""), map_information.map_content[opened_level].level_name.clone());
                         };
                         if self.resource_rect[rect_id].origin_position[0] != -400_f32
                             && self.timer.now_time - self.split_time("opened_level_animation")[0]
@@ -1738,14 +1744,17 @@ impl eframe::App for App {
                     );
                     self.add_split_time("gun_shooting_time", false);
                     self.add_split_time("gun_end_shooting_time", false);
+                    self.add_split_time("start_pause_time", false);
+                    self.add_var("pause_total_time", Value::Float(0_f32));
+                    self.add_var("pause", false);
                     self.add_var("gun_selected", Value::UInt(0));
                     self.add_var("gun_selectable_len", Value::UInt(0));
                     self.add_var("forced_cooling", false);
-                    self.add_split_time("operation_refresh_time", false);
                     self.add_var(
                         "operation_last_window_size",
                         vec![ctx.available_rect().width(), ctx.available_rect().height()],
                     );
+                    self.add_split_time("operation_refresh_time", false);
                 };
                 egui::CentralPanel::default().show(ctx, |ui| {
                     let bar_id =
@@ -1851,6 +1860,13 @@ impl eframe::App for App {
                                                 self.variables.clone(),
                                                 &format!("gun{}_recoil", gun_list_content.len()),
                                             ) {
+                                                self.add_split_time(
+                                                    &format!(
+                                                        "gun{}_reload_interval",
+                                                        gun_list_content.len() - 1
+                                                    ),
+                                                    false,
+                                                );
                                                 self.add_var(
                                                     &format!(
                                                         "gun{}_recoil",
@@ -1880,6 +1896,13 @@ impl eframe::App for App {
                                                     false,
                                                 );
                                             } else {
+                                                self.add_split_time(
+                                                    &format!(
+                                                        "gun{}_reload_interval",
+                                                        gun_list_content.len() - 1
+                                                    ),
+                                                    true,
+                                                );
                                                 self.modify_var(
                                                     &format!(
                                                         "gun{}_recoil",
@@ -2023,10 +2046,12 @@ impl eframe::App for App {
                         &self.storage_gun_content[id_id].gun_recognition_name.clone(),
                     );
                     if let Some(mouse_pos) = ui.input(|i| i.pointer.hover_pos()) {
-                        self.resource_image[id].origin_position = [
-                            mouse_pos.x,
-                            mouse_pos.y - self.var_f(&format!("gun{}_recoil", id_id)),
-                        ];
+                        if !self.var_b("pause") {
+                            self.resource_image[id].origin_position = [
+                                mouse_pos.x,
+                                mouse_pos.y - self.var_f(&format!("gun{}_recoil", id_id)),
+                            ];
+                        };
                     };
                     if self.resource_image[id].origin_position[0]
                         - self.resource_image[id].image_size[0] / 2_f32
@@ -2065,7 +2090,7 @@ impl eframe::App for App {
                         &self.storage_gun_content[id_id].gun_recognition_name.clone(),
                     );
                     if ui.input(|i| i.pointer.button_released(PointerButton::Middle))
-                        && self.resource_switch[gun_id].state == 0
+                        && self.resource_switch[gun_id].state == 0 && !self.var_b("pause")
                     {
                         if self.var_u("gun_selected") < self.var_u("gun_selectable_len") - 1 {
                             let gun_selected = self.var_u("gun_selected");
@@ -2100,7 +2125,11 @@ impl eframe::App for App {
                         true,
                         false,
                     );
-                    let bullets_id = self.track_resource(self.resource_image.clone(), "Bullets");
+                    let bullets_id = if self.var_b(&format!("gun{}_reload", id_id)) {
+                        self.track_resource(self.resource_image.clone(), "Bullets_Reload")
+                    } else {
+                        self.track_resource(self.resource_image.clone(), "Bullets")
+                    };
                     let surplus_bullets_id =
                         self.track_resource(self.resource_text.clone(), "Surplus_Bullets");
                     self.resource_text[surplus_bullets_id].text_content = format!(
@@ -2122,7 +2151,11 @@ impl eframe::App for App {
                             + 10_f32,
                     ];
                     self.text(ui, "Surplus_Bullets", ctx);
-                    self.image(ui, "Bullets", ctx);
+                    if self.var_b(&format!("gun{}_reload", id_id)) {
+                        self.image(ui, "Bullets_Reload", ctx);
+                    } else {
+                        self.image(ui, "Bullets", ctx);
+                    };
                     ui.painter().line(
                         vec![
                             Pos2 {
@@ -2180,7 +2213,13 @@ impl eframe::App for App {
                             ),
                         },
                     );
-                    if self.var_b(&format!("gun{}_reload", id_id)) && refresh {
+                    if self.var_b(&format!("gun{}_reload", id_id))
+                        && refresh
+                        && self.timer.now_time
+                            - self.split_time(&format!("gun{}_reload_interval", id_id))[0]
+                            >= self.storage_gun_content[id_id].gun_reload_interval && !self.var_b("pause")
+                    {
+                        self.add_split_time(&format!("gun{}_reload_interval", id_id), true);
                         let scroll_delta = ui.input(|i| i.smooth_scroll_delta);
                         if scroll_delta.y != 0.0 {
                             let mut sound;
@@ -2225,8 +2264,10 @@ impl eframe::App for App {
                                 .gun_tag
                                 .contains(&"down_shoot".to_string())
                                 && ui.input(|i| i.pointer.button_down(PointerButton::Primary));
-                        if shoot {
-                            if self.var_u(&format!("gun{}_surplus_bullets", id_id)) > 0 {
+                        if shoot && !self.var_b("pause") {
+                            if self.var_u(&format!("gun{}_surplus_bullets", id_id)) > 0
+                                && !self.var_b(&format!("gun{}_reload", id_id))
+                            {
                                 let sound = self.storage_gun_content[id_id].gun_shoot_sound.clone();
                                 self.add_split_time("gun_shooting_time", true);
                                 std::thread::spawn(move || {
@@ -2269,10 +2310,12 @@ impl eframe::App for App {
                                 && self.storage_gun_content[id_id]
                                     .gun_tag
                                     .contains(&"released_shoot".to_string())
+                                && self.var_u(&format!("gun{}_surplus_bullets", id_id)) == 0
                                 || ui.input(|i| i.pointer.button_pressed(PointerButton::Primary))
                                     && !self.storage_gun_content[id_id]
                                         .gun_tag
                                         .contains(&"released_shoot".to_string())
+                                    && self.var_u(&format!("gun{}_surplus_bullets", id_id)) == 0
                             {
                                 let sound_path = self.storage_gun_content[id_id]
                                     .gun_no_bullet_shoot_sound
@@ -2282,7 +2325,7 @@ impl eframe::App for App {
                         };
                     } else if self.resource_switch[gun_id].state == 1
                         && self.timer.now_time - self.split_time("gun_shooting_time")[0]
-                            >= self.storage_gun_content[id_id].gun_shoot_speed
+                            >= self.storage_gun_content[id_id].gun_shoot_speed && !self.var_b("pause")
                     {
                         self.resource_switch[gun_id].state = 2;
                         self.add_split_time("gun_end_shooting_time", true);
@@ -2290,10 +2333,11 @@ impl eframe::App for App {
                         && self.timer.now_time - self.split_time("gun_end_shooting_time")[0]
                             >= self.storage_gun_content[id_id].gun_reload_time
                         && !self.var_b("forced_cooling")
+                        && !self.var_b("pause")
                     {
                         self.resource_switch[gun_id].state = 0;
                     };
-                    if self.var_f(&format!("gun{}_recoil", id_id)) != 0_f32 && refresh {
+                    if self.var_f(&format!("gun{}_recoil", id_id)) != 0_f32 && refresh && !self.var_b("pause") {
                         if self.var_f(&format!("gun{}_recoil", id_id)) > 0_f32 {
                             let recoil = self.var_f(&format!("gun{}_recoil", id_id));
                             if self.resource_switch[gun_id].state == 0
@@ -2317,6 +2361,7 @@ impl eframe::App for App {
                         && refresh
                         && self.var_u(&format!("gun{}_temperature", id_id)) > 0
                         && self.resource_switch[gun_id].state != 1
+                        && !self.var_b("pause")
                     {
                         if self.var_u(&format!("gun{}_temperature", id_id)) >= 1 {
                             let temperature = self.var_u(&format!("gun{}_temperature", id_id));
@@ -2329,11 +2374,45 @@ impl eframe::App for App {
                             self.modify_var("forced_cooling", false);
                         };
                     };
+                    if refresh && !self.var_b("pause") {
+                        for i in 0..self.storage_gun_content.len() {
+                            if i != id_id {
+                                if self.var_u(&format!("gun{}_temperature", i)) > 0 {
+                                    let temperature = self.var_u(&format!("gun{}_temperature", i));
+                                    self.modify_var(
+                                        &format!("gun{}_temperature", i),
+                                        Value::UInt(temperature - 1),
+                                    );
+                                };
+                                self.modify_var(&format!("gun{}_recoil", i), Value::Float(0_f32));
+                            }
+                        }
+                    };
                     self.rect(ui, "Operation_Status_Bar", ctx);
                     self.image(ui, "Health", ctx);
                     self.image(ui, "Enemy", ctx);
                     self.image(ui, "Bullet", ctx);
                     self.image(ui, "Cost", ctx);
+                    if ui.input(|i| i.key_pressed(egui::Key::Escape)) {
+                        let pause = self.var_b("pause");
+                        if pause {
+                            let pause_total_time = self.var_f("pause_total_time");
+                            let pause_time = self.timer.now_time - self.split_time("start_pause_time")[0];
+                            self.modify_var("pause_total_time", pause_total_time + pause_time);
+                        } else {
+                            self.add_split_time("start_split_time", true);
+                        }
+                        self.modify_var("pause", !pause);
+                        let text_id = self.track_resource(self.resource_text.clone(), "Pause_Text");
+                        self.resource_text[text_id].text_content = game_text["pause"][self.config.language as usize].to_string();
+                        std::thread::spawn(|| {
+                            kira_play_wav("Resources/assets/sounds/Pause.wav").unwrap();
+                        });
+                    };
+                    if self.var_b("pause") { 
+                        self.rect(ui, "Pause_Background", ctx);
+                        self.text(ui, "Pause_Text", ctx);
+                    };
                     let fade_in_or_out = self.var_b("fade_in_or_out");
                     if self.fade(
                         fade_in_or_out,

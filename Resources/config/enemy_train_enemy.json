@@ -1,0 +1,22 @@
+{
+    "enemy_recognition_name": "Train_Enemy",
+    "enemy_name": [
+        "训练敌人",
+        "Train Enemy"
+    ],
+    "enemy_hp": 1,
+    "enemy_def": 0,
+    "enemy_speed": 0.5,
+    "enemy_size": [
+        100,
+        100
+    ],
+    "enemy_invincible_time": 0.1,
+    "enemy_image_count": 1,
+    "enemy_tag": [
+        "normal"
+    ],
+    "enemy_image": "Resources/assets/images/train_enemy",
+    "enemy_image_type": ".png",
+    "enemy_minus_target_point": 1
+}

@@ -109,8 +109,8 @@
       "Page"
     ],
     "debug_game_version": [
-      "靶向载体 v0.15.0-alpha.1",
-      "Targeted Vector v0.15.0-alpha.1"
+      "靶向载体 v0.16.0-alpha.1",
+      "Targeted Vector v0.16.0-alpha.1"
     ],
     "debug_game_now_time": [
       "当前页面运行时间",
@@ -463,6 +463,10 @@
     "map_description": [
       "地图描述",
       "Map description"
+    ],
+    "pause": [
+      "暂停",
+      "Pause"
     ]
   }
 }
