@@ -2,7 +2,7 @@
 use crate::function::{
     check_file_exists, check_resource_exist, count_files_recursive, create_pretty_json,
     general_click_feedback, kira_play_wav, list_files_recursive, read_from_json, write_to_json,
-    App, Gun, Map, SeverityLevel, SwitchClickAction, SwitchData, User, UserGunStatus,
+    App, Gun, Map, Operation, SeverityLevel, SwitchClickAction, SwitchData, User, UserGunStatus,
     UserLevelStatus, Value,
 };
 use chrono::{Local, Timelike};
@@ -90,6 +90,24 @@ impl eframe::App for App {
                 };
                 egui::CentralPanel::default().show(ctx, |ui| {
                     self.rect(ui, "Background", ctx);
+                    if ui.input(|i| i.key_pressed(egui::Key::Space)) {
+                        if self.config.login_user_name.is_empty() {
+                            self.switch_page("Login");
+                        } else {
+                            if let Ok(json_value) = read_from_json(format!(
+                                "Resources/config/user_{}.json",
+                                self.config.login_user_name
+                            )) {
+                                if let Some(read_user) =
+                                    User::from_json_value(&json_value)
+                                {
+                                    self.login_user_config = read_user;
+                                };
+                            };
+                            self.config.language = self.login_user_config.language;
+                            self.switch_page("Home_Page");
+                        };
+                    };
                     if self.timer.now_time >= 1.0 {
                         if self.var_i("progress") < 2 {
                             self.image(ui, "RC_Logo", ctx);
@@ -420,7 +438,7 @@ impl eframe::App for App {
                                 level_status: vec![],
                                 gun_status: vec![],
                                 settings: hash_map::HashMap::new(),
-                                current_level: "".to_string()
+                                current_level: "".to_string(),
                             };
                             if let Ok(json_value) = read_from_json(format!(
                                 "Resources/config/user_{}.json",
@@ -654,7 +672,7 @@ impl eframe::App for App {
                                         {
                                             let hashmap = HashMap::new();
                                             let user_data = User {
-                                                version: 15,
+                                                version: 16,
                                                 name: input3
                                                     .replace(" ", "")
                                                     .replace("/", "")
@@ -668,7 +686,7 @@ impl eframe::App for App {
                                                 gun_status: Vec::new(),
                                                 level_status: Vec::new(),
                                                 settings: hashmap,
-                                                current_level: "".to_string()
+                                                current_level: "".to_string(),
                                             }
                                             .to_json_value();
                                             create_pretty_json(
@@ -1551,11 +1569,19 @@ impl eframe::App for App {
                         self.text(ui, "Level_Description", ctx);
                         if self.switch("Start_Operation", ui, ctx, true, false)[0] == 0 {
                             std::thread::spawn(|| {
-                                kira_play_wav("Resources/assets/sounds/Operation_Start.wav").unwrap();
+                                kira_play_wav("Resources/assets/sounds/Operation_Start.wav")
+                                    .unwrap();
                             });
                             self.modify_var("cut_to", true);
                             self.modify_var("fade_in_or_out", true);
-                            self.login_user_config.current_level = format!("{}_{}", self.login_user_config.current_map.replace("map_", ""), map_information.map_content[opened_level].level_name.clone());
+                            self.login_user_config.current_level = format!(
+                                "{}_{}.json",
+                                self.login_user_config
+                                    .current_map
+                                    .replace("map_", "level_")
+                                    .replace(".json", ""),
+                                map_information.map_content[opened_level].level_name.clone()
+                            );
                         };
                         if self.resource_rect[rect_id].origin_position[0] != -400_f32
                             && self.timer.now_time - self.split_time("opened_level_animation")[0]
@@ -1745,6 +1771,15 @@ impl eframe::App for App {
                     self.add_split_time("gun_shooting_time", false);
                     self.add_split_time("gun_end_shooting_time", false);
                     self.add_split_time("start_pause_time", false);
+                    self.add_split_time("horizontal_scrolling_time", false);
+                    self.add_split_time("cost_recover_time", false);
+                    self.add_var("end_pause_correction", false);
+                    self.add_var("target_point", Value::UInt(0));
+                    self.add_var("target_enemy", Value::UInt(0));
+                    self.add_var("storage_bullet", Value::UInt(0));
+                    self.add_var("cost", Value::UInt(0));
+                    self.add_var("cost_recover_speed", Value::Float(0_f32));
+                    self.add_var("target_line", Value::Vec(Vec::new()));
                     self.add_var("pause_total_time", Value::Float(0_f32));
                     self.add_var("pause", false);
                     self.add_var("gun_selected", Value::UInt(0));
@@ -1759,11 +1794,50 @@ impl eframe::App for App {
                 egui::CentralPanel::default().show(ctx, |ui| {
                     let bar_id =
                         self.track_resource(self.resource_rect.clone(), "Operation_Status_Bar");
-                    let bar_id2 = self.track_resource(self.resource_image.clone(), "Health");
-                    let bar_id3 = self.track_resource(self.resource_image.clone(), "Enemy");
+                    let bar_id2 = self.track_resource(self.resource_image.clone(), "Target_Point");
+                    let bar_id3 = self.track_resource(self.resource_image.clone(), "Target_Enemy");
                     let bar_id4 = self.track_resource(self.resource_image.clone(), "Bullet");
                     let bar_id5 = self.track_resource(self.resource_image.clone(), "Cost");
+                    let bar_id6 = self.track_resource(self.resource_text.clone(), "Target_Point_Text");
+                    let bar_id7 = self.track_resource(self.resource_text.clone(), "Target_Enemy_Text");
+                    let bar_id8 = self.track_resource(self.resource_text.clone(), "Bullet_Text");
+                    let bar_id9 = self.track_resource(self.resource_text.clone(), "Cost_Text");
                     if !self.var_b("prepared_operation") {
+                        if let Ok(json_value) =
+                            read_from_json(self.login_user_config.current_level.clone())
+                        {
+                            if let Some(read_operation) = Operation::from_json_value(&json_value) {
+                                self.modify_var("end_pause_correction", false);
+                                self.modify_var(
+                                    "target_point",
+                                    Value::UInt(read_operation.global.target_point),
+                                );
+                                self.modify_var(
+                                    "target_enemy",
+                                    Value::UInt(read_operation.target_enemy.len() as u32),
+                                );
+                                self.modify_var(
+                                    "storage_bullet",
+                                    Value::UInt(read_operation.global.storage_bullet),
+                                );
+                                self.modify_var("cost", Value::UInt(read_operation.global.cost));
+                                self.modify_var(
+                                    "cost_recover_speed",
+                                    Value::Float(read_operation.global.cost_recover_speed),
+                                );
+                                self.add_split_time("cost_recover_time", true);
+                                let mut target_line = Vec::new();
+                                for i in 0..read_operation.global.target_line.len() {
+                                    target_line.push(Value::Float(
+                                        read_operation.global.target_line[i][0],
+                                    ));
+                                    target_line.push(Value::Float(
+                                        read_operation.global.target_line[i][1],
+                                    ));
+                                }
+                                self.modify_var("target_line", Value::Vec(target_line));
+                            };
+                        };
                         let gun_list =
                             list_files_recursive(Path::new("Resources/config"), "gun_").unwrap();
                         let mut gun_list_content = Vec::new();
@@ -1984,9 +2058,16 @@ impl eframe::App for App {
                         self.modify_var("prepared_operation", true);
                         self.add_split_time("operation_refresh_time", true);
                     };
-                    let refresh = self.timer.now_time
+                    let refresh = 
+                    if self.var_b("end_pause_correction") {
+                        self.timer.now_time
+                        - self.split_time("operation_refresh_time")[0] - self.var_f("pause_total_time")
+                        >= self.vertrefresh
+                    } else {
+                        self.timer.now_time
                         - self.split_time("operation_refresh_time")[0]
-                        >= self.vertrefresh;
+                        >= self.vertrefresh
+                    };
                     if refresh {
                         self.add_split_time("operation_refresh_time", true);
                     };
@@ -2008,6 +2089,26 @@ impl eframe::App for App {
                         ctx.available_rect().width() / 2_f32 - 640_f32 + 1280_f32 / 5_f32 * 4_f32,
                         ctx.available_rect().height() / 2_f32 - 340_f32,
                     ];
+                    self.resource_text[bar_id6].origin_position = [
+                        ctx.available_rect().width() / 2_f32 - 640_f32 + 1280_f32 / 5_f32 + 30_f32,
+                        ctx.available_rect().height() / 2_f32 - 340_f32,
+                    ];
+                    self.resource_text[bar_id6].text_content = self.var_u("target_point").to_string();
+                    self.resource_text[bar_id7].origin_position = [
+                        ctx.available_rect().width() / 2_f32 - 640_f32 + 1280_f32 / 5_f32 * 2_f32 + 30_f32,
+                        ctx.available_rect().height() / 2_f32 - 340_f32,
+                    ];
+                    self.resource_text[bar_id7].text_content = self.var_u("target_enemy").to_string();
+                    self.resource_text[bar_id8].origin_position = [
+                        ctx.available_rect().width() / 2_f32 - 640_f32 + 1280_f32 / 5_f32 * 3_f32 + 30_f32,
+                        ctx.available_rect().height() / 2_f32 - 340_f32,
+                    ];
+                    self.resource_text[bar_id8].text_content = self.var_u("storage_bullet").to_string();
+                    self.resource_text[bar_id9].origin_position = [
+                        ctx.available_rect().width() / 2_f32 - 640_f32 + 1280_f32 / 5_f32 * 4_f32 + 30_f32,
+                        ctx.available_rect().height() / 2_f32 - 340_f32,
+                    ];
+                    self.resource_text[bar_id9].text_content = self.var_u("cost").to_string();
                     let scroll_background = self.track_resource(
                         self.resource_scroll_background.clone(),
                         "Operation_Expand",
@@ -2083,14 +2184,19 @@ impl eframe::App for App {
                             ctx.available_rect().height() / 2_f32 + 360_f32
                                 - self.resource_image[id].image_size[1] / 2_f32;
                     };
-                    self.scroll_background(ui, "Operation_Expand", ctx);
+                    if ctx.available_rect().width() != 1280_f32
+                        || ctx.available_rect().height() != 720_f32
+                    {
+                        self.scroll_background(ui, "Operation_Expand", ctx);
+                    };
                     self.image(ui, "Operation", ctx);
                     let gun_id = self.track_resource(
                         self.resource_switch.clone(),
                         &self.storage_gun_content[id_id].gun_recognition_name.clone(),
                     );
                     if ui.input(|i| i.pointer.button_released(PointerButton::Middle))
-                        && self.resource_switch[gun_id].state == 0 && !self.var_b("pause")
+                        && self.resource_switch[gun_id].state == 0
+                        && !self.var_b("pause")
                     {
                         if self.var_u("gun_selected") < self.var_u("gun_selectable_len") - 1 {
                             let gun_selected = self.var_u("gun_selected");
@@ -2118,6 +2224,23 @@ impl eframe::App for App {
                     } else {
                         self.resource_switch[gun_id].appearance[2].color = [0, 0, 0, 255];
                     };
+                    let mut target_line = Vec::new();
+                    for i in 0..self.var_v("target_line").len() / 2 {
+                        let first_element = self.var_v("target_line")[i * 2].clone();
+                        let second_element = self.var_v("target_line")[i * 2 + 1].clone();
+                        target_line.push(Pos2 {
+                            x: self.var_decode_f(first_element) + (ctx.available_rect().width() - 1280_f32) / 2_f32,
+                            y: self.var_decode_f(second_element) + (ctx.available_rect().height() - 720_f32) / 2_f32,
+                        });
+                    }
+                    ui.painter().line(
+                        target_line,
+                        Stroke {
+                            width: 8.0,
+                            color: Color32::from_rgba_unmultiplied(255, 0, 0, 255),
+                        },
+                    );
+                    self.enemy_refresh(ctx, ui);
                     self.switch(
                         &self.storage_gun_content[id_id].gun_recognition_name.clone(),
                         ui,
@@ -2213,17 +2336,52 @@ impl eframe::App for App {
                             ),
                         },
                     );
+                    let scroll_delta = ui.input(|i| i.smooth_scroll_delta);
+                    if scroll_delta.x != 0.0 && self.timer.now_time - self.split_time("horizontal_scrolling_time")[0] >= 0.5 && self.resource_switch[gun_id].state == 0 && !self.var_b("pause") {
+                        if scroll_delta.x < -20.0 {
+                            self.add_split_time("horizontal_scrolling_time", true);
+                            if self.var_u("gun_selected") < self.var_u("gun_selectable_len") - 1 {
+                                let gun_selected = self.var_u("gun_selected");
+                                self.modify_var("gun_selected", gun_selected + 1);
+                            } else {
+                                self.modify_var("gun_selected", Value::UInt(0));
+                            };
+                            std::thread::spawn(|| {
+                                kira_play_wav("Resources/assets/sounds/Reload.wav").unwrap();
+                            });
+                        } else if scroll_delta.x > 20.0 {
+                            self.add_split_time("horizontal_scrolling_time", true);
+                            if self.var_u("gun_selected") > 0 {
+                                let gun_selected = self.var_u("gun_selected");
+                                self.modify_var("gun_selected", gun_selected - 1);
+                            } else {
+                                let gun_selectable_len = self.var_u("gun_selectable_len");
+                                self.modify_var("gun_selected", Value::UInt(gun_selectable_len - 1));
+                            };
+                            std::thread::spawn(|| {
+                                kira_play_wav("Resources/assets/sounds/Reload.wav").unwrap();
+                            });
+                        };
+                    };
+                    if refresh && self.timer.now_time - self.var_f("pause_total_time") - self.split_time("cost_recover_time")[0] >= self.var_f("cost_recover_speed")
+                        && !self.var_b("pause") {
+                        let cost = self.var_u("cost");
+                        self.modify_var("cost", Value::UInt(cost + 1));
+                        self.add_split_time("cost_recover_time", true);
+                    };
                     if self.var_b(&format!("gun{}_reload", id_id))
                         && refresh
                         && self.timer.now_time
                             - self.split_time(&format!("gun{}_reload_interval", id_id))[0]
-                            >= self.storage_gun_content[id_id].gun_reload_interval && !self.var_b("pause")
+                            >= self.storage_gun_content[id_id].gun_reload_interval
+                        && !self.var_b("pause")
                     {
                         self.add_split_time(&format!("gun{}_reload_interval", id_id), true);
-                        let scroll_delta = ui.input(|i| i.smooth_scroll_delta);
                         if scroll_delta.y != 0.0 {
                             let mut sound;
-                            if scroll_delta.y > 0.0 {
+                            if scroll_delta.y > 0.0 && self.var_u("storage_bullet") > 0 {
+                                let storage_bullet = self.var_u("storage_bullet");
+                                self.modify_var("storage_bullet", Value::UInt(storage_bullet - 1));
                                 let surplus_bullets =
                                     self.var_u(&format!("gun{}_surplus_bullets", id_id));
                                 self.modify_var(
@@ -2310,12 +2468,10 @@ impl eframe::App for App {
                                 && self.storage_gun_content[id_id]
                                     .gun_tag
                                     .contains(&"released_shoot".to_string())
-                                && self.var_u(&format!("gun{}_surplus_bullets", id_id)) == 0
                                 || ui.input(|i| i.pointer.button_pressed(PointerButton::Primary))
                                     && !self.storage_gun_content[id_id]
                                         .gun_tag
                                         .contains(&"released_shoot".to_string())
-                                    && self.var_u(&format!("gun{}_surplus_bullets", id_id)) == 0
                             {
                                 let sound_path = self.storage_gun_content[id_id]
                                     .gun_no_bullet_shoot_sound
@@ -2325,7 +2481,8 @@ impl eframe::App for App {
                         };
                     } else if self.resource_switch[gun_id].state == 1
                         && self.timer.now_time - self.split_time("gun_shooting_time")[0]
-                            >= self.storage_gun_content[id_id].gun_shoot_speed && !self.var_b("pause")
+                            >= self.storage_gun_content[id_id].gun_shoot_speed
+                        && !self.var_b("pause")
                     {
                         self.resource_switch[gun_id].state = 2;
                         self.add_split_time("gun_end_shooting_time", true);
@@ -2337,7 +2494,10 @@ impl eframe::App for App {
                     {
                         self.resource_switch[gun_id].state = 0;
                     };
-                    if self.var_f(&format!("gun{}_recoil", id_id)) != 0_f32 && refresh && !self.var_b("pause") {
+                    if self.var_f(&format!("gun{}_recoil", id_id)) != 0_f32
+                        && refresh
+                        && !self.var_b("pause")
+                    {
                         if self.var_f(&format!("gun{}_recoil", id_id)) > 0_f32 {
                             let recoil = self.var_f(&format!("gun{}_recoil", id_id));
                             if self.resource_switch[gun_id].state == 0
@@ -2389,27 +2549,36 @@ impl eframe::App for App {
                         }
                     };
                     self.rect(ui, "Operation_Status_Bar", ctx);
-                    self.image(ui, "Health", ctx);
-                    self.image(ui, "Enemy", ctx);
+                    self.image(ui, "Target_Point", ctx);
+                    self.image(ui, "Target_Enemy", ctx);
                     self.image(ui, "Bullet", ctx);
                     self.image(ui, "Cost", ctx);
+                    self.text(ui, "Target_Point_Text", ctx);
+                    self.text(ui, "Target_Enemy_Text", ctx);
+                    self.text(ui, "Bullet_Text", ctx);
+                    self.text(ui, "Cost_Text", ctx);
+                    ui.painter().circle_stroke(Pos2 {x: ctx.available_rect().width() / 2_f32 - 640_f32 + 1280_f32 / 5_f32 * 4_f32, y: ctx.available_rect().height() / 2_f32 - 350_f32 + 35_f32}, 22_f32, Stroke {width: 3_f32, color: Color32::from_rgba_unmultiplied(35, 94, 150, 125)});
+                    self.modify_var("end_pause_correction", false);
                     if ui.input(|i| i.key_pressed(egui::Key::Escape)) {
                         let pause = self.var_b("pause");
                         if pause {
                             let pause_total_time = self.var_f("pause_total_time");
-                            let pause_time = self.timer.now_time - self.split_time("start_pause_time")[0];
+                            let pause_time =
+                                self.timer.now_time - self.split_time("start_pause_time")[0];
                             self.modify_var("pause_total_time", pause_total_time + pause_time);
+                            self.modify_var("end_pause_correction", true);
                         } else {
                             self.add_split_time("start_split_time", true);
                         }
                         self.modify_var("pause", !pause);
                         let text_id = self.track_resource(self.resource_text.clone(), "Pause_Text");
-                        self.resource_text[text_id].text_content = game_text["pause"][self.config.language as usize].to_string();
+                        self.resource_text[text_id].text_content =
+                            game_text["pause"][self.config.language as usize].to_string();
                         std::thread::spawn(|| {
                             kira_play_wav("Resources/assets/sounds/Pause.wav").unwrap();
                         });
                     };
-                    if self.var_b("pause") { 
+                    if self.var_b("pause") {
                         self.rect(ui, "Pause_Background", ctx);
                         self.text(ui, "Pause_Text", ctx);
                     };

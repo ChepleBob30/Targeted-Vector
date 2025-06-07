@@ -244,6 +244,82 @@ impl Config {
     }
 }
 
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct OperationGlobal {
+    pub target_point: u32,
+    pub storage_bullet: u32,
+    pub cost: u32,
+    pub cost_recover_speed: f32,
+    pub instrument_ceiling: u32,
+    pub target_line: Vec<[f32; 2]>,
+}
+
+impl OperationGlobal {
+    #[allow(dead_code)]
+    pub fn from_json_value(value: &JsonValue) -> Option<OperationGlobal> {
+        Some(OperationGlobal {
+            target_point: value["target_point"].as_u32()?,
+            storage_bullet: value["storage_bullet"].as_u32()?,
+            cost: value["cost"].as_u32()?,
+            cost_recover_speed: value["cost_recover_speed"].as_f32()?,
+            instrument_ceiling: value["instrument_ceiling"].as_u32()?,
+            target_line: value["target_line"]
+                .members()
+                .filter_map(|arr| Some([arr[0].as_f32()?, arr[1].as_f32()?]))
+                .collect(),
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct OperationTargetEnemy {
+    pub enemy_recognition_name: String,
+    pub enemy_position: [f32; 2],
+    pub enemy_size: [f32; 2],
+    pub enemy_path: Vec<String>,
+    pub enemy_approach_time: f32,
+}
+
+impl OperationTargetEnemy {
+    pub fn from_json_value(value: &JsonValue) -> Option<OperationTargetEnemy> {
+        Some(OperationTargetEnemy {
+            enemy_recognition_name: value["enemy_recognition_name"].as_str()?.to_string(),
+            enemy_position: [
+                value["enemy_position"][0].as_f32()?,
+                value["enemy_position"][1].as_f32()?,
+            ],
+            enemy_size: [
+                value["enemy_size"][0].as_f32()?,
+                value["enemy_size"][1].as_f32()?,
+            ],
+            enemy_path: value["enemy_path"]
+                .members()
+                .map(|s| s.to_string())
+                .collect(),
+            enemy_approach_time: value["enemy_approach_time"].as_f32()?,
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Operation {
+    pub global: OperationGlobal,
+    pub target_enemy: Vec<OperationTargetEnemy>,
+}
+
+impl Operation {
+    pub fn from_json_value(value: &JsonValue) -> Option<Operation> {
+        Some(Operation {
+            global: OperationGlobal::from_json_value(&value["global"])?,
+            target_enemy: value["target_enemy"]
+                .members()
+                .map(OperationTargetEnemy::from_json_value)
+                .collect::<Option<Vec<_>>>()?,
+        })
+    }
+}
+
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub struct MovePath {
@@ -269,6 +345,7 @@ impl MovePath {
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub struct Enemy {
+    pub enemy_id: String,
     pub enemy_hp: f32,
     pub enemy_def: f32,
     pub enemy_speed: f32,
@@ -281,12 +358,33 @@ pub struct Enemy {
     pub enemy_position: [f32; 2],
     pub enemy_move_path: Vec<MovePath>,
     pub enemy_detected: bool,
+    pub enemy_activated: bool,
+    pub enemy_activated_time: f32,
+    pub enemy_offset: [f32; 2],
+    pub enemy_size: [f32; 2],
 }
 
-impl Enemy {
+#[derive(Debug, Clone)]
+#[allow(dead_code)]
+pub struct JsonReadEnemy {
+    pub enemy_recognition_name: String,
+    pub enemy_name: Vec<String>,
+    pub enemy_hp: f32,
+    pub enemy_def: f32,
+    pub enemy_speed: f32,
+    pub enemy_invincible_time: f32,
+    pub enemy_image_count: u32,
+    pub enemy_tag: Vec<String>,
+    pub enemy_image: String,
+    pub enemy_image_type: String,
+    pub enemy_minus_target_point: u32,
+}
+
+impl JsonReadEnemy {
     #[allow(dead_code)]
-    pub fn from_json_value(value: &JsonValue) -> Option<Enemy> {
-        Some(Enemy {
+    pub fn from_json_value(value: &JsonValue) -> Option<JsonReadEnemy> {
+        Some(JsonReadEnemy {
+            enemy_recognition_name: value["enemy_recognition_name"].as_str()?.to_string(),
             enemy_hp: value["enemy_hp"].as_f32()?,
             enemy_def: value["enemy_def"].as_f32()?,
             enemy_speed: value["enemy_speed"].as_f32()?,
@@ -299,15 +397,10 @@ impl Enemy {
             enemy_image: value["enemy_image"].as_str()?.to_string(),
             enemy_image_type: value["enemy_image_type"].as_str()?.to_string(),
             enemy_minus_target_point: value["enemy_minus_target_point"].as_u32()?,
-            enemy_position: [
-                value["enemy_position"][0].as_f32()?,
-                value["enemy_position"][1].as_f32()?,
-            ],
-            enemy_move_path: value["enemy_move_path"]
+            enemy_name: value["enemy_name"]
                 .members()
-                .map(|v| MovePath::from_json_value(v).unwrap())
+                .map(|s| s.to_string())
                 .collect(),
-            enemy_detected: value["detected_enemy"].as_bool()?,
         })
     }
 }
@@ -1049,7 +1142,7 @@ impl App {
                 level_status: vec![],
                 gun_status: vec![],
                 settings: hash_map::HashMap::new(),
-                current_level: "".to_string()
+                current_level: "".to_string(),
             },
             frame: Frame {
                 ..Default::default()
@@ -1930,34 +2023,34 @@ impl App {
             0.0,
         );
         self.add_image_texture(
-            "Health",
-            "Resources/assets/images/health.png",
+            "Target_Point",
+            "Resources/assets/images/target_point.png",
             [false, false],
             true,
             ctx,
         );
         self.add_image(
-            "Health",
+            "Target_Point",
             [0_f32, 0_f32, 50_f32, 50_f32],
             [0, 0, 0, 0],
             [true, true, true, false, false],
             [200, 0, 0, 0, 0],
-            "Health",
+            "Target_Point",
         );
         self.add_image_texture(
-            "Enemy",
-            "Resources/assets/images/enemy.png",
+            "Target_Enemy",
+            "Resources/assets/images/target_enemy.png",
             [false, false],
             true,
             ctx,
         );
         self.add_image(
-            "Enemy",
+            "Target_Enemy",
             [0_f32, 0_f32, 50_f32, 50_f32],
             [0, 0, 0, 0],
             [true, true, true, false, false],
             [200, 0, 0, 0, 0],
-            "Enemy",
+            "Target_Enemy",
         );
         self.add_image_texture(
             "Bullet",
@@ -2043,6 +2136,38 @@ impl App {
             false,
             [1, 2, 1, 4],
         );
+        self.add_text(
+            ["Target_Point_Text", ""],
+            [0_f32, 0_f32, 40_f32, 200_f32, 0.0],
+            [255, 255, 255, 255, 0, 0, 0],
+            [true, true, false, false],
+            false,
+            [0, 0, 0, 0],
+        );
+        self.add_text(
+            ["Target_Enemy_Text", ""],
+            [0_f32, 0_f32, 40_f32, 200_f32, 0.0],
+            [255, 255, 255, 255, 0, 0, 0],
+            [true, true, false, false],
+            false,
+            [0, 0, 0, 0],
+        );
+        self.add_text(
+            ["Bullet_Text", ""],
+            [0_f32, 0_f32, 40_f32, 200_f32, 0.0],
+            [255, 255, 255, 255, 0, 0, 0],
+            [true, true, false, false],
+            false,
+            [0, 0, 0, 0],
+        );
+        self.add_text(
+            ["Cost_Text", ""],
+            [0_f32, 0_f32, 40_f32, 200_f32, 0.0],
+            [255, 255, 255, 255, 0, 0, 0],
+            [true, true, false, false],
+            false,
+            [0, 0, 0, 0],
+        );
     }
 
     pub fn fade(
@@ -2080,27 +2205,155 @@ impl App {
     #[allow(dead_code)]
     pub fn add_enemy(
         &mut self,
-        enemy_hp_def_speed_invincible_time_and_position: [f32; 6],
+        enemy_hp_def_speed_invincible_time_position_activated_time_and_size: [f32; 9],
         enemy_image_count_minus_target_point: [u32; 2],
-        enemy_tag: Vec<String>,
-        enemy_image_and_type: [String; 2],
-        enemy_move_path: Vec<MovePath>,
-        enemy_detected: bool,
+        enemy_tag_and_move_path: [Vec<String>; 2],
+        enemy_name_image_and_type: [String; 3],
+        enemy_detected_and_activated: [bool; 2],
+        ctx: &egui::Context,
     ) {
+        let mut move_path = Vec::new();
+        for i in 0..enemy_tag_and_move_path[1].len() {
+            if let Ok(json_value) = read_from_json(
+                format!(
+                    "Resources/config/path_{}.json",
+                    enemy_tag_and_move_path[1][i]
+                )
+                .to_lowercase(),
+            ) {
+                if let Some(read_path) = MovePath::from_json_value(&json_value) {
+                    move_path.push(read_path);
+                };
+            };
+        }
         self.enemy_list.push(Enemy {
-            enemy_hp: enemy_hp_def_speed_invincible_time_and_position[0],
-            enemy_def: enemy_hp_def_speed_invincible_time_and_position[1],
-            enemy_speed: enemy_hp_def_speed_invincible_time_and_position[2],
-            enemy_invincible_time: enemy_hp_def_speed_invincible_time_and_position[3],
+            enemy_id: enemy_name_image_and_type[0].clone(),
+            enemy_hp: enemy_hp_def_speed_invincible_time_position_activated_time_and_size[0],
+            enemy_def: enemy_hp_def_speed_invincible_time_position_activated_time_and_size[1],
+            enemy_speed: enemy_hp_def_speed_invincible_time_position_activated_time_and_size[2],
+            enemy_invincible_time:
+                enemy_hp_def_speed_invincible_time_position_activated_time_and_size[3],
             enemy_image_count: enemy_image_count_minus_target_point[0],
-            enemy_tag,
-            enemy_image: enemy_image_and_type[0].clone(),
-            enemy_image_type: enemy_image_and_type[1].clone(),
+            enemy_tag: enemy_tag_and_move_path[0].clone(),
+            enemy_image: enemy_name_image_and_type[1].clone(),
+            enemy_image_type: enemy_name_image_and_type[2].clone(),
             enemy_minus_target_point: enemy_image_count_minus_target_point[1],
-            enemy_position: [enemy_hp_def_speed_invincible_time_and_position[4], enemy_hp_def_speed_invincible_time_and_position[5]],
-            enemy_move_path,
-            enemy_detected,
+            enemy_position: [
+                enemy_hp_def_speed_invincible_time_position_activated_time_and_size[4],
+                enemy_hp_def_speed_invincible_time_position_activated_time_and_size[5],
+            ],
+            enemy_move_path: move_path,
+            enemy_detected: enemy_detected_and_activated[0],
+            enemy_activated: enemy_detected_and_activated[1],
+            enemy_activated_time:
+                enemy_hp_def_speed_invincible_time_position_activated_time_and_size[6],
+            enemy_offset: [0_f32, 0_f32],
+            enemy_size: [
+                enemy_hp_def_speed_invincible_time_position_activated_time_and_size[7],
+                enemy_hp_def_speed_invincible_time_position_activated_time_and_size[8],
+            ],
         });
+        for i in 0..enemy_image_count_minus_target_point[0] {
+            if !check_resource_exist(
+                self.resource_image_texture.clone(),
+                &format!("{}_{}", enemy_name_image_and_type[0], i),
+            ) {
+                self.add_image_texture(
+                    &format!("{}_{}", enemy_name_image_and_type[0], i),
+                    &format!(
+                        "{}_{}{}",
+                        enemy_name_image_and_type[1], i, enemy_name_image_and_type[2]
+                    ),
+                    [false, false],
+                    true,
+                    ctx,
+                );
+            };
+        }
+        self.add_image(
+            &enemy_name_image_and_type[0],
+            [
+                enemy_hp_def_speed_invincible_time_position_activated_time_and_size[4],
+                enemy_hp_def_speed_invincible_time_position_activated_time_and_size[5],
+                enemy_hp_def_speed_invincible_time_position_activated_time_and_size[7],
+                enemy_hp_def_speed_invincible_time_position_activated_time_and_size[8],
+            ],
+            [0, 0, 0, 0],
+            [false, false, true, false, true],
+            [255, 255, 255, 255, 255],
+            &format!("{}_0", enemy_name_image_and_type[0]),
+        );
+    }
+
+    pub fn enemy_refresh(&mut self, ctx: &egui::Context, ui: &Ui) {
+        if let Ok(json_value) = read_from_json(self.login_user_config.current_level.clone()) {
+            if let Some(read_operation) = Operation::from_json_value(&json_value) {
+                for i in 0..read_operation.target_enemy.len() {
+                    let mut found_enemy = -1;
+                    for u in 0..self.enemy_list.len() {
+                        if self.enemy_list[u].enemy_id == format!("json_{}", i) {
+                            found_enemy = u as i32;
+                            break;
+                        };
+                    }
+                    if found_enemy == -1 {
+                        if let Ok(json_value) = read_from_json(
+                            format!(
+                                "Resources/config/enemy_{}.json",
+                                read_operation.target_enemy[i].enemy_recognition_name
+                            )
+                            .to_lowercase(),
+                        ) {
+                            if let Some(read_enemy) = JsonReadEnemy::from_json_value(&json_value) {
+                                self.add_enemy(
+                                    [
+                                        read_enemy.enemy_hp,
+                                        read_enemy.enemy_def,
+                                        read_enemy.enemy_speed,
+                                        read_enemy.enemy_invincible_time,
+                                        read_operation.target_enemy[i].enemy_position[0],
+                                        read_operation.target_enemy[i].enemy_position[1],
+                                        read_operation.target_enemy[i].enemy_approach_time,
+                                        read_operation.target_enemy[i].enemy_size[0],
+                                        read_operation.target_enemy[i].enemy_size[1],
+                                    ],
+                                    [
+                                        read_enemy.enemy_image_count,
+                                        read_enemy.enemy_minus_target_point,
+                                    ],
+                                    [
+                                        read_enemy.enemy_tag,
+                                        read_operation.target_enemy[i].enemy_path.clone(),
+                                    ],
+                                    [
+                                        format!("json_{}", i),
+                                        read_enemy.enemy_image.clone(),
+                                        read_enemy.enemy_image_type.clone(),
+                                    ],
+                                    [true, false],
+                                    ctx,
+                                );
+                            };
+                        };
+                    };
+                }
+                for u in 0..self.enemy_list.len() {
+                    let id = self.track_resource(
+                        self.resource_image.clone(),
+                        &self.enemy_list[u].enemy_id.clone(),
+                    );
+                    self.resource_image[id].origin_position = [
+                        (ctx.available_rect().width() - 1280_f32) / 2_f32
+                            + self.enemy_list[u].enemy_position[0]
+                            + self.enemy_list[u].enemy_offset[0],
+                        (ctx.available_rect().height() - 720_f32) / 2_f32
+                            + self.enemy_list[u].enemy_position[1]
+                            + self.enemy_list[u].enemy_offset[1],
+                    ];
+                    self.image(ui, &self.enemy_list[u].enemy_id.clone(), ctx);
+                }
+            };
+        };
     }
 
     pub fn problem_report(

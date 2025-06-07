@@ -1,0 +1,12 @@
+{
+    "version": 16,
+    "name": "dev",
+    "password": "",
+    "language": 0,
+    "wallpaper": "Resources/assets/images/wallpaper.png",
+    "current_map": "map_tutorial",
+    "level_status": [],
+    "gun_status": [],
+    "settings": {},
+    "current_level": ""
+}

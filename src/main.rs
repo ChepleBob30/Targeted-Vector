@@ -1,4 +1,4 @@
-//! Targeted Vector v0.16.0-alpha.1
+//! Targeted Vector v0.17.0-alpha.1
 //! Developer: Cheple_Bob
 //! This is a rust shooter built on top of RustConstructor.
 //! Special Thanks:
