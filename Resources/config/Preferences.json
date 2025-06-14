@@ -1,7 +1,7 @@
 {
     "launch_path": "",
-    "language": 0,
-    "login_user_name": "dev",
+    "language": 1,
+    "login_user_name": "",
     "amount_languages": 2,
     "rc_strict_mode": false
 }

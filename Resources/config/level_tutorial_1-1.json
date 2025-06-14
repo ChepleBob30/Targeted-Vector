@@ -1,9 +1,9 @@
 {
     "global": {
         "target_point": 3,
-        "storage_bullet": 1000000000,
+        "storage_bullet": 100,
         "cost": 0,
-        "cost_recover_speed": 0.1,
+        "cost_recover_speed": 1,
         "instrument_ceiling": 5,
         "target_line": [[0.0, 720.0], [1280.0, 720.0]]
     },
@@ -13,18 +13,22 @@
             "enemy_position": [640.0, 0.0],
             "enemy_size": [100.0, 100.0],
             "enemy_path": [
-                "straight"
+                "down"
             ],
-            "enemy_approach_time": 1.0
+            "enemy_approach_time": 5.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 5
         },
         {
             "enemy_recognition_name": "Train_Enemy",
             "enemy_position": [0.0, 0.0],
             "enemy_size": [60.0, 60.0],
             "enemy_path": [
-                "straight"
+                "down"
             ],
-            "enemy_approach_time": 2.0
+            "enemy_approach_time": 10.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 5
         }
     ]
 }

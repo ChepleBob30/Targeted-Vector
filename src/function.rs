@@ -279,6 +279,8 @@ pub struct OperationTargetEnemy {
     pub enemy_size: [f32; 2],
     pub enemy_path: Vec<String>,
     pub enemy_approach_time: f32,
+    pub enemy_approach_alpha: u8,
+    pub enemy_increase_alpha_speed: u8
 }
 
 impl OperationTargetEnemy {
@@ -298,6 +300,8 @@ impl OperationTargetEnemy {
                 .map(|s| s.to_string())
                 .collect(),
             enemy_approach_time: value["enemy_approach_time"].as_f32()?,
+            enemy_approach_alpha: value["enemy_approach_alpha"].as_u8()?,
+            enemy_increase_alpha_speed: value["enemy_increase_alpha_speed"].as_u8()?
         })
     }
 }
@@ -362,6 +366,16 @@ pub struct Enemy {
     pub enemy_activated_time: f32,
     pub enemy_offset: [f32; 2],
     pub enemy_size: [f32; 2],
+    pub enemy_current_walk_status: u32,
+    pub enemy_start_walk_time: f32,
+    pub enemy_increase_alpha_speed: u8,
+    pub enemy_animation_forward: bool,
+    pub enemy_current_animation_count: u32,
+    pub enemy_walk_interval: f32,
+    pub enemy_walk_time: f32,
+    pub enemy_animation_interval: f32,
+    pub enemy_animation_change_time: f32,
+    pub enemy_out: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -378,6 +392,8 @@ pub struct JsonReadEnemy {
     pub enemy_image: String,
     pub enemy_image_type: String,
     pub enemy_minus_target_point: u32,
+    pub enemy_walk_interval: f32,
+    pub enemy_animation_interval: f32,
 }
 
 impl JsonReadEnemy {
@@ -401,6 +417,8 @@ impl JsonReadEnemy {
                 .members()
                 .map(|s| s.to_string())
                 .collect(),
+            enemy_walk_interval: value["enemy_walk_interval"].as_f32()?,
+            enemy_animation_interval: value["enemy_animation_interval"].as_f32()?,
         })
     }
 }
@@ -432,6 +450,13 @@ impl GameText {
 
         Some(GameText { game_text: parsed })
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct PauseMessage {
+    pub start_pause_time: f32,
+    pub pause_total_time: f32,
+    pub mentioned: bool,
 }
 
 #[allow(dead_code)]
@@ -564,6 +589,7 @@ pub struct Gun {
     pub gun_reload_sound: String,
     pub gun_reload_bullet_sound: String,
     pub gun_reload_interval: f32,
+    pub gun_overheating_sound: String,
 }
 
 #[allow(dead_code)]
@@ -599,6 +625,7 @@ impl Gun {
             gun_reload_bullet_sound: value["gun_reload_bullet_sound"].as_str()?.to_string(),
             gun_reload_sound: value["gun_reload_sound"].as_str()?.to_string(),
             gun_reload_interval: value["gun_reload_interval"].as_f32()?,
+            gun_overheating_sound: value["gun_overheating_sound"].as_str()?.to_string(),
         })
     }
 }
@@ -1101,6 +1128,7 @@ pub struct App {
     pub frame_times: Vec<f32>,
     pub last_frame_time: Option<f64>,
     pub enemy_list: Vec<Enemy>,
+    pub pause_list: Vec<PauseMessage>,
 }
 
 impl App {
@@ -1216,6 +1244,7 @@ impl App {
             frame_times: Vec::new(),
             last_frame_time: None,
             enemy_list: Vec::new(),
+            pause_list: Vec::new(),
         }
     }
 
@@ -2202,11 +2231,31 @@ impl App {
         self.resource_rect[cut_to_rect_id].color[3]
     }
 
+    pub fn find_pause_index(&mut self, time: f32) -> i32 {
+        let mut index = -1;
+        for i in 0..self.pause_list.len() {
+            if time <= self.pause_list[i].start_pause_time {
+                index = i as i32;
+                self.pause_list[i].mentioned = true;
+                break
+            };
+        };
+        index
+    }
+
+    pub fn count_pause_time(&self, index: usize) -> f32 {
+        let mut time = 0_f32;
+        for i in 0..self.pause_list.len() - index {
+            time += self.pause_list[index + i].pause_total_time;
+        };
+        time
+    }
+
     #[allow(dead_code)]
     pub fn add_enemy(
         &mut self,
-        enemy_hp_def_speed_invincible_time_position_activated_time_and_size: [f32; 9],
-        enemy_image_count_minus_target_point: [u32; 2],
+        enemy_hp_def_speed_invincible_time_position_activated_time_size_walk_interval_and_animation_interval: [f32; 11],
+        enemy_image_count_minus_target_point_alpha_and_increase_alpha_speed: [u32; 4],
         enemy_tag_and_move_path: [Vec<String>; 2],
         enemy_name_image_and_type: [String; 3],
         enemy_detected_and_activated: [bool; 2],
@@ -2228,32 +2277,42 @@ impl App {
         }
         self.enemy_list.push(Enemy {
             enemy_id: enemy_name_image_and_type[0].clone(),
-            enemy_hp: enemy_hp_def_speed_invincible_time_position_activated_time_and_size[0],
-            enemy_def: enemy_hp_def_speed_invincible_time_position_activated_time_and_size[1],
-            enemy_speed: enemy_hp_def_speed_invincible_time_position_activated_time_and_size[2],
+            enemy_hp: enemy_hp_def_speed_invincible_time_position_activated_time_size_walk_interval_and_animation_interval[0],
+            enemy_def: enemy_hp_def_speed_invincible_time_position_activated_time_size_walk_interval_and_animation_interval[1],
+            enemy_speed: enemy_hp_def_speed_invincible_time_position_activated_time_size_walk_interval_and_animation_interval[2],
             enemy_invincible_time:
-                enemy_hp_def_speed_invincible_time_position_activated_time_and_size[3],
-            enemy_image_count: enemy_image_count_minus_target_point[0],
+                enemy_hp_def_speed_invincible_time_position_activated_time_size_walk_interval_and_animation_interval[3],
+            enemy_image_count: enemy_image_count_minus_target_point_alpha_and_increase_alpha_speed[0],
             enemy_tag: enemy_tag_and_move_path[0].clone(),
             enemy_image: enemy_name_image_and_type[1].clone(),
             enemy_image_type: enemy_name_image_and_type[2].clone(),
-            enemy_minus_target_point: enemy_image_count_minus_target_point[1],
+            enemy_minus_target_point: enemy_image_count_minus_target_point_alpha_and_increase_alpha_speed[1],
             enemy_position: [
-                enemy_hp_def_speed_invincible_time_position_activated_time_and_size[4],
-                enemy_hp_def_speed_invincible_time_position_activated_time_and_size[5],
+                enemy_hp_def_speed_invincible_time_position_activated_time_size_walk_interval_and_animation_interval[4],
+                enemy_hp_def_speed_invincible_time_position_activated_time_size_walk_interval_and_animation_interval[5],
             ],
             enemy_move_path: move_path,
             enemy_detected: enemy_detected_and_activated[0],
             enemy_activated: enemy_detected_and_activated[1],
             enemy_activated_time:
-                enemy_hp_def_speed_invincible_time_position_activated_time_and_size[6],
+                enemy_hp_def_speed_invincible_time_position_activated_time_size_walk_interval_and_animation_interval[6],
             enemy_offset: [0_f32, 0_f32],
             enemy_size: [
-                enemy_hp_def_speed_invincible_time_position_activated_time_and_size[7],
-                enemy_hp_def_speed_invincible_time_position_activated_time_and_size[8],
+                enemy_hp_def_speed_invincible_time_position_activated_time_size_walk_interval_and_animation_interval[7],
+                enemy_hp_def_speed_invincible_time_position_activated_time_size_walk_interval_and_animation_interval[8],
             ],
+            enemy_current_walk_status: 0,
+            enemy_start_walk_time: 0_f32,
+            enemy_increase_alpha_speed: enemy_image_count_minus_target_point_alpha_and_increase_alpha_speed[3] as u8,
+            enemy_animation_forward: true,
+            enemy_current_animation_count: 0,
+            enemy_walk_interval: enemy_hp_def_speed_invincible_time_position_activated_time_size_walk_interval_and_animation_interval[9],
+            enemy_walk_time: 0_f32,
+            enemy_animation_interval: enemy_hp_def_speed_invincible_time_position_activated_time_size_walk_interval_and_animation_interval[10],
+            enemy_animation_change_time: 0_f32,
+            enemy_out: false,
         });
-        for i in 0..enemy_image_count_minus_target_point[0] {
+        for i in 0..enemy_image_count_minus_target_point_alpha_and_increase_alpha_speed[0] {
             if !check_resource_exist(
                 self.resource_image_texture.clone(),
                 &format!("{}_{}", enemy_name_image_and_type[0], i),
@@ -2273,19 +2332,19 @@ impl App {
         self.add_image(
             &enemy_name_image_and_type[0],
             [
-                enemy_hp_def_speed_invincible_time_position_activated_time_and_size[4],
-                enemy_hp_def_speed_invincible_time_position_activated_time_and_size[5],
-                enemy_hp_def_speed_invincible_time_position_activated_time_and_size[7],
-                enemy_hp_def_speed_invincible_time_position_activated_time_and_size[8],
+                enemy_hp_def_speed_invincible_time_position_activated_time_size_walk_interval_and_animation_interval[4],
+                enemy_hp_def_speed_invincible_time_position_activated_time_size_walk_interval_and_animation_interval[5],
+                enemy_hp_def_speed_invincible_time_position_activated_time_size_walk_interval_and_animation_interval[7],
+                enemy_hp_def_speed_invincible_time_position_activated_time_size_walk_interval_and_animation_interval[8],
             ],
             [0, 0, 0, 0],
             [false, false, true, false, true],
-            [255, 255, 255, 255, 255],
+            [enemy_image_count_minus_target_point_alpha_and_increase_alpha_speed[2] as u8, 0, 0, 0, 255],
             &format!("{}_0", enemy_name_image_and_type[0]),
         );
     }
 
-    pub fn enemy_refresh(&mut self, ctx: &egui::Context, ui: &Ui) {
+    pub fn enemy_refresh(&mut self, ctx: &egui::Context, ui: &Ui, refresh: bool) {
         if let Ok(json_value) = read_from_json(self.login_user_config.current_level.clone()) {
             if let Some(read_operation) = Operation::from_json_value(&json_value) {
                 for i in 0..read_operation.target_enemy.len() {
@@ -2316,10 +2375,14 @@ impl App {
                                         read_operation.target_enemy[i].enemy_approach_time,
                                         read_operation.target_enemy[i].enemy_size[0],
                                         read_operation.target_enemy[i].enemy_size[1],
+                                        read_enemy.enemy_walk_interval,
+                                        read_enemy.enemy_animation_interval,
                                     ],
                                     [
                                         read_enemy.enemy_image_count,
                                         read_enemy.enemy_minus_target_point,
+                                        read_operation.target_enemy[i].enemy_approach_alpha as u32,
+                                        read_operation.target_enemy[i].enemy_increase_alpha_speed as u32
                                     ],
                                     [
                                         read_enemy.enemy_tag,
@@ -2336,22 +2399,124 @@ impl App {
                             };
                         };
                     };
-                }
-                for u in 0..self.enemy_list.len() {
+                };
+                for i in 0..self.enemy_list.len() {
                     let id = self.track_resource(
                         self.resource_image.clone(),
-                        &self.enemy_list[u].enemy_id.clone(),
+                        &self.enemy_list[i].enemy_id.clone(),
                     );
-                    self.resource_image[id].origin_position = [
-                        (ctx.available_rect().width() - 1280_f32) / 2_f32
-                            + self.enemy_list[u].enemy_position[0]
-                            + self.enemy_list[u].enemy_offset[0],
-                        (ctx.available_rect().height() - 720_f32) / 2_f32
-                            + self.enemy_list[u].enemy_position[1]
-                            + self.enemy_list[u].enemy_offset[1],
-                    ];
-                    self.image(ui, &self.enemy_list[u].enemy_id.clone(), ctx);
-                }
+                    if self.enemy_list[i].enemy_activated {
+                        self.resource_image[id].origin_position = [
+                            (ctx.available_rect().width() - 1280_f32) / 2_f32
+                                + self.enemy_list[i].enemy_position[0]
+                                + self.enemy_list[i].enemy_offset[0],
+                            (ctx.available_rect().height() - 720_f32) / 2_f32
+                                + self.enemy_list[i].enemy_position[1]
+                                + self.enemy_list[i].enemy_offset[1],
+                        ];
+                        if refresh {
+                            if self.resource_image[id].alpha == 255 {
+                                let enemy_rect = egui::Rect::from_min_size(Pos2 { x: self.resource_image[id].image_position[0], y: self.resource_image[id].image_position[1] }, Vec2 { x: self.resource_image[id].image_size[0], y: self.resource_image[id].image_size[1] });
+                                for u in 0..read_operation.global.target_line.len() - 1 {
+                                    if self.line_intersects_rect(&enemy_rect, Pos2 { x: read_operation.global.target_line[u][0] + (ctx.available_rect().width() - 1280_f32) / 2_f32, y: read_operation.global.target_line[u][1] + (ctx.available_rect().height() - 720_f32) / 2_f32 }, Pos2 { x: read_operation.global.target_line[u + 1][0] + (ctx.available_rect().width() - 1280_f32) / 2_f32, y: read_operation.global.target_line[u + 1][1] + (ctx.available_rect().height() - 720_f32) / 2_f32 }) {
+                                        self.enemy_list[i].enemy_out = true;
+                                        self.enemy_list[i].enemy_activated = false;
+                                        let target_point = self.var_u("target_point");
+                                        if target_point > 0 + self.enemy_list[i].enemy_minus_target_point {
+                                            self.modify_var("target_point", Value::UInt(target_point - self.enemy_list[i].enemy_minus_target_point));
+                                        } else {
+                                            self.modify_var("target_point", Value::UInt(0));
+                                        };
+                                        if self.enemy_list[i].enemy_detected {
+                                            let current_killed_target_enemy = self.var_u("current_killed_target_enemy");
+                                            self.modify_var("current_killed_target_enemy", Value::UInt(current_killed_target_enemy + 1));
+                                        };
+                                        std::thread::spawn(|| {
+                                            kira_play_wav("Resources/assets/sounds/Alert.wav").unwrap();
+                                        });
+                                        return
+                                    };
+                                };
+                                if self.var_f("operation_runtime") - self.enemy_list[i].enemy_walk_time >= self.enemy_list[i].enemy_walk_interval {
+                                    self.enemy_list[i].enemy_walk_time = self.var_f("operation_runtime");
+                                    if self.var_f("operation_runtime") - self.enemy_list[i].enemy_start_walk_time >= self.enemy_list[i].enemy_move_path[self.enemy_list[i].enemy_current_walk_status as usize].move_time {
+                                        if self.enemy_list[i].enemy_current_walk_status < (self.enemy_list[i].enemy_move_path.len() - 1) as u32 { 
+                                            self.enemy_list[i].enemy_current_walk_status += 1;
+                                        } else {
+                                            self.enemy_list[i].enemy_current_walk_status = 0;
+                                        };
+                                        self.enemy_list[i].enemy_start_walk_time = self.var_f("operation_runtime");
+                                    };
+                                    if self.enemy_list[i].enemy_move_path[self.enemy_list[i].enemy_current_walk_status as usize].move_status[0] {
+                                        self.enemy_list[i].enemy_offset[1] -= self.enemy_list[i].enemy_speed;
+                                    };
+                                    if self.enemy_list[i].enemy_move_path[self.enemy_list[i].enemy_current_walk_status as usize].move_status[1] {
+                                        self.enemy_list[i].enemy_offset[1] += self.enemy_list[i].enemy_speed;
+                                    };
+                                    if self.enemy_list[i].enemy_move_path[self.enemy_list[i].enemy_current_walk_status as usize].move_status[2] {
+                                        self.enemy_list[i].enemy_offset[0] -= self.enemy_list[i].enemy_speed;
+                                    };
+                                    if self.enemy_list[i].enemy_move_path[self.enemy_list[i].enemy_current_walk_status as usize].move_status[3] {
+                                        self.enemy_list[i].enemy_offset[0] += self.enemy_list[i].enemy_speed;
+                                    };
+                                    if self.enemy_list[i].enemy_move_path[self.enemy_list[i].enemy_current_walk_status as usize].move_status.iter().any(|&x| x) && self.var_f("operation_runtime") - self.enemy_list[i].enemy_animation_change_time >= self.enemy_list[i].enemy_animation_interval {
+                                        self.enemy_list[i].enemy_animation_change_time = self.var_f("operation_runtime");
+                                        if self.enemy_list[i].enemy_animation_forward {
+                                            if self.enemy_list[i].enemy_current_animation_count < self.enemy_list[i].enemy_image_count {
+                                                self.enemy_list[i].enemy_current_animation_count += 1;
+                                            } else {
+                                                self.enemy_list[i].enemy_animation_forward = false;
+                                                if self.enemy_list[i].enemy_current_animation_count > 0 {
+                                                    self.enemy_list[i].enemy_current_animation_count -= 1;
+                                                };
+                                            };
+                                        } else {
+                                            if self.enemy_list[i].enemy_current_animation_count > 0 {
+                                                self.enemy_list[i].enemy_current_animation_count -= 1;
+                                            } else {
+                                                self.enemy_list[i].enemy_animation_forward = true;
+                                                if self.enemy_list[i].enemy_current_animation_count < self.enemy_list[i].enemy_image_count {
+                                                    self.enemy_list[i].enemy_current_animation_count += 1;
+                                                };
+                                            };
+                                        };
+                                    };
+                                };
+                            } else {
+                                if self.enemy_list[i].enemy_increase_alpha_speed > 255 - self.resource_image[id].alpha {
+                                    self.resource_image[id].alpha = 255;
+                                    self.resource_image[id].overlay_color = [255, 255, 255, 255];
+                                } else {
+                                    self.resource_image[id].alpha += self.enemy_list[i].enemy_increase_alpha_speed;
+                                    self.resource_image[id].overlay_color[0] += self.enemy_list[i].enemy_increase_alpha_speed;
+                                    self.resource_image[id].overlay_color[1] += self.enemy_list[i].enemy_increase_alpha_speed;
+                                    self.resource_image[id].overlay_color[2] += self.enemy_list[i].enemy_increase_alpha_speed;
+                                };
+                                if self.resource_image[id].alpha == 255 {
+                                    self.enemy_list[i].enemy_start_walk_time = self.var_f("operation_runtime");
+                                };
+                            };
+                        };
+                        if let Some(index) = self.resource_image_texture.iter().position(|x| x.name == format!("{}_{}", self.enemy_list[i].enemy_id, self.enemy_list[i].enemy_current_animation_count)) {
+                            self.resource_image[id].image_texture = self.resource_image_texture[index].texture.clone();
+                        };
+                    } else if self.var_f("operation_runtime") >= self.enemy_list[i].enemy_activated_time && refresh {
+                        if self.enemy_list[i].enemy_out {
+                            if self.resource_image[id].alpha < 0 + self.enemy_list[i].enemy_increase_alpha_speed {
+                                self.resource_image[id].alpha = 0;
+                                self.resource_image[id].overlay_color = [0, 0, 0, 255];
+                            } else {
+                                self.resource_image[id].alpha -= self.enemy_list[i].enemy_increase_alpha_speed;
+                                self.resource_image[id].overlay_color[0] -= self.enemy_list[i].enemy_increase_alpha_speed;
+                                self.resource_image[id].overlay_color[1] -= self.enemy_list[i].enemy_increase_alpha_speed;
+                                self.resource_image[id].overlay_color[2] -= self.enemy_list[i].enemy_increase_alpha_speed;
+                            };
+                        } else {
+                            self.enemy_list[i].enemy_activated = true;
+                        };
+                    };
+                    self.image(ui, &self.enemy_list[i].enemy_id.clone(), ctx);
+                };
             };
         };
     }
@@ -2549,6 +2714,50 @@ impl App {
             };
         };
         self.resource_rect[id].size[0] = ctx.available_rect().width() - 100_f32;
+    }
+
+    pub fn line_intersects_rect(&self, rect: &Rect, start: Pos2, end: Pos2) -> bool {
+        // 检查线段端点是否在矩形内
+        if rect.contains(start) || rect.contains(end) {
+            return true;
+        }
+
+        // 检查线段是否与矩形的四条边相交
+        let top_left = rect.min;
+        let top_right = Pos2::new(rect.max.x, rect.min.y);
+        let bottom_left = Pos2::new(rect.min.x, rect.max.y);
+        let bottom_right = rect.max;
+
+        // 检查与上边相交
+        if self.line_segments_intersect(start, end, top_left, top_right) {
+            return true;
+        }
+        
+        // 检查与右边相交
+        if self.line_segments_intersect(start, end, top_right, bottom_right) {
+            return true;
+        }
+        
+        // 检查与下边相交
+        if self.line_segments_intersect(start, end, bottom_right, bottom_left) {
+            return true;
+        }
+        
+        // 检查与左边相交
+        if self.line_segments_intersect(start, end, bottom_left, top_left) {
+            return true;
+        }
+
+        false
+    }
+
+    pub fn line_segments_intersect(&self, a1: Pos2, a2: Pos2, b1: Pos2, b2: Pos2) -> bool {
+        let v1 = (b1.x - a1.x) * (a2.y - a1.y) - (b1.y - a1.y) * (a2.x - a1.x);
+        let v2 = (b2.x - a1.x) * (a2.y - a1.y) - (b2.y - a1.y) * (a2.x - a1.x);
+        let v3 = (a1.x - b1.x) * (b2.y - b1.y) - (a1.y - b1.y) * (b2.x - b1.x);
+        let v4 = (a2.x - b1.x) * (b2.y - b1.y) - (a2.y - b1.y) * (b2.x - b1.x);
+        
+        (v1 * v2 < 0.0) && (v3 * v4 < 0.0)
     }
 
     pub fn update_frame_stats(&mut self, ctx: &egui::Context) {
@@ -3572,7 +3781,7 @@ impl App {
 
         let color_image =
             egui::ColorImage::from_rgba_unmultiplied([w as usize, h as usize], &raw_data);
-        let image_texture = Some(ctx.load_texture("", color_image, TextureOptions::LINEAR));
+        let image_texture = Some(ctx.load_texture(name, color_image, TextureOptions::LINEAR));
         if create_new_resource {
             self.resource_image_texture.push(ImageTexture {
                 discern_type: "ImageTexture".to_string(),
@@ -3684,7 +3893,7 @@ impl App {
             ui.painter().image(
                 texture.into(),
                 rect,
-                Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)),
+                Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
                 color,
             );
         };

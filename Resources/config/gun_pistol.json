@@ -18,5 +18,6 @@
     "gun_no_bullet_shoot_sound": "Resources/assets/sounds/No_Bullet_Shoot.wav",
     "gun_reload_bullet_sound": "Resources/assets/sounds/Reload_Bullet.wav",
     "gun_reload_sound": "Resources/assets/sounds/Reload.wav",
-    "gun_reload_interval": 0.05
+    "gun_reload_interval": 0.05,
+    "gun_overheating_sound": "Resources/assets/sounds/Overheating.wav"
 }
