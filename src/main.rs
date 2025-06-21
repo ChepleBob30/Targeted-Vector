@@ -1,4 +1,4 @@
-//! Targeted Vector v0.18.0-alpha.1
+//! Targeted Vector v0.19.0-alpha.1
 //! Developer: Cheple_Bob
 //! This is a rust shooter built on top of RustConstructor.
 //! Special Thanks:
@@ -17,7 +17,13 @@ mod function;
 mod pages;
 fn main() {
     // Only for macOS app generate.
-    // let mut config = Config { launch_path: "".to_string(), language: 0, login_user_name: "".to_string(), amount_languages: 0 };
+    // let mut config = Config {
+    //     launch_path: "".to_string(),
+    //     language: 0,
+    //     login_user_name: "".to_string(),
+    //     amount_languages: 0,
+    //     rc_strict_mode: false,
+    // };
     // let launch_path;
     // loop {
     //     match find_app_bundle("Targeted Vector", 100, config.launch_path.clone()) {
@@ -39,7 +45,7 @@ fn main() {
     //     }
     // };
     // config.launch_path = launch_path;
-    // write_to_json("Resources/config/Preferences.json", config.to_json_value());
+    // write_to_json("Resources/config/Preferences.json", config.to_json_value()).unwrap();
 
     let img = image::load_from_memory_with_format(
         include_bytes!("../Resources/assets/images/icon.png"),

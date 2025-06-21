@@ -109,8 +109,8 @@
       "Page"
     ],
     "debug_game_version": [
-      "靶向载体 v0.18.0-alpha.1",
-      "Targeted Vector v0.18.0-alpha.1"
+      "靶向载体 v0.19.0-alpha.1",
+      "Targeted Vector v0.19.0-alpha.1"
     ],
     "debug_game_now_time": [
       "当前页面运行时间",
@@ -467,6 +467,18 @@
     "pause": [
       "暂停",
       "Pause"
+    ],
+    "main": [
+      "作战",
+      "OPERATION"
+    ],
+    "side": [
+      "???",
+      "???"
+    ],
+    "hell": [
+      "突袭",
+      "STRIKE"
     ]
   }
 }

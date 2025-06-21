@@ -5,7 +5,10 @@
         "cost": 0,
         "cost_recover_speed": 1,
         "instrument_ceiling": 5,
-        "target_line": [[0.0, 720.0], [1280.0, 720.0]]
+        "target_line": [[0.0, 720.0], [1280.0, 720.0]],
+        "operation_background": "Resources/assets/images/map_tutorial_operation_background.png",
+        "operation_background_expand": "Resources/assets/images/map_tutorial_operation_background_expand.png",
+        "operation_start_background": "Resources/assets/images/map_tutorial_operation_start_background.png"
     },
     "target_enemy": [
         {
@@ -21,7 +24,7 @@
         },
         {
             "enemy_recognition_name": "Train_Enemy",
-            "enemy_position": [0.0, 0.0],
+            "enemy_position": [30.0, 0.0],
             "enemy_size": [60.0, 60.0],
             "enemy_path": [
                 "down"

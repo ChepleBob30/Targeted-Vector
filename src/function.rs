@@ -16,6 +16,7 @@ use std::io::Read;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::exit;
+use std::thread;
 use std::time::Instant;
 use std::vec::Vec;
 use walkdir::WalkDir;
@@ -253,6 +254,9 @@ pub struct OperationGlobal {
     pub cost_recover_speed: f32,
     pub instrument_ceiling: u32,
     pub target_line: Vec<[f32; 2]>,
+    pub operation_background: String,
+    pub operation_background_expand: String,
+    pub operation_start_background: String,
 }
 
 impl OperationGlobal {
@@ -268,6 +272,9 @@ impl OperationGlobal {
                 .members()
                 .filter_map(|arr| Some([arr[0].as_f32()?, arr[1].as_f32()?]))
                 .collect(),
+            operation_background: value["operation_background"].as_str()?.to_string(),
+            operation_background_expand: value["operation_background_expand"].as_str()?.to_string(),
+            operation_start_background: value["operation_start_background"].as_str()?.to_string(),
         })
     }
 }
@@ -280,7 +287,7 @@ pub struct OperationTargetEnemy {
     pub enemy_path: Vec<String>,
     pub enemy_approach_time: f32,
     pub enemy_approach_alpha: u8,
-    pub enemy_increase_alpha_speed: u8
+    pub enemy_increase_alpha_speed: u8,
 }
 
 impl OperationTargetEnemy {
@@ -301,7 +308,7 @@ impl OperationTargetEnemy {
                 .collect(),
             enemy_approach_time: value["enemy_approach_time"].as_f32()?,
             enemy_approach_alpha: value["enemy_approach_alpha"].as_u8()?,
-            enemy_increase_alpha_speed: value["enemy_increase_alpha_speed"].as_u8()?
+            enemy_increase_alpha_speed: value["enemy_increase_alpha_speed"].as_u8()?,
         })
     }
 }
@@ -364,7 +371,6 @@ pub struct Enemy {
     pub enemy_detected: bool,
     pub enemy_activated: bool,
     pub enemy_activated_time: f32,
-    pub enemy_offset: [f32; 2],
     pub enemy_size: [f32; 2],
     pub enemy_current_walk_status: u32,
     pub enemy_start_walk_time: f32,
@@ -376,6 +382,9 @@ pub struct Enemy {
     pub enemy_animation_interval: f32,
     pub enemy_animation_change_time: f32,
     pub enemy_out: bool,
+    pub enemy_hit_time: f32,
+    pub enemy_initial_hp: f32,
+    pub enemy_memory_hp: f32,
 }
 
 #[derive(Debug, Clone)]
@@ -477,8 +486,6 @@ pub struct Map {
     pub map_image: String,
     pub map_width: f32,
     pub map_scroll_offset: f32,
-    pub map_operation_background: String,
-    pub map_operation_background_expand: String,
     pub map_description: Vec<String>,
     pub map_intro: String,
     pub map_content: Vec<Level>,
@@ -497,10 +504,6 @@ impl Map {
             map_image: value["map_image"].as_str()?.to_string(),
             map_width: value["map_width"].as_f32()?,
             map_scroll_offset: value["map_scroll_offset"].as_f32()?,
-            map_operation_background: value["map_operation_background"].as_str()?.to_string(),
-            map_operation_background_expand: value["map_operation_background_expand"]
-                .as_str()?
-                .to_string(),
             map_description: value["map_description"]
                 .members()
                 .filter_map(|v| v.as_str().map(String::from))
@@ -548,8 +551,6 @@ impl Map {
             map_image: self.map_image.clone(),
             map_width: self.map_width,
             map_scroll_offset: self.map_scroll_offset,
-            map_operation_background: self.map_operation_background.clone(),
-            map_operation_background_expand: self.map_operation_background_expand.clone(),
             map_description: self.map_description.clone(),
             map_intro: self.map_intro.clone(),
             map_content: self.map_content.iter().map(|l| {
@@ -2237,9 +2238,9 @@ impl App {
             if time <= self.pause_list[i].start_pause_time {
                 index = i as i32;
                 self.pause_list[i].mentioned = true;
-                break
+                break;
             };
-        };
+        }
         index
     }
 
@@ -2247,7 +2248,7 @@ impl App {
         let mut time = 0_f32;
         for i in 0..self.pause_list.len() - index {
             time += self.pause_list[index + i].pause_total_time;
-        };
+        }
         time
     }
 
@@ -2296,7 +2297,6 @@ impl App {
             enemy_activated: enemy_detected_and_activated[1],
             enemy_activated_time:
                 enemy_hp_def_speed_invincible_time_position_activated_time_size_walk_interval_and_animation_interval[6],
-            enemy_offset: [0_f32, 0_f32],
             enemy_size: [
                 enemy_hp_def_speed_invincible_time_position_activated_time_size_walk_interval_and_animation_interval[7],
                 enemy_hp_def_speed_invincible_time_position_activated_time_size_walk_interval_and_animation_interval[8],
@@ -2311,6 +2311,9 @@ impl App {
             enemy_animation_interval: enemy_hp_def_speed_invincible_time_position_activated_time_size_walk_interval_and_animation_interval[10],
             enemy_animation_change_time: 0_f32,
             enemy_out: false,
+            enemy_hit_time: 0_f32,
+            enemy_initial_hp: enemy_hp_def_speed_invincible_time_position_activated_time_size_walk_interval_and_animation_interval[0],
+            enemy_memory_hp: enemy_hp_def_speed_invincible_time_position_activated_time_size_walk_interval_and_animation_interval[0]
         });
         for i in 0..enemy_image_count_minus_target_point_alpha_and_increase_alpha_speed[0] {
             if !check_resource_exist(
@@ -2382,7 +2385,8 @@ impl App {
                                         read_enemy.enemy_image_count,
                                         read_enemy.enemy_minus_target_point,
                                         read_operation.target_enemy[i].enemy_approach_alpha as u32,
-                                        read_operation.target_enemy[i].enemy_increase_alpha_speed as u32
+                                        read_operation.target_enemy[i].enemy_increase_alpha_speed
+                                            as u32,
                                     ],
                                     [
                                         read_enemy.enemy_tag,
@@ -2399,7 +2403,7 @@ impl App {
                             };
                         };
                     };
-                };
+                }
                 for i in 0..self.enemy_list.len() {
                     let id = self.track_resource(
                         self.resource_image.clone(),
@@ -2408,115 +2412,404 @@ impl App {
                     if self.enemy_list[i].enemy_activated {
                         self.resource_image[id].origin_position = [
                             (ctx.available_rect().width() - 1280_f32) / 2_f32
-                                + self.enemy_list[i].enemy_position[0]
-                                + self.enemy_list[i].enemy_offset[0],
+                                + self.enemy_list[i].enemy_position[0],
                             (ctx.available_rect().height() - 720_f32) / 2_f32
-                                + self.enemy_list[i].enemy_position[1]
-                                + self.enemy_list[i].enemy_offset[1],
+                                + self.enemy_list[i].enemy_position[1],
                         ];
                         if refresh {
                             if self.resource_image[id].alpha == 255 {
-                                let enemy_rect = egui::Rect::from_min_size(Pos2 { x: self.resource_image[id].image_position[0], y: self.resource_image[id].image_position[1] }, Vec2 { x: self.resource_image[id].image_size[0], y: self.resource_image[id].image_size[1] });
+                                let enemy_rect = egui::Rect::from_min_size(
+                                    Pos2 {
+                                        x: self.resource_image[id].image_position[0],
+                                        y: self.resource_image[id].image_position[1],
+                                    },
+                                    Vec2 {
+                                        x: self.resource_image[id].image_size[0],
+                                        y: self.resource_image[id].image_size[1],
+                                    },
+                                );
                                 for u in 0..read_operation.global.target_line.len() - 1 {
-                                    if self.line_intersects_rect(&enemy_rect, Pos2 { x: read_operation.global.target_line[u][0] + (ctx.available_rect().width() - 1280_f32) / 2_f32, y: read_operation.global.target_line[u][1] + (ctx.available_rect().height() - 720_f32) / 2_f32 }, Pos2 { x: read_operation.global.target_line[u + 1][0] + (ctx.available_rect().width() - 1280_f32) / 2_f32, y: read_operation.global.target_line[u + 1][1] + (ctx.available_rect().height() - 720_f32) / 2_f32 }) {
+                                    if self.line_intersects_rect(
+                                        &enemy_rect,
+                                        Pos2 {
+                                            x: read_operation.global.target_line[u][0]
+                                                + (ctx.available_rect().width() - 1280_f32) / 2_f32,
+                                            y: read_operation.global.target_line[u][1]
+                                                + (ctx.available_rect().height() - 720_f32) / 2_f32,
+                                        },
+                                        Pos2 {
+                                            x: read_operation.global.target_line[u + 1][0]
+                                                + (ctx.available_rect().width() - 1280_f32) / 2_f32,
+                                            y: read_operation.global.target_line[u + 1][1]
+                                                + (ctx.available_rect().height() - 720_f32) / 2_f32,
+                                        },
+                                    ) {
                                         self.enemy_list[i].enemy_out = true;
                                         self.enemy_list[i].enemy_activated = false;
+                                        self.resource_image[id].overlay_color =
+                                            [255, 255, 255, 255];
                                         let target_point = self.var_u("target_point");
-                                        if target_point > 0 + self.enemy_list[i].enemy_minus_target_point {
-                                            self.modify_var("target_point", Value::UInt(target_point - self.enemy_list[i].enemy_minus_target_point));
+                                        if target_point
+                                            > self.enemy_list[i].enemy_minus_target_point
+                                        {
+                                            self.modify_var(
+                                                "target_point",
+                                                Value::UInt(
+                                                    target_point
+                                                        - self.enemy_list[i]
+                                                            .enemy_minus_target_point,
+                                                ),
+                                            );
                                         } else {
                                             self.modify_var("target_point", Value::UInt(0));
                                         };
                                         if self.enemy_list[i].enemy_detected {
-                                            let current_killed_target_enemy = self.var_u("current_killed_target_enemy");
-                                            self.modify_var("current_killed_target_enemy", Value::UInt(current_killed_target_enemy + 1));
+                                            let current_killed_target_enemy =
+                                                self.var_u("current_killed_target_enemy");
+                                            self.modify_var(
+                                                "current_killed_target_enemy",
+                                                Value::UInt(current_killed_target_enemy + 1),
+                                            );
                                         };
                                         std::thread::spawn(|| {
-                                            kira_play_wav("Resources/assets/sounds/Alert.wav").unwrap();
+                                            kira_play_wav("Resources/assets/sounds/Alert.wav")
+                                                .unwrap();
                                         });
-                                        return
+                                        return;
+                                    };
+                                }
+                                let id2_id = self.var_u("gun_selected") as usize;
+                                let id2 = self.track_resource(
+                                    self.resource_image.clone(),
+                                    &self.storage_gun_content[id2_id]
+                                        .gun_recognition_name
+                                        .clone(),
+                                );
+                                let gun_id = self.track_resource(
+                                    self.resource_switch.clone(),
+                                    &self.storage_gun_content[id2_id]
+                                        .gun_recognition_name
+                                        .clone(),
+                                );
+                                let gun_rect = egui::Rect::from_center_size(
+                                    egui::Pos2 {
+                                        x: self.resource_image[id2].origin_position[0],
+                                        y: self.resource_image[id2].origin_position[1],
+                                    },
+                                    Vec2 {
+                                        x: self.resource_image[id2].image_size[0],
+                                        y: self.resource_image[id2].image_size[1],
+                                    },
+                                );
+                                if self.var_f("operation_runtime")
+                                    - self.enemy_list[i].enemy_hit_time
+                                    < self.enemy_list[i].enemy_invincible_time
+                                {
+                                    self.resource_image[id].overlay_color = [125, 125, 125, 255];
+                                } else {
+                                    self.resource_image[id].overlay_color = [255, 255, 255, 255];
+                                    if self.rect_intersects_rect(&gun_rect, &enemy_rect)
+                                        && self.resource_switch[gun_id].state == 1
+                                    {
+                                        self.enemy_list[i].enemy_hit_time =
+                                            self.var_f("operation_runtime");
+                                        if self.storage_gun_content[id2_id].gun_basic_damage
+                                            > self.enemy_list[i].enemy_def
+                                        {
+                                            self.enemy_list[i].enemy_hp -=
+                                                self.storage_gun_content[id2_id].gun_basic_damage
+                                                    - self.enemy_list[i].enemy_def;
+                                            thread::spawn(|| {
+                                                kira_play_wav("Resources/assets/sounds/Hit.wav")
+                                                    .unwrap();
+                                            });
+                                        } else {
+                                            thread::spawn(|| {
+                                                kira_play_wav(
+                                                    "Resources/assets/sounds/Hit_No_Damage.wav",
+                                                )
+                                                .unwrap();
+                                            });
+                                        };
                                     };
                                 };
-                                if self.var_f("operation_runtime") - self.enemy_list[i].enemy_walk_time >= self.enemy_list[i].enemy_walk_interval {
-                                    self.enemy_list[i].enemy_walk_time = self.var_f("operation_runtime");
-                                    if self.var_f("operation_runtime") - self.enemy_list[i].enemy_start_walk_time >= self.enemy_list[i].enemy_move_path[self.enemy_list[i].enemy_current_walk_status as usize].move_time {
-                                        if self.enemy_list[i].enemy_current_walk_status < (self.enemy_list[i].enemy_move_path.len() - 1) as u32 { 
+                                if self.enemy_list[i].enemy_hp <= 0_f32 {
+                                    self.enemy_list[i].enemy_out = true;
+                                    self.enemy_list[i].enemy_activated = false;
+                                    self.resource_image[id].overlay_color = [255, 255, 255, 255];
+                                    if self.enemy_list[i].enemy_detected {
+                                        let current_killed_target_enemy =
+                                            self.var_u("current_killed_target_enemy");
+                                        self.modify_var(
+                                            "current_killed_target_enemy",
+                                            Value::UInt(current_killed_target_enemy + 1),
+                                        );
+                                    };
+                                    std::thread::spawn(|| {
+                                        kira_play_wav("Resources/assets/sounds/Enemy_Death.wav")
+                                            .unwrap();
+                                    });
+                                    return;
+                                };
+                                if self.var_f("operation_runtime")
+                                    - self.enemy_list[i].enemy_walk_time
+                                    >= self.enemy_list[i].enemy_walk_interval
+                                {
+                                    self.enemy_list[i].enemy_walk_time =
+                                        self.var_f("operation_runtime");
+                                    if self.var_f("operation_runtime")
+                                        - self.enemy_list[i].enemy_start_walk_time
+                                        >= self.enemy_list[i].enemy_move_path
+                                            [self.enemy_list[i].enemy_current_walk_status as usize]
+                                            .move_time
+                                    {
+                                        if self.enemy_list[i].enemy_current_walk_status
+                                            < (self.enemy_list[i].enemy_move_path.len() - 1) as u32
+                                        {
                                             self.enemy_list[i].enemy_current_walk_status += 1;
                                         } else {
                                             self.enemy_list[i].enemy_current_walk_status = 0;
                                         };
-                                        self.enemy_list[i].enemy_start_walk_time = self.var_f("operation_runtime");
+                                        self.enemy_list[i].enemy_start_walk_time =
+                                            self.var_f("operation_runtime");
                                     };
-                                    if self.enemy_list[i].enemy_move_path[self.enemy_list[i].enemy_current_walk_status as usize].move_status[0] {
-                                        self.enemy_list[i].enemy_offset[1] -= self.enemy_list[i].enemy_speed;
+                                    if self.enemy_list[i].enemy_move_path
+                                        [self.enemy_list[i].enemy_current_walk_status as usize]
+                                        .move_status[0]
+                                    {
+                                        self.enemy_list[i].enemy_position[1] -=
+                                            self.enemy_list[i].enemy_speed;
                                     };
-                                    if self.enemy_list[i].enemy_move_path[self.enemy_list[i].enemy_current_walk_status as usize].move_status[1] {
-                                        self.enemy_list[i].enemy_offset[1] += self.enemy_list[i].enemy_speed;
+                                    if self.enemy_list[i].enemy_move_path
+                                        [self.enemy_list[i].enemy_current_walk_status as usize]
+                                        .move_status[1]
+                                    {
+                                        self.enemy_list[i].enemy_position[1] +=
+                                            self.enemy_list[i].enemy_speed;
                                     };
-                                    if self.enemy_list[i].enemy_move_path[self.enemy_list[i].enemy_current_walk_status as usize].move_status[2] {
-                                        self.enemy_list[i].enemy_offset[0] -= self.enemy_list[i].enemy_speed;
+                                    if self.enemy_list[i].enemy_move_path
+                                        [self.enemy_list[i].enemy_current_walk_status as usize]
+                                        .move_status[2]
+                                    {
+                                        self.enemy_list[i].enemy_position[0] -=
+                                            self.enemy_list[i].enemy_speed;
                                     };
-                                    if self.enemy_list[i].enemy_move_path[self.enemy_list[i].enemy_current_walk_status as usize].move_status[3] {
-                                        self.enemy_list[i].enemy_offset[0] += self.enemy_list[i].enemy_speed;
+                                    if self.enemy_list[i].enemy_move_path
+                                        [self.enemy_list[i].enemy_current_walk_status as usize]
+                                        .move_status[3]
+                                    {
+                                        self.enemy_list[i].enemy_position[0] +=
+                                            self.enemy_list[i].enemy_speed;
                                     };
-                                    if self.enemy_list[i].enemy_move_path[self.enemy_list[i].enemy_current_walk_status as usize].move_status.iter().any(|&x| x) && self.var_f("operation_runtime") - self.enemy_list[i].enemy_animation_change_time >= self.enemy_list[i].enemy_animation_interval {
-                                        self.enemy_list[i].enemy_animation_change_time = self.var_f("operation_runtime");
+                                    if self.enemy_list[i].enemy_move_path
+                                        [self.enemy_list[i].enemy_current_walk_status as usize]
+                                        .move_status
+                                        .iter()
+                                        .any(|&x| x)
+                                        && self.var_f("operation_runtime")
+                                            - self.enemy_list[i].enemy_animation_change_time
+                                            >= self.enemy_list[i].enemy_animation_interval
+                                    {
+                                        self.enemy_list[i].enemy_animation_change_time =
+                                            self.var_f("operation_runtime");
                                         if self.enemy_list[i].enemy_animation_forward {
-                                            if self.enemy_list[i].enemy_current_animation_count < self.enemy_list[i].enemy_image_count {
-                                                self.enemy_list[i].enemy_current_animation_count += 1;
+                                            if self.enemy_list[i].enemy_current_animation_count
+                                                < self.enemy_list[i].enemy_image_count
+                                            {
+                                                self.enemy_list[i].enemy_current_animation_count +=
+                                                    1;
                                             } else {
                                                 self.enemy_list[i].enemy_animation_forward = false;
-                                                if self.enemy_list[i].enemy_current_animation_count > 0 {
-                                                    self.enemy_list[i].enemy_current_animation_count -= 1;
+                                                if self.enemy_list[i].enemy_current_animation_count
+                                                    > 0
+                                                {
+                                                    self.enemy_list[i]
+                                                        .enemy_current_animation_count -= 1;
                                                 };
                                             };
+                                        } else if self.enemy_list[i].enemy_current_animation_count
+                                            > 0
+                                        {
+                                            self.enemy_list[i].enemy_current_animation_count -= 1;
                                         } else {
-                                            if self.enemy_list[i].enemy_current_animation_count > 0 {
-                                                self.enemy_list[i].enemy_current_animation_count -= 1;
-                                            } else {
-                                                self.enemy_list[i].enemy_animation_forward = true;
-                                                if self.enemy_list[i].enemy_current_animation_count < self.enemy_list[i].enemy_image_count {
-                                                    self.enemy_list[i].enemy_current_animation_count += 1;
-                                                };
+                                            self.enemy_list[i].enemy_animation_forward = true;
+                                            if self.enemy_list[i].enemy_current_animation_count
+                                                < self.enemy_list[i].enemy_image_count
+                                            {
+                                                self.enemy_list[i].enemy_current_animation_count +=
+                                                    1;
                                             };
                                         };
                                     };
                                 };
                             } else {
-                                if self.enemy_list[i].enemy_increase_alpha_speed > 255 - self.resource_image[id].alpha {
+                                if self.enemy_list[i].enemy_increase_alpha_speed
+                                    > 255 - self.resource_image[id].alpha
+                                {
                                     self.resource_image[id].alpha = 255;
                                     self.resource_image[id].overlay_color = [255, 255, 255, 255];
                                 } else {
-                                    self.resource_image[id].alpha += self.enemy_list[i].enemy_increase_alpha_speed;
-                                    self.resource_image[id].overlay_color[0] += self.enemy_list[i].enemy_increase_alpha_speed;
-                                    self.resource_image[id].overlay_color[1] += self.enemy_list[i].enemy_increase_alpha_speed;
-                                    self.resource_image[id].overlay_color[2] += self.enemy_list[i].enemy_increase_alpha_speed;
+                                    self.resource_image[id].alpha +=
+                                        self.enemy_list[i].enemy_increase_alpha_speed;
+                                    self.resource_image[id].overlay_color[0] +=
+                                        self.enemy_list[i].enemy_increase_alpha_speed;
+                                    self.resource_image[id].overlay_color[1] +=
+                                        self.enemy_list[i].enemy_increase_alpha_speed;
+                                    self.resource_image[id].overlay_color[2] +=
+                                        self.enemy_list[i].enemy_increase_alpha_speed;
                                 };
                                 if self.resource_image[id].alpha == 255 {
-                                    self.enemy_list[i].enemy_start_walk_time = self.var_f("operation_runtime");
+                                    self.enemy_list[i].enemy_start_walk_time =
+                                        self.var_f("operation_runtime");
                                 };
                             };
                         };
-                        if let Some(index) = self.resource_image_texture.iter().position(|x| x.name == format!("{}_{}", self.enemy_list[i].enemy_id, self.enemy_list[i].enemy_current_animation_count)) {
-                            self.resource_image[id].image_texture = self.resource_image_texture[index].texture.clone();
+                        if let Some(index) = self.resource_image_texture.iter().position(|x| {
+                            x.name
+                                == format!(
+                                    "{}_{}",
+                                    self.enemy_list[i].enemy_id,
+                                    self.enemy_list[i].enemy_current_animation_count
+                                )
+                        }) {
+                            self.resource_image[id].image_texture =
+                                self.resource_image_texture[index].texture.clone();
                         };
-                    } else if self.var_f("operation_runtime") >= self.enemy_list[i].enemy_activated_time && refresh {
+                    } else if self.var_f("operation_runtime")
+                        >= self.enemy_list[i].enemy_activated_time
+                        && refresh
+                    {
                         if self.enemy_list[i].enemy_out {
-                            if self.resource_image[id].alpha < 0 + self.enemy_list[i].enemy_increase_alpha_speed {
+                            if self.resource_image[id].alpha
+                                < self.enemy_list[i].enemy_increase_alpha_speed
+                            {
                                 self.resource_image[id].alpha = 0;
                                 self.resource_image[id].overlay_color = [0, 0, 0, 255];
                             } else {
-                                self.resource_image[id].alpha -= self.enemy_list[i].enemy_increase_alpha_speed;
-                                self.resource_image[id].overlay_color[0] -= self.enemy_list[i].enemy_increase_alpha_speed;
-                                self.resource_image[id].overlay_color[1] -= self.enemy_list[i].enemy_increase_alpha_speed;
-                                self.resource_image[id].overlay_color[2] -= self.enemy_list[i].enemy_increase_alpha_speed;
+                                self.resource_image[id].alpha -=
+                                    self.enemy_list[i].enemy_increase_alpha_speed;
+                                self.resource_image[id].overlay_color[0] -=
+                                    self.enemy_list[i].enemy_increase_alpha_speed;
+                                self.resource_image[id].overlay_color[1] -=
+                                    self.enemy_list[i].enemy_increase_alpha_speed;
+                                self.resource_image[id].overlay_color[2] -=
+                                    self.enemy_list[i].enemy_increase_alpha_speed;
                             };
                         } else {
                             self.enemy_list[i].enemy_activated = true;
                         };
                     };
                     self.image(ui, &self.enemy_list[i].enemy_id.clone(), ctx);
-                };
+                    if self.enemy_list[i].enemy_activated {
+                        ui.painter().line(
+                            vec![
+                                Pos2 {
+                                    x: self.resource_image[id].image_position[0],
+                                    y: self.resource_image[id].image_position[1] - 15_f32,
+                                },
+                                Pos2 {
+                                    x: self.resource_image[id].image_position[0]
+                                        + self.resource_image[id].image_size[0],
+                                    y: self.resource_image[id].image_position[1] - 15_f32,
+                                },
+                            ],
+                            Stroke {
+                                width: 10.0,
+                                color: Color32::from_rgba_unmultiplied(
+                                    0,
+                                    0,
+                                    0,
+                                    self.resource_image[id].alpha,
+                                ),
+                            },
+                        );
+                        let enemy_hp_multiple = if self.enemy_list[i].enemy_hp
+                            / self.enemy_list[i].enemy_initial_hp
+                            < 0_f32
+                        {
+                            0_f32
+                        } else {
+                            self.enemy_list[i].enemy_hp / self.enemy_list[i].enemy_initial_hp
+                        };
+                        let enemy_hp_bar_rgb = if enemy_hp_multiple > 0.6 {
+                            [94, 203, 118]
+                        } else if 0.2 < enemy_hp_multiple && enemy_hp_multiple <= 0.6 {
+                            [255, 240, 59]
+                        } else {
+                            [255, 52, 40]
+                        };
+                        if self.enemy_list[i].enemy_memory_hp != self.enemy_list[i].enemy_hp {
+                            if self.enemy_list[i].enemy_memory_hp - self.enemy_list[i].enemy_hp
+                                <= 0.1
+                            {
+                                self.enemy_list[i].enemy_memory_hp = self.enemy_list[i].enemy_hp;
+                            } else {
+                                self.enemy_list[i].enemy_memory_hp -= 0.1;
+                            };
+                            let enemy_memory_hp_multiple = if self.enemy_list[i].enemy_memory_hp
+                                / self.enemy_list[i].enemy_initial_hp
+                                < 0_f32
+                            {
+                                0_f32
+                            } else {
+                                self.enemy_list[i].enemy_memory_hp
+                                    / self.enemy_list[i].enemy_initial_hp
+                            };
+                            ui.painter().line(
+                                vec![
+                                    Pos2 {
+                                        x: self.resource_image[id].image_position[0] + 3_f32,
+                                        y: self.resource_image[id].image_position[1] - 15_f32,
+                                    },
+                                    Pos2 {
+                                        x: self.resource_image[id].image_position[0]
+                                            + 3_f32
+                                            + (self.resource_image[id].image_size[0] - 6_f32)
+                                                * enemy_memory_hp_multiple,
+                                        y: self.resource_image[id].image_position[1] - 15_f32,
+                                    },
+                                ],
+                                Stroke {
+                                    width: 5.0,
+                                    color: Color32::from_rgba_unmultiplied(
+                                        91,
+                                        0,
+                                        0,
+                                        self.resource_image[id].alpha,
+                                    ),
+                                },
+                            );
+                        };
+                        println!(
+                            "{}-{}",
+                            self.enemy_list[i].enemy_memory_hp, self.enemy_list[i].enemy_hp
+                        );
+                        ui.painter().line(
+                            vec![
+                                Pos2 {
+                                    x: self.resource_image[id].image_position[0] + 3_f32,
+                                    y: self.resource_image[id].image_position[1] - 15_f32,
+                                },
+                                Pos2 {
+                                    x: self.resource_image[id].image_position[0]
+                                        + 3_f32
+                                        + (self.resource_image[id].image_size[0] - 6_f32)
+                                            * enemy_hp_multiple,
+                                    y: self.resource_image[id].image_position[1] - 15_f32,
+                                },
+                            ],
+                            Stroke {
+                                width: 5.0,
+                                color: Color32::from_rgba_unmultiplied(
+                                    enemy_hp_bar_rgb[0],
+                                    enemy_hp_bar_rgb[1],
+                                    enemy_hp_bar_rgb[2],
+                                    self.resource_image[id].alpha,
+                                ),
+                            },
+                        );
+                    };
+                }
             };
         };
     }
@@ -2716,6 +3009,17 @@ impl App {
         self.resource_rect[id].size[0] = ctx.available_rect().width() - 100_f32;
     }
 
+    pub fn rect_intersects_rect(&self, rect1: &Rect, rect2: &Rect) -> bool {
+        // 检查X轴重叠
+        let x_overlap = rect1.max.x > rect2.min.x && rect1.min.x < rect2.max.x;
+
+        // 检查Y轴重叠
+        let y_overlap = rect1.max.y > rect2.min.y && rect1.min.y < rect2.max.y;
+
+        // 两个轴都有重叠时矩形相交
+        x_overlap && y_overlap
+    }
+
     pub fn line_intersects_rect(&self, rect: &Rect, start: Pos2, end: Pos2) -> bool {
         // 检查线段端点是否在矩形内
         if rect.contains(start) || rect.contains(end) {
@@ -2732,17 +3036,17 @@ impl App {
         if self.line_segments_intersect(start, end, top_left, top_right) {
             return true;
         }
-        
+
         // 检查与右边相交
         if self.line_segments_intersect(start, end, top_right, bottom_right) {
             return true;
         }
-        
+
         // 检查与下边相交
         if self.line_segments_intersect(start, end, bottom_right, bottom_left) {
             return true;
         }
-        
+
         // 检查与左边相交
         if self.line_segments_intersect(start, end, bottom_left, top_left) {
             return true;
@@ -2756,7 +3060,7 @@ impl App {
         let v2 = (b2.x - a1.x) * (a2.y - a1.y) - (b2.y - a1.y) * (a2.x - a1.x);
         let v3 = (a1.x - b1.x) * (b2.y - b1.y) - (a1.y - b1.y) * (b2.x - b1.x);
         let v4 = (a2.x - b1.x) * (b2.y - b1.y) - (a2.y - b1.y) * (b2.x - b1.x);
-        
+
         (v1 * v2 < 0.0) && (v3 * v4 < 0.0)
     }
 
@@ -3782,17 +4086,17 @@ impl App {
         let color_image =
             egui::ColorImage::from_rgba_unmultiplied([w as usize, h as usize], &raw_data);
         let image_texture = Some(ctx.load_texture(name, color_image, TextureOptions::LINEAR));
-        if create_new_resource {
+        if !create_new_resource && check_resource_exist(self.resource_image_texture.clone(), name) {
+            let id = self.track_resource(self.resource_image_texture.clone(), name);
+            self.resource_image_texture[id].texture = image_texture;
+            self.resource_image_texture[id].cite_path = path.to_string();
+        } else {
             self.resource_image_texture.push(ImageTexture {
                 discern_type: "ImageTexture".to_string(),
                 name: name.to_string(),
                 texture: image_texture,
                 cite_path: path.to_string(),
             });
-        } else {
-            let id = self.track_resource(self.resource_image_texture.clone(), name);
-            self.resource_image_texture[id].texture = image_texture;
-            self.resource_image_texture[id].cite_path = path.to_string();
         };
     }
 

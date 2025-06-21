@@ -7,8 +7,6 @@
     "map_image": "Resources/assets/images/map_forest.png",
     "map_width": 3000,
     "map_scroll_offset": 0,
-    "map_operation_background": "Resources/assets/images/map_forest_operation_background.png",
-    "map_operation_background_expand": "Resources/assets/images/map_forest_operation_background_expand.png",
     "map_description": [
         "第二章",
         "Chapter 2"
@@ -23,7 +21,7 @@
             ],
             "level_description": [
                 "这是一个测试关卡的注释",
-                "Shilang"
+                "Test"
             ],
             "level_type": "main",
             "level_position": [
@@ -40,7 +38,7 @@
             ],
             "level_description": [
                 "这是一个测试关卡的注释",
-                "Shilang"
+                "Test"
             ],
             "level_type": "hell",
             "level_position": [
@@ -57,7 +55,7 @@
             ],
             "level_description": [
                 "这是一个测试关卡的注释",
-                "Shilang"
+                "Test"
             ],
             "level_type": "side",
             "level_position": [
