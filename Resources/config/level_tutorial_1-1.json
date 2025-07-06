@@ -1,6 +1,6 @@
 {
     "global": {
-        "target_point": 3,
+        "target_point": 1,
         "storage_bullet": 100,
         "cost": 0,
         "cost_recover_speed": 1,

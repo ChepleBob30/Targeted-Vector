@@ -1,4 +1,4 @@
-//! Targeted Vector v0.19.0-alpha.1
+//! Targeted Vector v0.20.0-alpha.1
 //! Developer: Cheple_Bob
 //! This is a rust shooter built on top of RustConstructor.
 //! Special Thanks:
@@ -6,24 +6,28 @@
 //! Gavin: Help me improve some function.
 use egui::IconData;
 use function::App;
+use std::collections::HashMap;
 use std::sync::Arc;
+
+use crate::function::GameText;
+use crate::function::User;
 // Only for macOS app generate.
-// use function::Config;
+use function::Config;
 // use function::find_app_bundle;
-// use function::read_from_json;
+use function::read_from_json;
 // use function::write_to_json;
 
 mod function;
 mod pages;
 fn main() {
     // Only for macOS app generate.
-    // let mut config = Config {
-    //     launch_path: "".to_string(),
-    //     language: 0,
-    //     login_user_name: "".to_string(),
-    //     amount_languages: 0,
-    //     rc_strict_mode: false,
-    // };
+    let mut config = Config {
+        launch_path: "".to_string(),
+        language: 0,
+        login_user_name: "".to_string(),
+        amount_languages: 0,
+        rc_strict_mode: false,
+    };
     // let launch_path;
     // loop {
     //     match find_app_bundle("Targeted Vector", 100, config.launch_path.clone()) {
@@ -39,14 +43,44 @@ fn main() {
     //         },
     //     };
     // };
-    // if let Ok(json_value) = read_from_json("Resources/config/Preferences.json") {
-    //     if let Some(read_config) = Config::from_json_value(&json_value) {
-    //         config = read_config;
-    //     }
-    // };
+    if let Ok(json_value) = read_from_json("Resources/config/Preferences.json") {
+        if let Some(read_config) = Config::from_json_value(&json_value) {
+            config = read_config;
+        };
+    };
     // config.launch_path = launch_path;
     // write_to_json("Resources/config/Preferences.json", config.to_json_value()).unwrap();
 
+    let mut gametext = GameText {
+        game_text: HashMap::new(),
+    };
+    if let Ok(json_value) = read_from_json("Resources/config/GameText.json") {
+        if let Some(read_gametext) = GameText::from_json_value(&json_value) {
+            gametext = read_gametext;
+        };
+    };
+    let mut user = User {
+        name: "".to_string(),
+        password: "".to_string(),
+        language: 0,
+        wallpaper: "".to_string(),
+        current_map: "".to_string(),
+        level_status: vec![],
+        gun_status: vec![],
+        map_status: vec![],
+        settings: HashMap::new(),
+        current_level: "".to_string(),
+    };
+    if !config.login_user_name.is_empty() {
+        if let Ok(json_value) = read_from_json(format!(
+            "Resources/config/user_{}.json",
+            config.login_user_name
+        )) {
+            if let Some(read_user) = User::from_json_value(&json_value) {
+                user = read_user;
+            };
+        };
+    };
     let img = image::load_from_memory_with_format(
         include_bytes!("../Resources/assets/images/icon.png"),
         image::ImageFormat::Png,
@@ -64,7 +98,14 @@ fn main() {
                 width: w,
                 height: h,
             }))
-            .with_maximized(false)
+            .with_active(true)
+            .with_close_button(false)
+            .with_maximized(true)
+            .with_title(if config.login_user_name.is_empty() {
+                gametext.game_text["debug_game_version"][config.language as usize].clone()
+            } else {
+                gametext.game_text["debug_game_version"][user.language as usize].clone()
+            })
             .with_min_inner_size([1280_f32, 720_f32]),
         ..Default::default()
     };

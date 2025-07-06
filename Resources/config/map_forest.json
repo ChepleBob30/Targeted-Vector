@@ -13,66 +13,13 @@
     ],
     "map_intro": "Resources/assets/images/map_forest_intro.png",
     "map_content": [
-        {
-            "level_name": "2-1",
-            "level_name_expand": [
-                "测试",
-                "Test"
-            ],
-            "level_description": [
-                "这是一个测试关卡的注释",
-                "Test"
-            ],
-            "level_type": "main",
-            "level_position": [
-                100,
-                400
-            ],
-            "level_initial_status": 0
-        },
-        {
-            "level_name": "2-2",
-            "level_name_expand": [
-                "测试",
-                "Test"
-            ],
-            "level_description": [
-                "这是一个测试关卡的注释",
-                "Test"
-            ],
-            "level_type": "hell",
-            "level_position": [
-                1000,
-                200
-            ],
-            "level_initial_status": -1
-        },
-        {
-            "level_name": "2-3",
-            "level_name_expand": [
-                "测试",
-                "Test"
-            ],
-            "level_description": [
-                "这是一个测试关卡的注释",
-                "Test"
-            ],
-            "level_type": "side",
-            "level_position": [
-                2000,
-                300
-            ],
-            "level_initial_status": 2
-        }
     ],
     "map_connecting_line": [
-        [
-            "2-1",
-            "2-2"
-        ],
-        [
-            "2-2",
-            "2-3"
-        ]
-    ]
+    ],
+    "map_initial_unlock_status": false,
+    "map_unlock_description": [
+        "完成第一章以解锁",
+        "Complete Chapter 1 to unlock"
+    ],
+    "map_lock_intro": "Resources/assets/images/map_lock_intro.png"
 }

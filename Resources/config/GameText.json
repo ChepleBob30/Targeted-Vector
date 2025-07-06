@@ -109,8 +109,8 @@
       "Page"
     ],
     "debug_game_version": [
-      "靶向载体 v0.19.0-alpha.1",
-      "Targeted Vector v0.19.0-alpha.1"
+      "靶向载体 v0.20.0-alpha.1",
+      "Targeted Vector v0.20.0-alpha.1"
     ],
     "debug_game_now_time": [
       "当前页面运行时间",
@@ -479,6 +479,26 @@
     "hell": [
       "突袭",
       "STRIKE"
+    ],
+    "operation_over": [
+      "作战结束",
+      "OPERATION OVER"
+    ],
+    "error_message_box_already_exists": [
+      "消息框已存在",
+      "The message box already exists"
+    ],
+    "error_message_box_already_exists_annotation": [
+      "请检查生成消息框的代码是否被意外多次调用。",
+      "Please check whether the code for generating the message box has been accidentally called multiple times."
+    ],
+    "dev_welcome_play_tvec_title": [
+      "感谢游玩靶向载体开发版本！",
+      "Thank you for playing the development version of Targeted Vector!"
+    ],
+    "dev_welcome_play_tvec_content": [
+      "此版本未经过系统化测试，如果你发现任何bug，请在github上反馈给我。感谢你的合作！",
+      "This version has not been systematically tested. If you find any bugs, please report them to me on github. Thank you for your cooperation!"
     ]
   }
 }

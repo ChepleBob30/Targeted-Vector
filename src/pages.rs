@@ -3,7 +3,7 @@ use crate::function::{
     check_file_exists, check_resource_exist, count_files_recursive, create_pretty_json,
     general_click_feedback, kira_play_wav, list_files_recursive, read_from_json, write_to_json,
     App, Gun, Map, Operation, PauseMessage, SeverityLevel, SwitchClickAction, SwitchData, User,
-    UserGunStatus, UserLevelStatus, Value,
+    UserGunStatus, UserLevelStatus, UserMapStatus, Value,
 };
 use chrono::{Local, Timelike};
 use eframe::egui;
@@ -70,6 +70,7 @@ impl eframe::App for App {
                     self.add_var("enable_debug_mode", false);
                     self.add_var("debug_fps_window", false);
                     self.add_var("debug_resource_list_window", false);
+                    self.add_var("debug_render_resource_list_window", false);
                     self.add_var("debug_problem_window", false);
                     self.add_var("cut_to", false);
                     self.add_split_time("0", false);
@@ -106,6 +107,51 @@ impl eframe::App for App {
                             self.config.language = self.login_user_config.language;
                             self.switch_page("Home_Page");
                         };
+                        self.add_text(
+                            [
+                                "Dev_Welcome1",
+                                &game_text["dev_welcome_play_tvec_title"][if self
+                                    .config
+                                    .login_user_name
+                                    .is_empty()
+                                {
+                                    self.config.language as usize
+                                } else {
+                                    self.login_user_config.language as usize
+                                }],
+                            ],
+                            [0_f32, 0_f32, 20_f32, 325_f32, 0.0],
+                            [30, 30, 30, 255, 0, 0, 0],
+                            [true, true, false, false],
+                            false,
+                            [0, 0, 0, 0],
+                        );
+                        self.add_text(
+                            [
+                                "Dev_Welcome2",
+                                &game_text["dev_welcome_play_tvec_content"][if self
+                                    .config
+                                    .login_user_name
+                                    .is_empty()
+                                {
+                                    self.config.language as usize
+                                } else {
+                                    self.login_user_config.language as usize
+                                }],
+                            ],
+                            [0_f32, 0_f32, 15_f32, 325_f32, 0.0],
+                            [30, 30, 30, 255, 0, 0, 0],
+                            [true, true, false, false],
+                            false,
+                            [0, 0, 0, 0],
+                        );
+                        self.add_message_box(
+                            ["Dev_Welcome", "Dev_Welcome1", "Dev_Welcome2", "Icon_Dev"],
+                            [500_f32, 50_f32],
+                            true,
+                            0_f32,
+                            [30_f32, 10_f32],
+                        );
                     };
                     if self.timer.now_time >= 1.0 {
                         if self.var_i("progress") < 2 {
@@ -186,6 +232,56 @@ impl eframe::App for App {
                                             self.config.language = self.login_user_config.language;
                                             self.switch_page("Home_Page");
                                         };
+                                        self.add_text(
+                                            [
+                                                "Dev_Welcome1",
+                                                &game_text["dev_welcome_play_tvec_title"][if self
+                                                    .config
+                                                    .login_user_name
+                                                    .is_empty()
+                                                {
+                                                    self.config.language as usize
+                                                } else {
+                                                    self.login_user_config.language as usize
+                                                }],
+                                            ],
+                                            [0_f32, 0_f32, 20_f32, 325_f32, 0.0],
+                                            [30, 30, 30, 255, 0, 0, 0],
+                                            [true, true, false, false],
+                                            false,
+                                            [0, 0, 0, 0],
+                                        );
+                                        self.add_text(
+                                            [
+                                                "Dev_Welcome2",
+                                                &game_text["dev_welcome_play_tvec_content"][if self
+                                                    .config
+                                                    .login_user_name
+                                                    .is_empty()
+                                                {
+                                                    self.config.language as usize
+                                                } else {
+                                                    self.login_user_config.language as usize
+                                                }],
+                                            ],
+                                            [0_f32, 0_f32, 15_f32, 325_f32, 0.0],
+                                            [30, 30, 30, 255, 0, 0, 0],
+                                            [true, true, false, false],
+                                            false,
+                                            [0, 0, 0, 0],
+                                        );
+                                        self.add_message_box(
+                                            [
+                                                "Dev_Welcome",
+                                                "Dev_Welcome1",
+                                                "Dev_Welcome2",
+                                                "Icon_Dev",
+                                            ],
+                                            [500_f32, 80_f32],
+                                            true,
+                                            0_f32,
+                                            [30_f32, 10_f32],
+                                        );
                                     };
                                 }
                                 _ => {}
@@ -232,6 +328,7 @@ impl eframe::App for App {
                             };
                         }
                     };
+                    self.message_box_display(ctx, ui);
                 });
             }
             "Login" => {
@@ -428,7 +525,6 @@ impl eframe::App for App {
                             input1.replace(" ", "").replace("/", "").replace("\\", "")
                         )) {
                             let mut user = User {
-                                version: 0,
                                 name: "".to_string(),
                                 password: "".to_string(),
                                 language: 0,
@@ -436,6 +532,7 @@ impl eframe::App for App {
                                 current_map: "".to_string(),
                                 level_status: vec![],
                                 gun_status: vec![],
+                                map_status: vec![],
                                 settings: hash_map::HashMap::new(),
                                 current_level: "".to_string(),
                             };
@@ -671,7 +768,6 @@ impl eframe::App for App {
                                         {
                                             let hashmap = HashMap::new();
                                             let user_data = User {
-                                                version: 17,
                                                 name: input3
                                                     .replace(" ", "")
                                                     .replace("/", "")
@@ -684,6 +780,7 @@ impl eframe::App for App {
                                                 current_map: "map_tutorial".to_string(),
                                                 gun_status: Vec::new(),
                                                 level_status: Vec::new(),
+                                                map_status: Vec::new(),
                                                 settings: hashmap,
                                                 current_level: "".to_string(),
                                             }
@@ -756,6 +853,7 @@ impl eframe::App for App {
                     self.modify_var("reg_account_name_str", input3);
                     self.modify_var("reg_account_password_str", input4);
                     self.modify_var("reg_account_check_password_str", input5);
+                    self.message_box_display(ctx, ui);
                 });
                 self.modify_var(
                     "last_window_size",
@@ -819,6 +917,7 @@ impl eframe::App for App {
                         };
                     };
                     self.dock(ctx, ui);
+                    self.message_box_display(ctx, ui);
                 });
             }
             "Home_Setting" => {
@@ -984,6 +1083,7 @@ impl eframe::App for App {
                             });
                         });
                     self.dock(ctx, ui);
+                    self.message_box_display(ctx, ui);
                 });
             }
             "Home_Select_Map" => {
@@ -1002,14 +1102,23 @@ impl eframe::App for App {
                     map_intro: "".to_string(),
                     map_content: vec![],
                     map_connecting_line: vec![],
+                    map_initial_unlock_status: false,
+                    map_unlock_description: vec![],
+                    map_lock_intro: "".to_string(),
                 };
-                let mut map_intro_window_text = ["".to_string(), "".to_string(), "".to_string()];
+                let mut map_intro_window_text = [
+                    "".to_string(),
+                    "".to_string(),
+                    "".to_string(),
+                    "".to_string(),
+                    "".to_string(),
+                ];
                 egui::CentralPanel::default().show(ctx, |ui| {
                     self.wallpaper(ui, ctx);
                     let map_list = list_files_recursive(Path::new("Resources/config"), "map_")
                         .unwrap_or_default();
                     let mut map_move_animation = 0;
-                    let enable = !self.var_b("cut_to");
+                    let mut enable = !self.var_b("cut_to");
                     if self.var_b("refreshed_map_data") {
                         let selected_map = self.var_u("selected_map");
                         let selected_map_id = self.track_resource(
@@ -1027,6 +1136,35 @@ impl eframe::App for App {
                             };
                             self.add_split_time("map_select_animation", true);
                         };
+                    } else {
+                        self.modify_var("selected_map", Value::UInt(0));
+                        for _ in 0..self.resource_image_texture.len() {
+                            if let Some(index) = self
+                                .resource_image_texture
+                                .iter()
+                                .position(|x| x.name.contains("Map_"))
+                            {
+                                self.resource_image_texture.remove(index);
+                            };
+                        }
+                        for _ in 0..self.resource_image.len() {
+                            if let Some(index) = self
+                                .resource_image
+                                .iter()
+                                .position(|x| x.name.contains("Map_"))
+                            {
+                                self.resource_image.remove(index);
+                            };
+                        }
+                        for _ in 0..self.resource_switch.len() {
+                            if let Some(index) = self
+                                .resource_switch
+                                .iter()
+                                .position(|x| x.name.contains("Map_"))
+                            {
+                                self.resource_switch.remove(index);
+                            };
+                        }
                     };
                     for (i, _) in map_list.iter().enumerate().take(
                         count_files_recursive(Path::new("Resources/config"), "map_").unwrap_or(0),
@@ -1036,15 +1174,38 @@ impl eframe::App for App {
                         {
                             if let Some(read_map_information) = Map::from_json_value(&json_value) {
                                 map_information = read_map_information;
-                            }
+                            };
                             if !check_resource_exist(
                                 self.resource_image_texture.clone(),
                                 &format!("Map_{:?}", map_list[i]),
                             ) && !self.var_b("refreshed_map_data")
                             {
+                                if !self
+                                    .login_user_config
+                                    .map_status
+                                    .iter()
+                                    .any(|x| x.map_name == map_list[i].to_string_lossy())
+                                {
+                                    self.login_user_config.map_status.push(UserMapStatus {
+                                        map_name: map_list[i].to_string_lossy().to_string(),
+                                        map_unlock_status: map_information
+                                            .map_initial_unlock_status,
+                                    });
+                                };
                                 self.add_image_texture(
                                     &format!("Map_{:?}", map_list[i]),
-                                    &map_information.map_intro,
+                                    if self.login_user_config.map_status[self
+                                        .login_user_config
+                                        .map_status
+                                        .iter()
+                                        .position(|x| x.map_name == map_list[i].to_string_lossy())
+                                        .unwrap()]
+                                    .map_unlock_status
+                                    {
+                                        &map_information.map_intro
+                                    } else {
+                                        &map_information.map_lock_intro
+                                    },
                                     [false, false],
                                     true,
                                     ctx,
@@ -1093,9 +1254,32 @@ impl eframe::App for App {
                                     map_information.map_description
                                         [self.login_user_config.language as usize]
                                         .clone(),
+                                    map_information.map_unlock_description
+                                        [self.login_user_config.language as usize]
+                                        .clone(),
+                                    format!(
+                                        "{}",
+                                        self.login_user_config.map_status[self
+                                            .login_user_config
+                                            .map_status
+                                            .iter()
+                                            .position(
+                                                |x| x.map_name == map_list[i].to_string_lossy()
+                                            )
+                                            .unwrap()]
+                                        .map_unlock_status
+                                    ),
                                 ];
                             };
                         };
+                        let map_enable = !self.var_b("cut_to")
+                            && self.login_user_config.map_status[self
+                                .login_user_config
+                                .map_status
+                                .iter()
+                                .position(|x| x.map_name == map_list[i].to_string_lossy())
+                                .unwrap()]
+                            .map_unlock_status;
                         if map_move_animation != 0 {
                             let id = self.track_resource(
                                 self.resource_image.clone(),
@@ -1107,7 +1291,8 @@ impl eframe::App for App {
                                 self.resource_image[id].origin_position[0] += 30_f32;
                             };
                         };
-                        if self.switch(&format!("Map_{:?}", map_list[i]), ui, ctx, enable, true)[0]
+                        if self.switch(&format!("Map_{:?}", map_list[i]), ui, ctx, map_enable, true)
+                            [0]
                             == 0
                         {
                             self.modify_var("cut_to", true);
@@ -1117,6 +1302,10 @@ impl eframe::App for App {
                         };
                     }
                     self.modify_var("refreshed_map_data", true);
+
+                    if self.switch("Refresh", ui, ctx, enable, true)[0] == 0 {
+                        self.modify_var("refreshed_map_data", false);
+                    };
                     egui::Window::new("chapter_info")
                         .open(&mut !self.var_b("cut_to"))
                         .frame(self.frame)
@@ -1141,27 +1330,31 @@ impl eframe::App for App {
                                 .max_height(100_f32)
                                 .max_width(200_f32)
                                 .show(ui, |ui| {
-                                    ui.label(format!(
-                                        "{}: {}",
-                                        game_text["map_name"]
-                                            [self.login_user_config.language as usize]
-                                            .clone(),
-                                        map_intro_window_text[0]
-                                    ));
-                                    ui.label(format!(
-                                        "{}: {}",
-                                        game_text["map_author"]
-                                            [self.login_user_config.language as usize]
-                                            .clone(),
-                                        map_intro_window_text[1]
-                                    ));
-                                    ui.label(format!(
-                                        "{}: {}",
-                                        game_text["map_description"]
-                                            [self.login_user_config.language as usize]
-                                            .clone(),
-                                        map_intro_window_text[2]
-                                    ));
+                                    if map_intro_window_text[4] == "true" {
+                                        ui.label(format!(
+                                            "{}: {}",
+                                            game_text["map_name"]
+                                                [self.login_user_config.language as usize]
+                                                .clone(),
+                                            map_intro_window_text[0]
+                                        ));
+                                        ui.label(format!(
+                                            "{}: {}",
+                                            game_text["map_author"]
+                                                [self.login_user_config.language as usize]
+                                                .clone(),
+                                            map_intro_window_text[1]
+                                        ));
+                                        ui.label(format!(
+                                            "{}: {}",
+                                            game_text["map_description"]
+                                                [self.login_user_config.language as usize]
+                                                .clone(),
+                                            map_intro_window_text[2]
+                                        ));
+                                    } else {
+                                        ui.label(map_intro_window_text[3].clone());
+                                    };
                                 });
                         });
                     if self.switch("Forward", ui, ctx, enable, true)[0] == 0
@@ -1173,6 +1366,7 @@ impl eframe::App for App {
                         let selected_map = self.var_u("selected_map");
                         self.modify_var("selected_map", Value::UInt(selected_map + 1));
                     };
+                    enable = !self.var_b("cut_to");
                     if self.switch("Backward", ui, ctx, enable, true)[0] == 0
                         && self.var_u("selected_map") > 0
                     {
@@ -1189,6 +1383,7 @@ impl eframe::App for App {
                             ui,
                             "cut_to_animation",
                             "Cut_To_Background",
+                            20,
                         ) == 255
                             && fade_in_or_out
                         {
@@ -1255,12 +1450,14 @@ impl eframe::App for App {
                             ui,
                             "cut_to_animation",
                             "Cut_To_Background",
+                            20,
                         ) == 0
                             && !fade_in_or_out
                         {
                             self.modify_var("cut_to", false);
                         };
                     };
+                    self.message_box_display(ctx, ui);
                 });
             }
             "Select_Level" => {
@@ -1274,6 +1471,9 @@ impl eframe::App for App {
                     map_intro: "".to_string(),
                     map_content: vec![],
                     map_connecting_line: vec![],
+                    map_initial_unlock_status: false,
+                    map_unlock_description: vec![],
+                    map_lock_intro: "".to_string(),
                 };
                 if let Ok(json_value) = read_from_json(&self.login_user_config.current_map) {
                     if let Some(read_map_information) = Map::from_json_value(&json_value) {
@@ -1637,6 +1837,7 @@ impl eframe::App for App {
                             ctx.available_rect().width() - map_information.map_width,
                         );
                     };
+                    self.message_box_display(ctx, ui);
                     if self.var_b("cut_to") {
                         let fade_in_or_out = self.var_b("fade_in_or_out");
                         if self.fade(
@@ -1645,6 +1846,7 @@ impl eframe::App for App {
                             ui,
                             "cut_to_animation",
                             "Cut_To_Background",
+                            20,
                         ) == 255
                             && fade_in_or_out
                         {
@@ -1655,23 +1857,22 @@ impl eframe::App for App {
                             )
                             .unwrap();
                             self.modify_var("fade_in_or_out", false);
-                            self.timer.start_time = self.timer.total_time;
-                            self.update_timer();
-                            self.add_split_time("cut_to_animation", true);
                             if self.var_i("opened_level") == -1 {
+                                self.switch_page("Home_Select_Map");
                                 self.add_split_time("dock_animation", true);
                                 self.add_split_time("map_select_animation", true);
-                                self.switch_page("Home_Select_Map");
                             } else {
-                                self.modify_var("prepared_operation", false);
                                 self.switch_page("Operation");
+                                self.modify_var("prepared_operation", false);
                             };
+                            self.add_split_time("cut_to_animation", true);
                         } else if self.fade(
                             fade_in_or_out,
                             ctx,
                             ui,
                             "cut_to_animation",
                             "Cut_To_Background",
+                            20,
                         ) == 0
                             && !fade_in_or_out
                         {
@@ -1682,6 +1883,7 @@ impl eframe::App for App {
             }
             "Operation" => {
                 if !self.check_updated(&self.page.clone()) {
+                    self.add_split_time("operation_over_background_animation", false);
                     self.add_split_time("start_operation_time", false);
                     self.add_split_time("gun_shooting_time", false);
                     self.add_split_time("gun_end_shooting_time", false);
@@ -1733,6 +1935,24 @@ impl eframe::App for App {
                     let bar_id8 = self.track_resource(self.resource_text.clone(), "Bullet_Text");
                     let bar_id9 = self.track_resource(self.resource_text.clone(), "Cost_Text");
                     if !self.var_b("prepared_operation") {
+                        for _ in 0..self.resource_image_texture.len() {
+                            if let Some(index) = self
+                                .resource_image_texture
+                                .iter()
+                                .position(|x| x.name.contains("Enemy_"))
+                            {
+                                self.resource_image_texture.remove(index);
+                            };
+                        }
+                        for _ in 0..self.resource_image.len() {
+                            if let Some(index) = self
+                                .resource_image
+                                .iter()
+                                .position(|x| x.name.contains("Enemy_"))
+                            {
+                                self.resource_image.remove(index);
+                            };
+                        }
                         if let Ok(json_value) =
                             read_from_json(self.login_user_config.current_level.clone())
                         {
@@ -1750,6 +1970,7 @@ impl eframe::App for App {
                                     "storage_bullet",
                                     Value::UInt(read_operation.global.storage_bullet),
                                 );
+                                self.modify_var("current_killed_target_enemy", Value::UInt(0));
                                 self.modify_var("cost", Value::UInt(read_operation.global.cost));
                                 self.modify_var(
                                     "cost_recover_speed",
@@ -1889,9 +2110,62 @@ impl eframe::App for App {
                                 self.resource_image[id7].overlay_color = [255, 255, 255, 255];
                             };
                         };
+                        let id = self
+                            .track_resource(self.resource_rect.clone(), "Operation_Win_Background");
+                        let id2 = self.track_resource(
+                            self.resource_rect.clone(),
+                            "Operation_Fail_Background",
+                        );
+                        self.resource_rect[id].origin_position[0] = ctx.available_rect().width();
+                        self.resource_rect[id2].color[3] = 0;
                         let gun_list =
                             list_files_recursive(Path::new("Resources/config"), "gun_").unwrap();
                         let mut gun_list_content = Vec::new();
+                        for _ in 0..self.resource_image_texture.len() {
+                            if let Some(index) = self
+                                .resource_image_texture
+                                .iter()
+                                .position(|x| x.name.contains("Gun_"))
+                            {
+                                self.resource_image_texture.remove(index);
+                            };
+                        }
+                        for _ in 0..self.resource_image.len() {
+                            if let Some(index) = self
+                                .resource_image
+                                .iter()
+                                .position(|x| x.name.contains("Gun_"))
+                            {
+                                self.resource_image.remove(index);
+                            };
+                        }
+                        for _ in 0..self.resource_switch.len() {
+                            if let Some(index) = self
+                                .resource_switch
+                                .iter()
+                                .position(|x| x.name.contains("Gun_"))
+                            {
+                                self.resource_switch.remove(index);
+                            };
+                        }
+                        for _ in 0..self.timer.split_time.len() {
+                            if let Some(index) = self.timer.split_time.iter().position(|x| {
+                                x.name.contains("gun")
+                                    && x.name != "gun_shooting_time"
+                                    && x.name != "gun_end_shooting_time"
+                            }) {
+                                self.timer.split_time.remove(index);
+                            };
+                        }
+                        for _ in 0..self.variables.len() {
+                            if let Some(index) = self.variables.iter().position(|x| {
+                                x.name.contains("gun")
+                                    && x.name != "gun_selectable_len"
+                                    && x.name != "gun_selected"
+                            }) {
+                                self.variables.remove(index);
+                            };
+                        }
                         for (i, _) in gun_list.iter().enumerate().take(
                             count_files_recursive(Path::new("Resources/config"), "gun_").unwrap(),
                         ) {
@@ -1923,325 +2197,484 @@ impl eframe::App for App {
                                                 .gun_level
                                                 != -1
                                         {
-                                            if !check_resource_exist(
-                                                self.resource_image_texture.clone(),
-                                                &gun_message.gun_recognition_name.clone(),
-                                            ) {
-                                                self.add_image_texture(
-                                                    &gun_message.gun_recognition_name.clone(),
-                                                    &gun_message.gun_image.clone(),
-                                                    [false, false],
-                                                    true,
-                                                    ctx,
-                                                );
-                                                self.add_image(
-                                                    &gun_message.gun_recognition_name.clone(),
-                                                    [
-                                                        0_f32,
-                                                        0_f32,
-                                                        gun_message.gun_size[0],
-                                                        gun_message.gun_size[1],
-                                                    ],
-                                                    [0, 0, 0, 0],
-                                                    [true, true, true, true, true],
-                                                    [255, 255, 255, 255, 255],
-                                                    &gun_message.gun_recognition_name.clone(),
-                                                );
-                                                self.add_switch(
-                                                    [
-                                                        &gun_message.gun_recognition_name.clone(),
-                                                        &gun_message.gun_recognition_name.clone(),
-                                                    ],
-                                                    vec![
-                                                        SwitchData {
-                                                            texture: gun_message
+                                            self.add_image_texture(
+                                                &format!(
+                                                    "Gun_{}",
+                                                    gun_message.gun_recognition_name.clone()
+                                                ),
+                                                &gun_message.gun_image.clone(),
+                                                [false, false],
+                                                true,
+                                                ctx,
+                                            );
+                                            self.add_image(
+                                                &format!(
+                                                    "Gun_{}",
+                                                    gun_message.gun_recognition_name.clone()
+                                                ),
+                                                [
+                                                    0_f32,
+                                                    0_f32,
+                                                    gun_message.gun_size[0],
+                                                    gun_message.gun_size[1],
+                                                ],
+                                                [0, 0, 0, 0],
+                                                [true, true, true, true, true],
+                                                [255, 255, 255, 255, 255],
+                                                &format!(
+                                                    "Gun_{}",
+                                                    gun_message.gun_recognition_name.clone()
+                                                ),
+                                            );
+                                            self.add_switch(
+                                                [
+                                                    &format!(
+                                                        "Gun_{}",
+                                                        gun_message.gun_recognition_name.clone()
+                                                    ),
+                                                    &format!(
+                                                        "Gun_{}",
+                                                        gun_message.gun_recognition_name.clone()
+                                                    ),
+                                                ],
+                                                vec![
+                                                    SwitchData {
+                                                        texture: format!(
+                                                            "Gun_{}",
+                                                            gun_message
                                                                 .gun_recognition_name
-                                                                .clone(),
-                                                            color: [255, 255, 255, 255],
-                                                        },
-                                                        SwitchData {
-                                                            texture: gun_message
+                                                                .clone()
+                                                        ),
+                                                        color: [255, 255, 255, 255],
+                                                    },
+                                                    SwitchData {
+                                                        texture: format!(
+                                                            "Gun_{}",
+                                                            gun_message
                                                                 .gun_recognition_name
-                                                                .clone(),
-                                                            color: [255, 255, 0, 255],
-                                                        },
-                                                        SwitchData {
-                                                            texture: gun_message
+                                                                .clone()
+                                                        ),
+                                                        color: [255, 255, 0, 255],
+                                                    },
+                                                    SwitchData {
+                                                        texture: format!(
+                                                            "Gun_{}",
+                                                            gun_message
                                                                 .gun_recognition_name
-                                                                .clone(),
-                                                            color: [0, 0, 0, 255],
-                                                        },
-                                                    ],
-                                                    [false, false, true],
-                                                    3,
-                                                    vec![SwitchClickAction {
-                                                        click_method: PointerButton::Primary,
-                                                        action: false,
-                                                    }],
-                                                );
-                                            };
+                                                                .clone()
+                                                        ),
+                                                        color: [0, 0, 0, 255],
+                                                    },
+                                                ],
+                                                [false, false, true],
+                                                3,
+                                                vec![SwitchClickAction {
+                                                    click_method: PointerButton::Primary,
+                                                    action: false,
+                                                }],
+                                            );
                                             gun_list_content.push(gun_message.clone());
-                                            if !check_resource_exist(
-                                                self.variables.clone(),
-                                                &format!("gun{}_recoil", gun_list_content.len()),
-                                            ) {
-                                                self.add_split_time(
-                                                    &format!(
-                                                        "gun{}_reload_interval",
-                                                        gun_list_content.len() - 1
-                                                    ),
-                                                    false,
-                                                );
-                                                self.add_var(
-                                                    &format!(
-                                                        "gun{}_recoil",
-                                                        gun_list_content.len() - 1
-                                                    ),
-                                                    Value::Float(0_f32),
-                                                );
-                                                self.add_var(
-                                                    &format!(
-                                                        "gun{}_temperature",
-                                                        gun_list_content.len() - 1
-                                                    ),
-                                                    Value::UInt(0),
-                                                );
-                                                self.add_var(
-                                                    &format!(
-                                                        "gun{}_surplus_bullets",
-                                                        gun_list_content.len() - 1
-                                                    ),
-                                                    Value::UInt(gun_message.gun_catridge_clip),
-                                                );
-                                                self.add_var(
-                                                    &format!(
-                                                        "gun{}_reload",
-                                                        gun_list_content.len() - 1
-                                                    ),
-                                                    false,
-                                                );
-                                            } else {
-                                                self.add_split_time(
-                                                    &format!(
-                                                        "gun{}_reload_interval",
-                                                        gun_list_content.len() - 1
-                                                    ),
-                                                    true,
-                                                );
-                                                self.modify_var(
-                                                    &format!(
-                                                        "gun{}_recoil",
-                                                        gun_list_content.len() - 1
-                                                    ),
-                                                    Value::Float(0_f32),
-                                                );
-                                                self.modify_var(
-                                                    &format!(
-                                                        "gun{}_temperature",
-                                                        gun_list_content.len() - 1
-                                                    ),
-                                                    Value::UInt(0),
-                                                );
-                                                self.modify_var(
-                                                    &format!(
-                                                        "gun{}_surplus_bullets",
-                                                        gun_list_content.len() - 1
-                                                    ),
-                                                    Value::UInt(gun_message.gun_catridge_clip),
-                                                );
-                                                self.modify_var(
-                                                    &format!(
-                                                        "gun{}_reload",
-                                                        gun_list_content.len() - 1
-                                                    ),
-                                                    false,
-                                                );
-                                            };
+                                            self.add_split_time(
+                                                &format!(
+                                                    "gun{}_reload_interval",
+                                                    gun_list_content.len() - 1
+                                                ),
+                                                false,
+                                            );
+                                            self.add_var(
+                                                &format!(
+                                                    "gun{}_recoil",
+                                                    gun_list_content.len() - 1
+                                                ),
+                                                Value::Float(0_f32),
+                                            );
+                                            self.add_var(
+                                                &format!(
+                                                    "gun{}_temperature",
+                                                    gun_list_content.len() - 1
+                                                ),
+                                                Value::UInt(0),
+                                            );
+                                            self.add_var(
+                                                &format!(
+                                                    "gun{}_surplus_bullets",
+                                                    gun_list_content.len() - 1
+                                                ),
+                                                Value::UInt(gun_message.gun_catridge_clip),
+                                            );
+                                            self.add_var(
+                                                &format!(
+                                                    "gun{}_reload",
+                                                    gun_list_content.len() - 1
+                                                ),
+                                                false,
+                                            );
                                         };
                                     }
                                 };
                             };
                         }
+                        self.modify_var("gun_selected", Value::UInt(0));
                         self.modify_var("gun_selectable_len", gun_list_content.len() as u32);
                         self.modify_var("reseted_operation_start_animation_timer", false);
                         self.modify_var("first_in_operation_correction", false);
                         self.storage_gun_content = gun_list_content;
                         self.modify_var("prepared_operation", true);
+                        self.modify_var("pause", false);
+                        self.modify_var("forced_cooling", false);
+                        self.modify_var("pause_total_time", Value::Float(0_f32));
+                        self.modify_var("operation_runtime", Value::Float(0_f32));
                         self.add_split_time("start_operation_time", true);
+                        self.add_split_time("operation_over_background_animation", true);
+                        self.add_split_time("gun_shooting_time", true);
+                        self.add_split_time("gun_end_shooting_time", true);
+                        self.add_split_time("start_pause_time", true);
+                        self.add_split_time("horizontal_scrolling_time", true);
+                        self.add_split_time("cost_recover_time", true);
+                        self.add_split_time("operation_start_fade_animation", true);
+                        self.enemy_list = Vec::new();
                     } else if self.var_b("in_operation") {
-                            if !self.var_b("first_in_operation_correction") {
-                                self.modify_var("first_in_operation_correction", true);
-                                self.add_split_time("start_operation_time", true);
-                            };
-                            let operation_refresh_time =
-                                self.split_time("operation_refresh_time")[0];
-                            let refresh_index = self.find_pause_index(operation_refresh_time);
-                            let refresh = if self.var_b("pause") {
-                                false
-                            } else if refresh_index != -1 {
-                                    self.timer.now_time
-                                        - self.split_time("operation_refresh_time")[0]
-                                        - self.count_pause_time(refresh_index as usize)
-                                        >= self.vertrefresh
-                                } else {
-                                    self.timer.now_time
-                                        - self.split_time("operation_refresh_time")[0]
-                                        >= self.vertrefresh
-                            };
-                            if refresh && !self.var_b("pause") {
-                                self.add_split_time("operation_refresh_time", true);
-                            };
-                            self.resource_rect[bar_id].origin_position[1] =
-                                ctx.available_rect().height() / 2_f32 - 350_f32;
-                            self.resource_image[bar_id2].origin_position = [
-                                ctx.available_rect().width() / 2_f32 - 640_f32 + 1280_f32 / 5_f32,
-                                ctx.available_rect().height() / 2_f32 - 340_f32,
-                            ];
-                            self.resource_image[bar_id3].origin_position = [
-                                ctx.available_rect().width() / 2_f32 - 640_f32
-                                    + 1280_f32 / 5_f32 * 2_f32,
-                                ctx.available_rect().height() / 2_f32 - 340_f32,
-                            ];
-                            self.resource_image[bar_id4].origin_position = [
-                                ctx.available_rect().width() / 2_f32 - 640_f32
-                                    + 1280_f32 / 5_f32 * 3_f32,
-                                ctx.available_rect().height() / 2_f32 - 340_f32,
-                            ];
-                            self.resource_image[bar_id5].origin_position = [
-                                ctx.available_rect().width() / 2_f32 - 640_f32
-                                    + 1280_f32 / 5_f32 * 4_f32,
-                                ctx.available_rect().height() / 2_f32 - 340_f32,
-                            ];
-                            self.resource_text[bar_id6].origin_position = [
-                                ctx.available_rect().width() / 2_f32 - 640_f32
-                                    + 1280_f32 / 5_f32
-                                    + 30_f32,
-                                ctx.available_rect().height() / 2_f32 - 340_f32,
-                            ];
-                            self.resource_text[bar_id6].text_content =
-                                self.var_u("target_point").to_string();
-                            self.resource_text[bar_id7].origin_position = [
-                                ctx.available_rect().width() / 2_f32 - 640_f32
-                                    + 1280_f32 / 5_f32 * 2_f32
-                                    + 30_f32,
-                                ctx.available_rect().height() / 2_f32 - 340_f32,
-                            ];
-                            self.resource_text[bar_id7].text_content = format!(
-                                "{}/{}",
-                                self.var_u("current_killed_target_enemy"),
-                                self.var_u("target_enemy")
-                            );
-                            self.resource_text[bar_id8].origin_position = [
-                                ctx.available_rect().width() / 2_f32 - 640_f32
-                                    + 1280_f32 / 5_f32 * 3_f32
-                                    + 30_f32,
-                                ctx.available_rect().height() / 2_f32 - 340_f32,
-                            ];
-                            self.resource_text[bar_id8].text_content =
-                                self.var_u("storage_bullet").to_string();
-                            self.resource_text[bar_id9].origin_position = [
-                                ctx.available_rect().width() / 2_f32 - 640_f32
-                                    + 1280_f32 / 5_f32 * 4_f32
-                                    + 30_f32,
-                                ctx.available_rect().height() / 2_f32 - 340_f32,
-                            ];
-                            self.resource_text[bar_id9].text_content =
-                                self.var_u("cost").to_string();
-                            let scroll_background = self.track_resource(
-                                self.resource_scroll_background.clone(),
-                                "Operation_Expand",
-                            );
-                            if self.var_decode_f(
-                                self.clone().var_v("operation_last_window_size")[0].clone(),
-                            ) != ctx.available_rect().width()
-                                || self.var_decode_f(
-                                    self.clone().var_v("operation_last_window_size")[1].clone(),
-                                ) != ctx.available_rect().height()
+                        if !self.var_b("first_in_operation_correction") {
+                            self.modify_var("first_in_operation_correction", true);
+                            self.add_split_time("start_operation_time", true);
+                        };
+                        let operation_refresh_time = self.split_time("operation_refresh_time")[0];
+                        let refresh_index = self.find_pause_index(operation_refresh_time);
+                        let refresh = if self.var_b("pause") {
+                            false
+                        } else if refresh_index != -1 {
+                            self.timer.now_time
+                                - self.split_time("operation_refresh_time")[0]
+                                - self.count_pause_time(refresh_index as usize)
+                                >= self.vertrefresh
+                        } else {
+                            self.timer.now_time - self.split_time("operation_refresh_time")[0]
+                                >= self.vertrefresh
+                        };
+                        if refresh && !self.var_b("pause") {
+                            self.add_split_time("operation_refresh_time", true);
+                        };
+                        self.resource_rect[bar_id].origin_position[1] =
+                            ctx.available_rect().height() / 2_f32 - 350_f32;
+                        self.resource_image[bar_id2].origin_position = [
+                            ctx.available_rect().width() / 2_f32 - 640_f32 + 1280_f32 / 5_f32,
+                            ctx.available_rect().height() / 2_f32 - 340_f32,
+                        ];
+                        self.resource_image[bar_id3].origin_position = [
+                            ctx.available_rect().width() / 2_f32 - 640_f32
+                                + 1280_f32 / 5_f32 * 2_f32,
+                            ctx.available_rect().height() / 2_f32 - 340_f32,
+                        ];
+                        self.resource_image[bar_id4].origin_position = [
+                            ctx.available_rect().width() / 2_f32 - 640_f32
+                                + 1280_f32 / 5_f32 * 3_f32,
+                            ctx.available_rect().height() / 2_f32 - 340_f32,
+                        ];
+                        self.resource_image[bar_id5].origin_position = [
+                            ctx.available_rect().width() / 2_f32 - 640_f32
+                                + 1280_f32 / 5_f32 * 4_f32,
+                            ctx.available_rect().height() / 2_f32 - 340_f32,
+                        ];
+                        self.resource_text[bar_id6].origin_position = [
+                            ctx.available_rect().width() / 2_f32 - 640_f32
+                                + 1280_f32 / 5_f32
+                                + 30_f32,
+                            ctx.available_rect().height() / 2_f32 - 340_f32,
+                        ];
+                        self.resource_text[bar_id6].text_content =
+                            self.var_u("target_point").to_string();
+                        self.resource_text[bar_id7].origin_position = [
+                            ctx.available_rect().width() / 2_f32 - 640_f32
+                                + 1280_f32 / 5_f32 * 2_f32
+                                + 30_f32,
+                            ctx.available_rect().height() / 2_f32 - 340_f32,
+                        ];
+                        self.resource_text[bar_id7].text_content = format!(
+                            "{}/{}",
+                            self.var_u("current_killed_target_enemy"),
+                            self.var_u("target_enemy")
+                        );
+                        self.resource_text[bar_id8].origin_position = [
+                            ctx.available_rect().width() / 2_f32 - 640_f32
+                                + 1280_f32 / 5_f32 * 3_f32
+                                + 30_f32,
+                            ctx.available_rect().height() / 2_f32 - 340_f32,
+                        ];
+                        self.resource_text[bar_id8].text_content =
+                            self.var_u("storage_bullet").to_string();
+                        self.resource_text[bar_id9].origin_position = [
+                            ctx.available_rect().width() / 2_f32 - 640_f32
+                                + 1280_f32 / 5_f32 * 4_f32
+                                + 30_f32,
+                            ctx.available_rect().height() / 2_f32 - 340_f32,
+                        ];
+                        self.resource_text[bar_id9].text_content = self.var_u("cost").to_string();
+                        let scroll_background = self.track_resource(
+                            self.resource_scroll_background.clone(),
+                            "Operation_Expand",
+                        );
+                        if self.var_decode_f(
+                            self.clone().var_v("operation_last_window_size")[0].clone(),
+                        ) != ctx.available_rect().width()
+                            || self.var_decode_f(
+                                self.clone().var_v("operation_last_window_size")[1].clone(),
+                            ) != ctx.available_rect().height()
+                        {
+                            self.resource_scroll_background[scroll_background].resume_point =
+                                -ctx.available_rect().height();
+                            for i in 0..self.resource_scroll_background[scroll_background]
+                                .image_name
+                                .len()
                             {
-                                self.resource_scroll_background[scroll_background].resume_point =
-                                    -ctx.available_rect().height();
-                                for i in 0..self.resource_scroll_background[scroll_background]
-                                    .image_name
-                                    .len()
-                                {
-                                    let id = self.track_resource(
-                                        self.resource_image.clone(),
-                                        &self.resource_scroll_background[scroll_background]
-                                            .image_name[i]
-                                            .clone(),
-                                    );
-                                    self.resource_image[id].image_size = [
-                                        ctx.available_rect().width(),
-                                        ctx.available_rect().height() + 1_f32,
-                                    ];
-                                    self.resource_image[id].origin_position[1] =
-                                        i as f32 * self.resource_image[id].image_size[1];
-                                    self.resource_scroll_background[scroll_background].boundary =
-                                        ctx.available_rect().height();
-                                }
-                            };
-                            let id_id = self.var_u("gun_selected") as usize;
-                            let id = self.track_resource(
-                                self.resource_image.clone(),
-                                &self.storage_gun_content[id_id].gun_recognition_name.clone(),
-                            );
-                            if let Some(mouse_pos) = ui.input(|i| i.pointer.hover_pos()) {
-                                if !self.var_b("pause") {
-                                    self.resource_image[id].origin_position = [
-                                        mouse_pos.x,
-                                        mouse_pos.y - self.var_f(&format!("gun{}_recoil", id_id)),
-                                    ];
-                                };
-                            };
-                            if self.resource_image[id].origin_position[0]
-                                - self.resource_image[id].image_size[0] / 2_f32
-                                < ctx.available_rect().width() / 2_f32 - 640_f32
-                            {
-                                self.resource_image[id].origin_position[0] =
-                                    ctx.available_rect().width() / 2_f32 - 640_f32
-                                        + self.resource_image[id].image_size[0] / 2_f32;
-                            } else if self.resource_image[id].origin_position[0]
-                                + self.resource_image[id].image_size[0] / 2_f32
-                                > ctx.available_rect().width() / 2_f32 + 640_f32
-                            {
-                                self.resource_image[id].origin_position[0] =
-                                    ctx.available_rect().width() / 2_f32 + 640_f32
-                                        - self.resource_image[id].image_size[0] / 2_f32;
-                            };
-                            if self.resource_image[id].origin_position[1]
-                                - self.resource_image[id].image_size[1] / 2_f32
-                                < ctx.available_rect().height() / 2_f32 - 360_f32
-                            {
+                                let id = self.track_resource(
+                                    self.resource_image.clone(),
+                                    &self.resource_scroll_background[scroll_background].image_name
+                                        [i]
+                                        .clone(),
+                                );
+                                self.resource_image[id].image_size = [
+                                    ctx.available_rect().width(),
+                                    ctx.available_rect().height() + 1_f32,
+                                ];
                                 self.resource_image[id].origin_position[1] =
-                                    ctx.available_rect().height() / 2_f32 - 360_f32
-                                        + self.resource_image[id].image_size[1] / 2_f32;
-                            } else if self.resource_image[id].origin_position[1]
-                                + self.resource_image[id].image_size[1] / 2_f32
-                                > ctx.available_rect().height() / 2_f32 + 360_f32
-                            {
-                                self.resource_image[id].origin_position[1] =
-                                    ctx.available_rect().height() / 2_f32 + 360_f32
-                                        - self.resource_image[id].image_size[1] / 2_f32;
+                                    i as f32 * self.resource_image[id].image_size[1];
+                                self.resource_scroll_background[scroll_background].boundary =
+                                    ctx.available_rect().height();
+                            }
+                        };
+                        let id_id = self.var_u("gun_selected") as usize;
+                        let id = self.track_resource(
+                            self.resource_image.clone(),
+                            &format!(
+                                "Gun_{}",
+                                self.storage_gun_content[id_id].gun_recognition_name.clone()
+                            ),
+                        );
+                        if let Some(mouse_pos) = ui.input(|i| i.pointer.hover_pos()) {
+                            if !self.var_b("pause") {
+                                self.resource_image[id].origin_position = [
+                                    mouse_pos.x,
+                                    mouse_pos.y - self.var_f(&format!("gun{}_recoil", id_id)),
+                                ];
                             };
-                            if ctx.available_rect().width() != 1280_f32
-                                || ctx.available_rect().height() != 720_f32
-                            {
-                                if self.var_b("pause") {
-                                    self.image(ui, "Operation_Expand1", ctx);
-                                    self.image(ui, "Operation_Expand2", ctx);
-                                } else {
-                                    self.scroll_background(ui, "Operation_Expand", ctx);
-                                };
+                        };
+                        if self.resource_image[id].origin_position[0]
+                            - self.resource_image[id].image_size[0] / 2_f32
+                            < ctx.available_rect().width() / 2_f32 - 640_f32
+                        {
+                            self.resource_image[id].origin_position[0] =
+                                ctx.available_rect().width() / 2_f32 - 640_f32
+                                    + self.resource_image[id].image_size[0] / 2_f32;
+                        } else if self.resource_image[id].origin_position[0]
+                            + self.resource_image[id].image_size[0] / 2_f32
+                            > ctx.available_rect().width() / 2_f32 + 640_f32
+                        {
+                            self.resource_image[id].origin_position[0] =
+                                ctx.available_rect().width() / 2_f32 + 640_f32
+                                    - self.resource_image[id].image_size[0] / 2_f32;
+                        };
+                        if self.resource_image[id].origin_position[1]
+                            - self.resource_image[id].image_size[1] / 2_f32
+                            < ctx.available_rect().height() / 2_f32 - 360_f32
+                        {
+                            self.resource_image[id].origin_position[1] =
+                                ctx.available_rect().height() / 2_f32 - 360_f32
+                                    + self.resource_image[id].image_size[1] / 2_f32;
+                        } else if self.resource_image[id].origin_position[1]
+                            + self.resource_image[id].image_size[1] / 2_f32
+                            > ctx.available_rect().height() / 2_f32 + 360_f32
+                        {
+                            self.resource_image[id].origin_position[1] =
+                                ctx.available_rect().height() / 2_f32 + 360_f32
+                                    - self.resource_image[id].image_size[1] / 2_f32;
+                        };
+                        if ctx.available_rect().width() != 1280_f32
+                            || ctx.available_rect().height() != 720_f32
+                        {
+                            if self.var_b("pause") {
+                                self.image(ui, "Operation_Expand1", ctx);
+                                self.image(ui, "Operation_Expand2", ctx);
+                            } else {
+                                self.scroll_background(ui, "Operation_Expand", ctx);
                             };
-                            self.image(ui, "Operation", ctx);
-                            let gun_id = self.track_resource(
-                                self.resource_switch.clone(),
-                                &self.storage_gun_content[id_id].gun_recognition_name.clone(),
-                            );
-                            if ui.input(|i| i.pointer.button_released(PointerButton::Middle))
-                                && self.resource_switch[gun_id].state == 0
-                                && !self.var_b("pause")
-                            {
+                        };
+                        self.image(ui, "Operation", ctx);
+                        let gun_id = self.track_resource(
+                            self.resource_switch.clone(),
+                            &format!(
+                                "Gun_{}",
+                                self.storage_gun_content[id_id].gun_recognition_name.clone()
+                            ),
+                        );
+                        if ui.input(|i| i.pointer.button_released(PointerButton::Middle))
+                            && self.resource_switch[gun_id].state == 0
+                            && !self.var_b("pause")
+                        {
+                            if self.var_u("gun_selected") < self.var_u("gun_selectable_len") - 1 {
+                                let gun_selected = self.var_u("gun_selected");
+                                self.modify_var("gun_selected", gun_selected + 1);
+                            } else {
+                                self.modify_var("gun_selected", Value::UInt(0));
+                            };
+                            std::thread::spawn(|| {
+                                kira_play_wav("Resources/assets/sounds/Reload.wav").unwrap();
+                            });
+                        };
+                        self.resource_switch[gun_id].appearance[0].color = [
+                            255,
+                            255 - self.var_u(&format!("gun{}_temperature", id_id)) as u8,
+                            255 - self.var_u(&format!("gun{}_temperature", id_id)) as u8,
+                            255,
+                        ];
+                        if self.var_b("forced_cooling") {
+                            self.resource_switch[gun_id].appearance[2].color = [
+                                255,
+                                255 - self.var_u(&format!("gun{}_temperature", id_id)) as u8,
+                                255 - self.var_u(&format!("gun{}_temperature", id_id)) as u8,
+                                255,
+                            ];
+                        } else {
+                            self.resource_switch[gun_id].appearance[2].color = [0, 0, 0, 255];
+                        };
+                        let mut target_line = Vec::new();
+                        for i in 0..self.var_v("target_line").len() / 2 {
+                            let first_element = self.var_v("target_line")[i * 2].clone();
+                            let second_element = self.var_v("target_line")[i * 2 + 1].clone();
+                            target_line.push(Pos2 {
+                                x: self.var_decode_f(first_element)
+                                    + (ctx.available_rect().width() - 1280_f32) / 2_f32,
+                                y: self.var_decode_f(second_element)
+                                    + (ctx.available_rect().height() - 720_f32) / 2_f32,
+                            });
+                        }
+                        ui.painter().line(
+                            target_line,
+                            Stroke {
+                                width: 8.0,
+                                color: Color32::from_rgba_unmultiplied(255, 0, 0, 255),
+                            },
+                        );
+                        self.enemy_refresh(ctx, ui, refresh);
+                        self.switch(
+                            &format!(
+                                "Gun_{}",
+                                self.storage_gun_content[id_id].gun_recognition_name.clone()
+                            ),
+                            ui,
+                            ctx,
+                            true,
+                            false,
+                        );
+                        let bullets_id = if self.var_b(&format!("gun{}_reload", id_id)) {
+                            self.track_resource(self.resource_image.clone(), "Bullets_Reload")
+                        } else {
+                            self.track_resource(self.resource_image.clone(), "Bullets")
+                        };
+                        let surplus_bullets_id =
+                            self.track_resource(self.resource_text.clone(), "Surplus_Bullets");
+                        self.resource_text[surplus_bullets_id].text_content = format!(
+                            "{}/{}",
+                            self.var_u(&format!("gun{}_surplus_bullets", id_id)),
+                            self.storage_gun_content[id_id].gun_catridge_clip
+                        );
+                        let bullets_total_size =
+                            30_f32 + self.get_text_size("Surplus_Bullets", ui)[0];
+                        self.resource_text[surplus_bullets_id].origin_position = [
+                            self.resource_image[id].origin_position[0] + bullets_total_size / 2_f32,
+                            self.resource_image[id].origin_position[1]
+                                + self.storage_gun_content[id_id].gun_size[1] / 2_f32
+                                + 6_f32,
+                        ];
+                        self.resource_image[bullets_id].origin_position = [
+                            self.resource_image[id].origin_position[0] - bullets_total_size / 2_f32,
+                            self.resource_image[id].origin_position[1]
+                                + self.storage_gun_content[id_id].gun_size[1] / 2_f32
+                                + 10_f32,
+                        ];
+                        self.text(ui, "Surplus_Bullets", ctx);
+                        if self.var_b(&format!("gun{}_reload", id_id)) {
+                            self.image(ui, "Bullets_Reload", ctx);
+                        } else {
+                            self.image(ui, "Bullets", ctx);
+                        };
+                        ui.painter().line(
+                            vec![
+                                Pos2 {
+                                    x: self.resource_image[id].origin_position[0]
+                                        + self.storage_gun_content[id_id].gun_size[0] / 2_f32
+                                        + 10_f32,
+                                    y: self.resource_image[id].origin_position[1]
+                                        + self.storage_gun_content[id_id].gun_size[1] / 2_f32,
+                                },
+                                Pos2 {
+                                    x: self.resource_image[id].origin_position[0]
+                                        + self.storage_gun_content[id_id].gun_size[0] / 2_f32
+                                        + 10_f32,
+                                    y: self.resource_image[id].origin_position[1]
+                                        - self.storage_gun_content[id_id].gun_size[1] / 2_f32,
+                                },
+                            ],
+                            Stroke {
+                                width: 8.0,
+                                color: Color32::from_rgba_unmultiplied(
+                                    0,
+                                    0,
+                                    0,
+                                    self.var_u(&format!("gun{}_temperature", id_id)) as u8,
+                                ),
+                            },
+                        );
+                        ui.painter().line(
+                            vec![
+                                Pos2 {
+                                    x: self.resource_image[id].origin_position[0]
+                                        + self.storage_gun_content[id_id].gun_size[0] / 2_f32
+                                        + 10_f32,
+                                    y: self.resource_image[id].origin_position[1]
+                                        + self.storage_gun_content[id_id].gun_size[1] / 2_f32,
+                                },
+                                Pos2 {
+                                    x: self.resource_image[id].origin_position[0]
+                                        + self.storage_gun_content[id_id].gun_size[0] / 2_f32
+                                        + 10_f32,
+                                    y: self.resource_image[id].origin_position[1]
+                                        + self.storage_gun_content[id_id].gun_size[1] / 2_f32
+                                        - self.storage_gun_content[id_id].gun_size[1]
+                                            * (self.var_u(&format!("gun{}_temperature", id_id))
+                                                as f32
+                                                / 255_f32),
+                                },
+                            ],
+                            Stroke {
+                                width: 5.0,
+                                color: Color32::from_rgba_unmultiplied(
+                                    self.var_u(&format!("gun{}_temperature", id_id)) as u8,
+                                    0,
+                                    0,
+                                    self.var_u(&format!("gun{}_temperature", id_id)) as u8,
+                                ),
+                            },
+                        );
+                        let scroll_delta = ui.input(|i| i.smooth_scroll_delta);
+                        let horizontal_scrolling_time =
+                            self.split_time("horizontal_scrolling_time")[0];
+                        let scrolling_index = self.find_pause_index(horizontal_scrolling_time);
+                        let scroll_time_waited = if scrolling_index != -1 {
+                            self.timer.now_time
+                                - self.split_time("horizontal_scrolling_time")[0]
+                                - self.count_pause_time(scrolling_index as usize)
+                                >= 0.5
+                        } else {
+                            self.timer.now_time - self.split_time("horizontal_scrolling_time")[0]
+                                >= 0.5
+                        };
+                        if scroll_delta.x != 0.0
+                            && scroll_time_waited
+                            && self.resource_switch[gun_id].state == 0
+                            && !self.var_b("pause")
+                        {
+                            if scroll_delta.x < -20.0 {
+                                self.add_split_time("horizontal_scrolling_time", true);
                                 if self.var_u("gun_selected") < self.var_u("gun_selectable_len") - 1
                                 {
                                     let gun_selected = self.var_u("gun_selected");
@@ -2252,557 +2685,536 @@ impl eframe::App for App {
                                 std::thread::spawn(|| {
                                     kira_play_wav("Resources/assets/sounds/Reload.wav").unwrap();
                                 });
-                            };
-                            self.resource_switch[gun_id].appearance[0].color = [
-                                255,
-                                255 - self.var_u(&format!("gun{}_temperature", id_id)) as u8,
-                                255 - self.var_u(&format!("gun{}_temperature", id_id)) as u8,
-                                255,
-                            ];
-                            if self.var_b("forced_cooling") {
-                                self.resource_switch[gun_id].appearance[2].color = [
-                                    255,
-                                    255 - self.var_u(&format!("gun{}_temperature", id_id)) as u8,
-                                    255 - self.var_u(&format!("gun{}_temperature", id_id)) as u8,
-                                    255,
-                                ];
-                            } else {
-                                self.resource_switch[gun_id].appearance[2].color = [0, 0, 0, 255];
-                            };
-                            let mut target_line = Vec::new();
-                            for i in 0..self.var_v("target_line").len() / 2 {
-                                let first_element = self.var_v("target_line")[i * 2].clone();
-                                let second_element = self.var_v("target_line")[i * 2 + 1].clone();
-                                target_line.push(Pos2 {
-                                    x: self.var_decode_f(first_element)
-                                        + (ctx.available_rect().width() - 1280_f32) / 2_f32,
-                                    y: self.var_decode_f(second_element)
-                                        + (ctx.available_rect().height() - 720_f32) / 2_f32,
-                                });
-                            }
-                            ui.painter().line(
-                                target_line,
-                                Stroke {
-                                    width: 8.0,
-                                    color: Color32::from_rgba_unmultiplied(255, 0, 0, 255),
-                                },
-                            );
-                            self.enemy_refresh(ctx, ui, refresh);
-                            self.switch(
-                                &self.storage_gun_content[id_id].gun_recognition_name.clone(),
-                                ui,
-                                ctx,
-                                true,
-                                false,
-                            );
-                            let bullets_id = if self.var_b(&format!("gun{}_reload", id_id)) {
-                                self.track_resource(self.resource_image.clone(), "Bullets_Reload")
-                            } else {
-                                self.track_resource(self.resource_image.clone(), "Bullets")
-                            };
-                            let surplus_bullets_id =
-                                self.track_resource(self.resource_text.clone(), "Surplus_Bullets");
-                            self.resource_text[surplus_bullets_id].text_content = format!(
-                                "{}/{}",
-                                self.var_u(&format!("gun{}_surplus_bullets", id_id)),
-                                self.storage_gun_content[id_id].gun_catridge_clip
-                            );
-                            let bullets_total_size =
-                                30_f32 + self.get_text_size("Surplus_Bullets", ui)[0];
-                            self.resource_text[surplus_bullets_id].origin_position = [
-                                self.resource_image[id].origin_position[0]
-                                    + bullets_total_size / 2_f32,
-                                self.resource_image[id].origin_position[1]
-                                    + self.storage_gun_content[id_id].gun_size[1] / 2_f32
-                                    + 6_f32,
-                            ];
-                            self.resource_image[bullets_id].origin_position = [
-                                self.resource_image[id].origin_position[0]
-                                    - bullets_total_size / 2_f32,
-                                self.resource_image[id].origin_position[1]
-                                    + self.storage_gun_content[id_id].gun_size[1] / 2_f32
-                                    + 10_f32,
-                            ];
-                            self.text(ui, "Surplus_Bullets", ctx);
-                            if self.var_b(&format!("gun{}_reload", id_id)) {
-                                self.image(ui, "Bullets_Reload", ctx);
-                            } else {
-                                self.image(ui, "Bullets", ctx);
-                            };
-                            ui.painter().line(
-                                vec![
-                                    Pos2 {
-                                        x: self.resource_image[id].origin_position[0]
-                                            + self.storage_gun_content[id_id].gun_size[0] / 2_f32
-                                            + 10_f32,
-                                        y: self.resource_image[id].origin_position[1]
-                                            + self.storage_gun_content[id_id].gun_size[1] / 2_f32,
-                                    },
-                                    Pos2 {
-                                        x: self.resource_image[id].origin_position[0]
-                                            + self.storage_gun_content[id_id].gun_size[0] / 2_f32
-                                            + 10_f32,
-                                        y: self.resource_image[id].origin_position[1]
-                                            - self.storage_gun_content[id_id].gun_size[1] / 2_f32,
-                                    },
-                                ],
-                                Stroke {
-                                    width: 8.0,
-                                    color: Color32::from_rgba_unmultiplied(
-                                        0,
-                                        0,
-                                        0,
-                                        self.var_u(&format!("gun{}_temperature", id_id)) as u8,
-                                    ),
-                                },
-                            );
-                            ui.painter().line(
-                                vec![
-                                    Pos2 {
-                                        x: self.resource_image[id].origin_position[0]
-                                            + self.storage_gun_content[id_id].gun_size[0] / 2_f32
-                                            + 10_f32,
-                                        y: self.resource_image[id].origin_position[1]
-                                            + self.storage_gun_content[id_id].gun_size[1] / 2_f32,
-                                    },
-                                    Pos2 {
-                                        x: self.resource_image[id].origin_position[0]
-                                            + self.storage_gun_content[id_id].gun_size[0] / 2_f32
-                                            + 10_f32,
-                                        y: self.resource_image[id].origin_position[1]
-                                            + self.storage_gun_content[id_id].gun_size[1] / 2_f32
-                                            - self.storage_gun_content[id_id].gun_size[1]
-                                                * (self.var_u(&format!("gun{}_temperature", id_id))
-                                                    as f32
-                                                    / 255_f32),
-                                    },
-                                ],
-                                Stroke {
-                                    width: 5.0,
-                                    color: Color32::from_rgba_unmultiplied(
-                                        self.var_u(&format!("gun{}_temperature", id_id)) as u8,
-                                        0,
-                                        0,
-                                        self.var_u(&format!("gun{}_temperature", id_id)) as u8,
-                                    ),
-                                },
-                            );
-                            let scroll_delta = ui.input(|i| i.smooth_scroll_delta);
-                            let horizontal_scrolling_time =
-                                self.split_time("horizontal_scrolling_time")[0];
-                            let scrolling_index = self.find_pause_index(horizontal_scrolling_time);
-                            let scroll_time_waited = if scrolling_index != -1 {
-                                self.timer.now_time
-                                    - self.split_time("horizontal_scrolling_time")[0]
-                                    - self.count_pause_time(scrolling_index as usize)
-                                    >= 0.5
-                            } else {
-                                self.timer.now_time
-                                    - self.split_time("horizontal_scrolling_time")[0]
-                                    >= 0.5
-                            };
-                            if scroll_delta.x != 0.0
-                                && scroll_time_waited
-                                && self.resource_switch[gun_id].state == 0
-                                && !self.var_b("pause")
-                            {
-                                if scroll_delta.x < -20.0 {
-                                    self.add_split_time("horizontal_scrolling_time", true);
-                                    if self.var_u("gun_selected")
-                                        < self.var_u("gun_selectable_len") - 1
-                                    {
-                                        let gun_selected = self.var_u("gun_selected");
-                                        self.modify_var("gun_selected", gun_selected + 1);
-                                    } else {
-                                        self.modify_var("gun_selected", Value::UInt(0));
-                                    };
-                                    std::thread::spawn(|| {
-                                        kira_play_wav("Resources/assets/sounds/Reload.wav")
-                                            .unwrap();
-                                    });
-                                } else if scroll_delta.x > 20.0 {
-                                    self.add_split_time("horizontal_scrolling_time", true);
-                                    if self.var_u("gun_selected") > 0 {
-                                        let gun_selected = self.var_u("gun_selected");
-                                        self.modify_var("gun_selected", gun_selected - 1);
-                                    } else {
-                                        let gun_selectable_len = self.var_u("gun_selectable_len");
-                                        self.modify_var(
-                                            "gun_selected",
-                                            Value::UInt(gun_selectable_len - 1),
-                                        );
-                                    };
-                                    std::thread::spawn(|| {
-                                        kira_play_wav("Resources/assets/sounds/Reload.wav")
-                                            .unwrap();
-                                    });
+                            } else if scroll_delta.x > 20.0 {
+                                self.add_split_time("horizontal_scrolling_time", true);
+                                if self.var_u("gun_selected") > 0 {
+                                    let gun_selected = self.var_u("gun_selected");
+                                    self.modify_var("gun_selected", gun_selected - 1);
+                                } else {
+                                    let gun_selectable_len = self.var_u("gun_selectable_len");
+                                    self.modify_var(
+                                        "gun_selected",
+                                        Value::UInt(gun_selectable_len - 1),
+                                    );
                                 };
+                                std::thread::spawn(|| {
+                                    kira_play_wav("Resources/assets/sounds/Reload.wav").unwrap();
+                                });
                             };
-                            let cost_recover_time = self.split_time("cost_recover_time")[0];
-                            let cost_recover_time_index = self.find_pause_index(cost_recover_time);
-                            let cost_time_waited = if cost_recover_time_index != -1 {
-                                self.timer.now_time
-                                    - self.count_pause_time(cost_recover_time_index as usize)
-                                    - self.split_time("cost_recover_time")[0]
-                                    >= self.var_f("cost_recover_speed")
-                            } else {
-                                self.timer.now_time - self.split_time("cost_recover_time")[0]
-                                    >= self.var_f("cost_recover_speed")
-                            };
-                            if refresh && cost_time_waited && !self.var_b("pause") {
-                                let cost = self.var_u("cost");
-                                self.modify_var("cost", Value::UInt(cost + 1));
-                                self.add_split_time("cost_recover_time", true);
-                            };
-                            let gun_reload_interval =
-                                self.split_time(&format!("gun{}_reload_interval", id_id))[0];
-                            let gun_reload_interval_index =
-                                self.find_pause_index(gun_reload_interval);
-                            let reload_time_waited = if gun_reload_interval_index != -1 {
-                                self.timer.now_time
-                                    - self.split_time(&format!("gun{}_reload_interval", id_id))[0]
-                                    - self.count_pause_time(gun_reload_interval_index as usize)
-                                    >= self.storage_gun_content[id_id].gun_reload_interval
-                            } else {
-                                self.timer.now_time
-                                    - self.split_time(&format!("gun{}_reload_interval", id_id))[0]
-                                    >= self.storage_gun_content[id_id].gun_reload_interval
-                            };
-                            if self.var_b(&format!("gun{}_reload", id_id))
-                                && refresh
-                                && reload_time_waited
-                                && !self.var_b("pause")
-                            {
-                                self.add_split_time(&format!("gun{}_reload_interval", id_id), true);
-                                if scroll_delta.y != 0.0 {
-                                    let mut sound;
-                                    if scroll_delta.y > 0.0 && self.var_u("storage_bullet") > 0 {
-                                        let storage_bullet = self.var_u("storage_bullet");
-                                        self.modify_var(
-                                            "storage_bullet",
-                                            Value::UInt(storage_bullet - 1),
-                                        );
-                                        let surplus_bullets =
-                                            self.var_u(&format!("gun{}_surplus_bullets", id_id));
-                                        self.modify_var(
-                                            &format!("gun{}_surplus_bullets", id_id),
-                                            surplus_bullets + 1,
-                                        );
-                                        sound = self.storage_gun_content[id_id]
-                                            .gun_reload_bullet_sound
-                                            .clone();
-                                        std::thread::spawn(move || {
-                                            kira_play_wav(&sound).unwrap();
-                                        });
-                                        if self.var_u(&format!("gun{}_surplus_bullets", id_id))
-                                            == self.storage_gun_content[id_id].gun_catridge_clip
-                                        {
-                                            self.modify_var(&format!("gun{}_reload", id_id), false);
-                                            sound = self.storage_gun_content[id_id]
-                                                .gun_reload_sound
-                                                .clone();
-                                            std::thread::spawn(move || {
-                                                kira_play_wav(&sound).unwrap();
-                                            });
-                                        };
-                                    } else if self.var_u(&format!("gun{}_surplus_bullets", id_id))
-                                        > 0
+                        };
+                        let cost_recover_time = self.split_time("cost_recover_time")[0];
+                        let cost_recover_time_index = self.find_pause_index(cost_recover_time);
+                        let cost_time_waited = if cost_recover_time_index != -1 {
+                            self.timer.now_time
+                                - self.count_pause_time(cost_recover_time_index as usize)
+                                - self.split_time("cost_recover_time")[0]
+                                >= self.var_f("cost_recover_speed")
+                        } else {
+                            self.timer.now_time - self.split_time("cost_recover_time")[0]
+                                >= self.var_f("cost_recover_speed")
+                        };
+                        if refresh && cost_time_waited && !self.var_b("pause") {
+                            let cost = self.var_u("cost");
+                            self.modify_var("cost", Value::UInt(cost + 1));
+                            self.add_split_time("cost_recover_time", true);
+                        };
+                        let gun_reload_interval =
+                            self.split_time(&format!("gun{}_reload_interval", id_id))[0];
+                        let gun_reload_interval_index = self.find_pause_index(gun_reload_interval);
+                        let reload_time_waited = if gun_reload_interval_index != -1 {
+                            self.timer.now_time
+                                - self.split_time(&format!("gun{}_reload_interval", id_id))[0]
+                                - self.count_pause_time(gun_reload_interval_index as usize)
+                                >= self.storage_gun_content[id_id].gun_reload_interval
+                        } else {
+                            self.timer.now_time
+                                - self.split_time(&format!("gun{}_reload_interval", id_id))[0]
+                                >= self.storage_gun_content[id_id].gun_reload_interval
+                        };
+                        if self.var_b(&format!("gun{}_reload", id_id))
+                            && refresh
+                            && reload_time_waited
+                            && !self.var_b("pause")
+                        {
+                            self.add_split_time(&format!("gun{}_reload_interval", id_id), true);
+                            if scroll_delta.y != 0.0 {
+                                let mut sound;
+                                if scroll_delta.y > 0.0 && self.var_u("storage_bullet") > 0 {
+                                    let storage_bullet = self.var_u("storage_bullet");
+                                    self.modify_var(
+                                        "storage_bullet",
+                                        Value::UInt(storage_bullet - 1),
+                                    );
+                                    let surplus_bullets =
+                                        self.var_u(&format!("gun{}_surplus_bullets", id_id));
+                                    self.modify_var(
+                                        &format!("gun{}_surplus_bullets", id_id),
+                                        surplus_bullets + 1,
+                                    );
+                                    sound = self.storage_gun_content[id_id]
+                                        .gun_reload_bullet_sound
+                                        .clone();
+                                    std::thread::spawn(move || {
+                                        kira_play_wav(&sound).unwrap();
+                                    });
+                                    if self.var_u(&format!("gun{}_surplus_bullets", id_id))
+                                        == self.storage_gun_content[id_id].gun_catridge_clip
                                     {
+                                        self.modify_var(&format!("gun{}_reload", id_id), false);
                                         sound = self.storage_gun_content[id_id]
                                             .gun_reload_sound
                                             .clone();
-                                        self.modify_var(&format!("gun{}_reload", id_id), false);
                                         std::thread::spawn(move || {
                                             kira_play_wav(&sound).unwrap();
                                         });
                                     };
+                                } else if self.var_u(&format!("gun{}_surplus_bullets", id_id)) > 0 {
+                                    sound =
+                                        self.storage_gun_content[id_id].gun_reload_sound.clone();
+                                    self.modify_var(&format!("gun{}_reload", id_id), false);
+                                    std::thread::spawn(move || {
+                                        kira_play_wav(&sound).unwrap();
+                                    });
                                 };
                             };
-                            if self.resource_switch[gun_id].state == 0 {
-                                let shoot = self.storage_gun_content[id_id]
+                        };
+                        if self.resource_switch[gun_id].state == 0 {
+                            let shoot = self.storage_gun_content[id_id]
+                                .gun_tag
+                                .contains(&"released_shoot".to_string())
+                                && ui.input(|i| i.pointer.button_released(PointerButton::Primary))
+                                || self.storage_gun_content[id_id]
                                     .gun_tag
-                                    .contains(&"released_shoot".to_string())
-                                    && ui.input(|i| {
-                                        i.pointer.button_released(PointerButton::Primary)
-                                    })
-                                    || self.storage_gun_content[id_id]
-                                        .gun_tag
-                                        .contains(&"down_shoot".to_string())
-                                        && ui.input(|i| {
-                                            i.pointer.button_down(PointerButton::Primary)
-                                        });
-                                if shoot && !self.var_b("pause") {
-                                    if self.var_u(&format!("gun{}_surplus_bullets", id_id)) > 0
-                                        && !self.var_b(&format!("gun{}_reload", id_id))
+                                    .contains(&"down_shoot".to_string())
+                                    && ui.input(|i| i.pointer.button_down(PointerButton::Primary));
+                            if shoot && !self.var_b("pause") {
+                                if self.var_u(&format!("gun{}_surplus_bullets", id_id)) > 0
+                                    && !self.var_b(&format!("gun{}_reload", id_id))
+                                {
+                                    let sound =
+                                        self.storage_gun_content[id_id].gun_shoot_sound.clone();
+                                    self.add_split_time("gun_shooting_time", true);
+                                    std::thread::spawn(move || {
+                                        kira_play_wav(&sound).unwrap();
+                                    });
+                                    self.resource_switch[gun_id].state = 1;
+                                    let recoil = self.var_f(&format!("gun{}_recoil", id_id));
+                                    self.modify_var(
+                                        &format!("gun{}_recoil", id_id),
+                                        Value::Float(
+                                            recoil + self.storage_gun_content[id_id].gun_recoil,
+                                        ),
+                                    );
+                                    for _ in
+                                        0..self.storage_gun_content[id_id].gun_temperature_degree
                                     {
-                                        let sound =
-                                            self.storage_gun_content[id_id].gun_shoot_sound.clone();
-                                        self.add_split_time("gun_shooting_time", true);
-                                        std::thread::spawn(move || {
-                                            kira_play_wav(&sound).unwrap();
+                                        if self.var_u(&format!("gun{}_temperature", id_id)) < 255 {
+                                            let temperature =
+                                                self.var_u(&format!("gun{}_temperature", id_id));
+                                            self.modify_var(
+                                                &format!("gun{}_temperature", id_id),
+                                                Value::UInt(temperature + 1),
+                                            );
+                                        } else {
+                                            break;
+                                        };
+                                    }
+                                    let surplus_bullets =
+                                        self.var_u(&format!("gun{}_surplus_bullets", id_id));
+                                    self.modify_var(
+                                        &format!("gun{}_surplus_bullets", id_id),
+                                        surplus_bullets - 1,
+                                    );
+                                    if self.var_u(&format!("gun{}_surplus_bullets", id_id)) == 0 {
+                                        self.modify_var(&format!("gun{}_reload", id_id), true);
+                                    };
+                                    if self.var_u(&format!("gun{}_temperature", id_id)) == 255 {
+                                        let gun_overheating_sound = self.storage_gun_content[id_id]
+                                            .gun_overheating_sound
+                                            .clone();
+                                        thread::spawn(move || {
+                                            kira_play_wav(&gun_overheating_sound)
                                         });
-                                        self.resource_switch[gun_id].state = 1;
-                                        let recoil = self.var_f(&format!("gun{}_recoil", id_id));
-                                        self.modify_var(
-                                            &format!("gun{}_recoil", id_id),
-                                            Value::Float(
-                                                recoil + self.storage_gun_content[id_id].gun_recoil,
-                                            ),
-                                        );
-                                        for _ in 0..self.storage_gun_content[id_id]
-                                            .gun_temperature_degree
-                                        {
-                                            if self.var_u(&format!("gun{}_temperature", id_id))
-                                                < 255
-                                            {
-                                                let temperature = self
-                                                    .var_u(&format!("gun{}_temperature", id_id));
-                                                self.modify_var(
-                                                    &format!("gun{}_temperature", id_id),
-                                                    Value::UInt(temperature + 1),
-                                                );
-                                            } else {
-                                                break;
-                                            };
-                                        }
-                                        let surplus_bullets =
-                                            self.var_u(&format!("gun{}_surplus_bullets", id_id));
-                                        self.modify_var(
-                                            &format!("gun{}_surplus_bullets", id_id),
-                                            surplus_bullets - 1,
-                                        );
-                                        if self.var_u(&format!("gun{}_surplus_bullets", id_id)) == 0
-                                        {
-                                            self.modify_var(&format!("gun{}_reload", id_id), true);
-                                        };
-                                        if self.var_u(&format!("gun{}_temperature", id_id)) == 255 {
-                                            let gun_overheating_sound = self.storage_gun_content
-                                                [id_id]
-                                                .gun_overheating_sound
-                                                .clone();
-                                            thread::spawn(move || {
-                                                kira_play_wav(&gun_overheating_sound)
-                                            });
-                                            self.modify_var("forced_cooling", true);
-                                        };
-                                    } else if ui.input(|i| {
-                                        i.pointer.button_released(PointerButton::Primary)
-                                    }) && self.storage_gun_content[id_id]
+                                        self.modify_var("forced_cooling", true);
+                                    };
+                                } else if ui
+                                    .input(|i| i.pointer.button_released(PointerButton::Primary))
+                                    && self.storage_gun_content[id_id]
                                         .gun_tag
                                         .contains(&"released_shoot".to_string())
-                                        || ui.input(|i| {
-                                            i.pointer.button_pressed(PointerButton::Primary)
-                                        }) && !self.storage_gun_content[id_id]
+                                    || ui
+                                        .input(|i| i.pointer.button_pressed(PointerButton::Primary))
+                                        && !self.storage_gun_content[id_id]
                                             .gun_tag
                                             .contains(&"released_shoot".to_string())
-                                    {
-                                        let sound_path = self.storage_gun_content[id_id]
-                                            .gun_no_bullet_shoot_sound
-                                            .clone();
-                                        std::thread::spawn(move || kira_play_wav(&sound_path));
-                                    };
-                                };
-                            } else if self.resource_switch[gun_id].state == 1
-                                && !self.var_b("pause")
-                            {
-                                let gun_shooting_time = self.split_time("gun_shooting_time")[0];
-                                let gun_shooting_time_index =
-                                    self.find_pause_index(gun_shooting_time);
-                                let gun_shoot_time_waited = if gun_shooting_time_index != -1 {
-                                    self.timer.now_time
-                                        - self.split_time("gun_shooting_time")[0]
-                                        - self.count_pause_time(gun_shooting_time_index as usize)
-                                        >= self.storage_gun_content[id_id].gun_shoot_speed
-                                } else {
-                                    self.timer.now_time - self.split_time("gun_shooting_time")[0]
-                                        >= self.storage_gun_content[id_id].gun_shoot_speed
-                                };
-                                if gun_shoot_time_waited {
-                                    self.resource_switch[gun_id].state = 2;
-                                    self.add_split_time("gun_end_shooting_time", true);
-                                };
-                            } else if self.resource_switch[gun_id].state == 2
-                                && !self.var_b("forced_cooling")
-                                && !self.var_b("pause")
-                            {
-                                let gun_end_shooting_time =
-                                    self.split_time("gun_end_shooting_time")[0];
-                                let gun_end_shooting_time_index =
-                                    self.find_pause_index(gun_end_shooting_time);
-                                let reload_time_waited = if gun_end_shooting_time_index != -1 {
-                                    self.timer.now_time
-                                        - self.split_time("gun_end_shooting_time")[0]
-                                        - self
-                                            .count_pause_time(gun_end_shooting_time_index as usize)
-                                        >= self.storage_gun_content[id_id].gun_reload_time
-                                } else {
-                                    self.timer.now_time
-                                        - self.split_time("gun_end_shooting_time")[0]
-                                        >= self.storage_gun_content[id_id].gun_reload_time
-                                };
-                                if reload_time_waited {
-                                    self.resource_switch[gun_id].state = 0;
+                                {
+                                    let sound_path = self.storage_gun_content[id_id]
+                                        .gun_no_bullet_shoot_sound
+                                        .clone();
+                                    std::thread::spawn(move || kira_play_wav(&sound_path));
                                 };
                             };
-                            if self.var_f(&format!("gun{}_recoil", id_id)) != 0_f32
-                                && refresh
-                                && !self.var_b("pause")
-                            {
-                                if self.var_f(&format!("gun{}_recoil", id_id)) > 0_f32 {
-                                    let recoil = self.var_f(&format!("gun{}_recoil", id_id));
-                                    if self.resource_switch[gun_id].state == 0
-                                        || self.var_b("forced_cooling")
-                                    {
-                                        self.modify_var(
-                                            &format!("gun{}_recoil", id_id),
-                                            Value::Float(recoil - 1_f32),
-                                        );
-                                    } else {
-                                        self.modify_var(
-                                            &format!("gun{}_recoil", id_id),
-                                            Value::Float(recoil - 0.01_f32),
-                                        );
-                                    };
+                        } else if self.resource_switch[gun_id].state == 1 && !self.var_b("pause") {
+                            let gun_shooting_time = self.split_time("gun_shooting_time")[0];
+                            let gun_shooting_time_index = self.find_pause_index(gun_shooting_time);
+                            let gun_shoot_time_waited = if gun_shooting_time_index != -1 {
+                                self.timer.now_time
+                                    - self.split_time("gun_shooting_time")[0]
+                                    - self.count_pause_time(gun_shooting_time_index as usize)
+                                    >= self.storage_gun_content[id_id].gun_shoot_speed
+                            } else {
+                                self.timer.now_time - self.split_time("gun_shooting_time")[0]
+                                    >= self.storage_gun_content[id_id].gun_shoot_speed
+                            };
+                            if gun_shoot_time_waited {
+                                self.resource_switch[gun_id].state = 2;
+                                self.add_split_time("gun_end_shooting_time", true);
+                            };
+                        } else if self.resource_switch[gun_id].state == 2
+                            && !self.var_b("forced_cooling")
+                            && !self.var_b("pause")
+                        {
+                            let gun_end_shooting_time = self.split_time("gun_end_shooting_time")[0];
+                            let gun_end_shooting_time_index =
+                                self.find_pause_index(gun_end_shooting_time);
+                            let reload_time_waited = if gun_end_shooting_time_index != -1 {
+                                self.timer.now_time
+                                    - self.split_time("gun_end_shooting_time")[0]
+                                    - self.count_pause_time(gun_end_shooting_time_index as usize)
+                                    >= self.storage_gun_content[id_id].gun_reload_time
+                            } else {
+                                self.timer.now_time - self.split_time("gun_end_shooting_time")[0]
+                                    >= self.storage_gun_content[id_id].gun_reload_time
+                            };
+                            if reload_time_waited {
+                                self.resource_switch[gun_id].state = 0;
+                            };
+                        };
+                        if self.var_f(&format!("gun{}_recoil", id_id)) != 0_f32
+                            && refresh
+                            && !self.var_b("pause")
+                        {
+                            if self.var_f(&format!("gun{}_recoil", id_id)) > 0_f32 {
+                                let recoil = self.var_f(&format!("gun{}_recoil", id_id));
+                                if self.resource_switch[gun_id].state == 0
+                                    || self.var_b("forced_cooling")
+                                {
+                                    self.modify_var(
+                                        &format!("gun{}_recoil", id_id),
+                                        Value::Float(recoil - 1_f32),
+                                    );
                                 } else {
                                     self.modify_var(
                                         &format!("gun{}_recoil", id_id),
+                                        Value::Float(recoil - 0.01_f32),
+                                    );
+                                };
+                            } else {
+                                self.modify_var(
+                                    &format!("gun{}_recoil", id_id),
+                                    Value::Float(0_f32),
+                                );
+                            };
+                        };
+                        if self.var_u(&format!("gun{}_temperature", id_id)) != 0
+                            && refresh
+                            && self.var_u(&format!("gun{}_temperature", id_id)) > 0
+                            && self.resource_switch[gun_id].state != 1
+                            && !self.var_b("pause")
+                        {
+                            if self.var_u(&format!("gun{}_temperature", id_id)) >= 1 {
+                                let temperature = self.var_u(&format!("gun{}_temperature", id_id));
+                                self.modify_var(
+                                    &format!("gun{}_temperature", id_id),
+                                    Value::UInt(temperature - 1),
+                                );
+                            };
+                            if self.var_u(&format!("gun{}_temperature", id_id)) == 0 {
+                                self.modify_var("forced_cooling", false);
+                            };
+                        };
+                        if refresh && !self.var_b("pause") {
+                            for i in 0..self.storage_gun_content.len() {
+                                if i != id_id {
+                                    if self.var_u(&format!("gun{}_temperature", i)) > 0 {
+                                        let temperature =
+                                            self.var_u(&format!("gun{}_temperature", i));
+                                        self.modify_var(
+                                            &format!("gun{}_temperature", i),
+                                            Value::UInt(temperature - 1),
+                                        );
+                                    };
+                                    self.modify_var(
+                                        &format!("gun{}_recoil", i),
                                         Value::Float(0_f32),
                                     );
-                                };
-                            };
-                            if self.var_u(&format!("gun{}_temperature", id_id)) != 0
-                                && refresh
-                                && self.var_u(&format!("gun{}_temperature", id_id)) > 0
-                                && self.resource_switch[gun_id].state != 1
-                                && !self.var_b("pause")
-                            {
-                                if self.var_u(&format!("gun{}_temperature", id_id)) >= 1 {
-                                    let temperature =
-                                        self.var_u(&format!("gun{}_temperature", id_id));
-                                    self.modify_var(
-                                        &format!("gun{}_temperature", id_id),
-                                        Value::UInt(temperature - 1),
-                                    );
-                                };
-                                if self.var_u(&format!("gun{}_temperature", id_id)) == 0 {
-                                    self.modify_var("forced_cooling", false);
-                                };
-                            };
-                            if refresh && !self.var_b("pause") {
-                                for i in 0..self.storage_gun_content.len() {
-                                    if i != id_id {
-                                        if self.var_u(&format!("gun{}_temperature", i)) > 0 {
-                                            let temperature =
-                                                self.var_u(&format!("gun{}_temperature", i));
-                                            self.modify_var(
-                                                &format!("gun{}_temperature", i),
-                                                Value::UInt(temperature - 1),
-                                            );
-                                        };
-                                        self.modify_var(
-                                            &format!("gun{}_recoil", i),
-                                            Value::Float(0_f32),
-                                        );
-                                    }
                                 }
-                            };
-                            self.rect(ui, "Operation_Status_Bar", ctx);
-                            self.image(ui, "Target_Point", ctx);
-                            self.image(ui, "Target_Enemy", ctx);
-                            self.image(ui, "Bullet", ctx);
-                            self.image(ui, "Cost", ctx);
-                            self.text(ui, "Target_Point_Text", ctx);
-                            self.text(ui, "Target_Enemy_Text", ctx);
-                            self.text(ui, "Bullet_Text", ctx);
-                            self.text(ui, "Cost_Text", ctx);
-                            let circle_width = if cost_recover_time_index != -1 {
-                                3_f32
-                                    * ((self.timer.now_time
-                                        - self.split_time("cost_recover_time")[0]
-                                        - self.count_pause_time(cost_recover_time_index as usize))
-                                        / self.var_f("cost_recover_speed"))
-                            } else {
-                                3_f32
-                                    * ((self.timer.now_time
-                                        - self.split_time("cost_recover_time")[0])
-                                        / self.var_f("cost_recover_speed"))
-                            };
-                            ui.painter().circle_stroke(
-                                Pos2 {
-                                    x: ctx.available_rect().width() / 2_f32 - 640_f32
-                                        + 1280_f32 / 5_f32 * 4_f32,
-                                    y: ctx.available_rect().height() / 2_f32 - 350_f32 + 35_f32,
-                                },
-                                22_f32,
-                                Stroke {
-                                    width: circle_width,
-                                    color: Color32::from_rgba_unmultiplied(35, 94, 150, 125),
-                                },
-                            );
-                            if let Some(first_mentioned_index) =
-                                self.pause_list.iter().position(|item| item.mentioned)
-                            {
-                                self.pause_list.drain(0..first_mentioned_index);
-
-                                if let Some(first_item) = self.pause_list.first_mut() {
-                                    first_item.mentioned = false;
-                                }
-                            } else {
-                                self.pause_list.clear();
                             }
-                            if ui.input(|i| i.key_pressed(egui::Key::Escape)) {
-                                let pause = self.var_b("pause");
-                                if !pause {
-                                    self.add_split_time("start_pause_time", true);
-                                    let start_pause_time = self.split_time("start_pause_time")[0];
-                                    self.pause_list.push(PauseMessage {
-                                        start_pause_time,
-                                        pause_total_time: 0_f32,
-                                        mentioned: false,
-                                    });
-                                } else {
-                                    let len = self.pause_list.len();
-                                    self.pause_list[len - 1].pause_total_time = self.timer.now_time
-                                        - self.pause_list[len - 1].start_pause_time;
-                                    let pause_total_time = self.var_f("pause_total_time");
-                                    let last_pause =
-                                        self.pause_list[self.pause_list.len() - 1].pause_total_time;
-                                    self.modify_var(
-                                        "pause_total_time",
-                                        Value::Float(pause_total_time + last_pause),
-                                    );
-                                };
-                                self.modify_var("pause", !pause);
-                                let text_id =
-                                    self.track_resource(self.resource_text.clone(), "Pause_Text");
-                                self.resource_text[text_id].text_content =
-                                    game_text["pause"][self.config.language as usize].to_string();
-                                std::thread::spawn(|| {
-                                    kira_play_wav("Resources/assets/sounds/Pause.wav").unwrap();
+                        };
+                        self.rect(ui, "Operation_Status_Bar", ctx);
+                        self.image(ui, "Target_Point", ctx);
+                        self.image(ui, "Target_Enemy", ctx);
+                        self.image(ui, "Bullet", ctx);
+                        self.image(ui, "Cost", ctx);
+                        self.text(ui, "Target_Point_Text", ctx);
+                        self.text(ui, "Target_Enemy_Text", ctx);
+                        self.text(ui, "Bullet_Text", ctx);
+                        self.text(ui, "Cost_Text", ctx);
+                        let circle_width = if cost_recover_time_index != -1 {
+                            3_f32
+                                * ((self.timer.now_time
+                                    - self.split_time("cost_recover_time")[0]
+                                    - self.count_pause_time(cost_recover_time_index as usize))
+                                    / self.var_f("cost_recover_speed"))
+                        } else {
+                            3_f32
+                                * ((self.timer.now_time - self.split_time("cost_recover_time")[0])
+                                    / self.var_f("cost_recover_speed"))
+                        };
+                        ui.painter().circle_stroke(
+                            Pos2 {
+                                x: ctx.available_rect().width() / 2_f32 - 640_f32
+                                    + 1280_f32 / 5_f32 * 4_f32,
+                                y: ctx.available_rect().height() / 2_f32 - 350_f32 + 35_f32,
+                            },
+                            22_f32,
+                            Stroke {
+                                width: circle_width,
+                                color: Color32::from_rgba_unmultiplied(35, 94, 150, 125),
+                            },
+                        );
+                        if let Some(first_mentioned_index) =
+                            self.pause_list.iter().position(|item| item.mentioned)
+                        {
+                            self.pause_list.drain(0..first_mentioned_index);
+
+                            if let Some(first_item) = self.pause_list.first_mut() {
+                                first_item.mentioned = false;
+                            }
+                        } else {
+                            self.pause_list.clear();
+                        }
+                        if ui.input(|i| i.key_pressed(egui::Key::Escape)) {
+                            let pause = self.var_b("pause");
+                            if !pause {
+                                self.add_split_time("start_pause_time", true);
+                                let start_pause_time = self.split_time("start_pause_time")[0];
+                                self.pause_list.push(PauseMessage {
+                                    start_pause_time,
+                                    pause_total_time: 0_f32,
+                                    mentioned: false,
                                 });
-                            };
-                            ui.label(self.var_f("operation_runtime").to_string());
-                            if self.var_b("pause") {
+                            } else {
                                 let len = self.pause_list.len();
                                 self.pause_list[len - 1].pause_total_time =
                                     self.timer.now_time - self.pause_list[len - 1].start_pause_time;
-                                self.rect(ui, "Pause_Background", ctx);
-                                self.text(ui, "Pause_Text", ctx);
-                                ctx.set_cursor_icon(egui::CursorIcon::Wait);
+                                let pause_total_time = self.var_f("pause_total_time");
+                                let last_pause =
+                                    self.pause_list[self.pause_list.len() - 1].pause_total_time;
+                                self.modify_var(
+                                    "pause_total_time",
+                                    Value::Float(pause_total_time + last_pause),
+                                );
+                            };
+                            self.modify_var("pause", !pause);
+                            let text_id =
+                                self.track_resource(self.resource_text.clone(), "Pause_Text");
+                            self.resource_text[text_id].text_content =
+                                game_text["pause"][self.config.language as usize].to_string();
+                            std::thread::spawn(|| {
+                                kira_play_wav("Resources/assets/sounds/Pause.wav").unwrap();
+                            });
+                        };
+                        ui.label(self.var_f("operation_runtime").to_string());
+                        if self.var_b("pause") {
+                            let len = self.pause_list.len();
+                            self.pause_list[len - 1].pause_total_time =
+                                self.timer.now_time - self.pause_list[len - 1].start_pause_time;
+                            self.rect(ui, "Pause_Background", ctx);
+                            self.text(ui, "Pause_Text", ctx);
+                            ctx.set_cursor_icon(egui::CursorIcon::Wait);
+                        } else {
+                            ctx.set_cursor_icon(egui::CursorIcon::None);
+                        };
+                        if self.var_u("target_point") == 0
+                            || self.var_u("current_killed_target_enemy")
+                                == self.var_u("target_enemy")
+                                && !self.enemy_list.iter().any(|x| x.enemy_activated)
+                        {
+                            self.add_split_time("operation_over_background_animation", true);
+                            self.modify_var("in_operation", false);
+                        };
+                    } else {
+                        let scroll_background = self.track_resource(
+                            self.resource_scroll_background.clone(),
+                            "Operation_Expand",
+                        );
+                        if self.var_decode_f(
+                            self.clone().var_v("operation_last_window_size")[0].clone(),
+                        ) != ctx.available_rect().width()
+                            || self.var_decode_f(
+                                self.clone().var_v("operation_last_window_size")[1].clone(),
+                            ) != ctx.available_rect().height()
+                        {
+                            self.resource_scroll_background[scroll_background].resume_point =
+                                -ctx.available_rect().height();
+                            for i in 0..self.resource_scroll_background[scroll_background]
+                                .image_name
+                                .len()
+                            {
+                                let id = self.track_resource(
+                                    self.resource_image.clone(),
+                                    &self.resource_scroll_background[scroll_background].image_name
+                                        [i]
+                                        .clone(),
+                                );
+                                self.resource_image[id].image_size = [
+                                    ctx.available_rect().width(),
+                                    ctx.available_rect().height() + 1_f32,
+                                ];
+                                self.resource_image[id].origin_position[1] =
+                                    i as f32 * self.resource_image[id].image_size[1];
+                                self.resource_scroll_background[scroll_background].boundary =
+                                    ctx.available_rect().height();
+                            }
+                        };
+                        self.image(ui, "Operation_Expand1", ctx);
+                        self.image(ui, "Operation_Expand2", ctx);
+                        self.image(ui, "Operation", ctx);
+                        if self.var_u("target_point") == 0
+                            || self.var_u("current_killed_target_enemy")
+                                == self.var_u("target_enemy")
+                                && !self.enemy_list.iter().any(|x| x.enemy_activated)
+                        {
+                            if self.var_u("target_point") == 0 {
+                                self.rect(ui, "Operation_Fail_Background", ctx);
+                                let id = self.track_resource(
+                                    self.resource_rect.clone(),
+                                    "Operation_Fail_Background",
+                                );
+                                self.resource_rect[id].size =
+                                    [ctx.available_rect().width(), ctx.available_rect().height()];
+                                if self.timer.now_time
+                                    - self.split_time("operation_over_background_animation")[0]
+                                    >= self.vertrefresh
+                                {
+                                    self.add_split_time(
+                                        "operation_over_background_animation",
+                                        true,
+                                    );
+                                    if self.resource_rect[id].color[3] >= 255 - 10 {
+                                        self.resource_rect[id].color[3] = 255;
+                                        self.switch_page("Operation_Result");
+                                        self.modify_var("cut_to", true);
+                                        self.add_split_time("cut_to_animation", true);
+                                        self.add_split_time(
+                                            "operation_over_background_animation",
+                                            true,
+                                        );
+                                    } else {
+                                        self.resource_rect[id].color[3] += 10;
+                                    };
+                                };
                             } else {
-                                ctx.set_cursor_icon(egui::CursorIcon::None);
+                                let id = self.track_resource(
+                                    self.resource_rect.clone(),
+                                    "Operation_Win_Background",
+                                );
+                                let id2 = self.track_resource(
+                                    self.resource_text.clone(),
+                                    "Operation_Win_Text",
+                                );
+                                self.resource_rect[id].size[0] = ctx.available_rect().width();
+                                self.resource_text[id2].text_content = game_text["operation_over"]
+                                    [self.login_user_config.language as usize]
+                                    .clone();
+                                if self.timer.now_time
+                                    - self.split_time("operation_over_background_animation")[0]
+                                    >= self.vertrefresh
+                                {
+                                    if self.resource_rect[id].origin_position[0] >= 0_f32 {
+                                        if self.resource_rect[id].origin_position[0] - 100_f32
+                                            <= 0_f32
+                                        {
+                                            self.resource_rect[id].origin_position[0] = 0_f32;
+                                            if self.timer.now_time
+                                                - self.split_time(
+                                                    "operation_over_background_animation",
+                                                )[0]
+                                                >= self.vertrefresh + 2_f32
+                                            {
+                                                self.resource_rect[id].origin_position[0] -=
+                                                    100_f32;
+                                                self.add_split_time(
+                                                    "operation_over_background_animation",
+                                                    true,
+                                                );
+                                            };
+                                        } else {
+                                            self.resource_rect[id].origin_position[0] -= 100_f32;
+                                            self.add_split_time(
+                                                "operation_over_background_animation",
+                                                true,
+                                            );
+                                        };
+                                    } else if self.resource_rect[id].origin_position[0] - 100_f32
+                                        <= -ctx.available_rect().width()
+                                    {
+                                        self.resource_rect[id].origin_position[0] =
+                                            -ctx.available_rect().width();
+                                        self.modify_var("fade_in_or_out", true);
+                                    } else {
+                                        self.resource_rect[id].origin_position[0] -= 100_f32;
+                                        self.add_split_time(
+                                            "operation_over_background_animation",
+                                            true,
+                                        );
+                                    };
+                                };
+                                self.resource_text[id2].origin_position[0] = self.resource_rect[id]
+                                    .origin_position[0]
+                                    + ctx.available_rect().width() / 2_f32;
+                                self.rect(ui, "Operation_Win_Background", ctx);
+                                self.text(ui, "Operation_Win_Text", ctx);
                             };
                         } else {
                             let level_part: String;
-                            if let Some(last_underscore) = self.login_user_config.current_level.rfind('_') {
-                                level_part = self.login_user_config.current_level[last_underscore + 1..].strip_suffix(".json").unwrap_or("").to_string();
-                                if let Ok(json_value) = read_from_json(&self.login_user_config.current_map) {
-                                    if let Some(read_map_information) = Map::from_json_value(&json_value) {
-                                        if !check_resource_exist(self.resource_text.clone(), "Operation_Start_Name") {
+                            if let Some(last_underscore) =
+                                self.login_user_config.current_level.rfind('_')
+                            {
+                                level_part = self.login_user_config.current_level
+                                    [last_underscore + 1..]
+                                    .strip_suffix(".json")
+                                    .unwrap_or("")
+                                    .to_string();
+                                if let Ok(json_value) =
+                                    read_from_json(&self.login_user_config.current_map)
+                                {
+                                    if let Some(read_map_information) =
+                                        Map::from_json_value(&json_value)
+                                    {
+                                        if !check_resource_exist(
+                                            self.resource_text.clone(),
+                                            "Operation_Start_Name",
+                                        ) {
                                             self.add_text(
                                                 [
                                                     "Operation_Start_Name",
-                                                    &format!("{} {}", &level_part, &read_map_information.map_content[read_map_information.map_content.iter().position(|x| x.level_name == level_part).unwrap()].level_name_expand[self.login_user_config.language as usize]),
+                                                    &format!(
+                                                        "{} {}",
+                                                        &level_part,
+                                                        &read_map_information.map_content
+                                                            [read_map_information
+                                                                .map_content
+                                                                .iter()
+                                                                .position(
+                                                                    |x| x.level_name == level_part
+                                                                )
+                                                                .unwrap()]
+                                                        .level_name_expand
+                                                            [self.login_user_config.language
+                                                                as usize]
+                                                    ),
                                                 ],
                                                 [0_f32, 0_f32, 80_f32, 1000_f32, 0.0],
                                                 [255, 255, 255, 255, 0, 0, 0],
@@ -2813,7 +3225,16 @@ impl eframe::App for App {
                                             self.add_text(
                                                 [
                                                     "Operation_Start_Name_Type",
-                                                    &game_text[&read_map_information.map_content[read_map_information.map_content.iter().position(|x| x.level_name == level_part).unwrap()].level_type][self.login_user_config.language as usize],
+                                                    &game_text[&read_map_information.map_content
+                                                        [read_map_information
+                                                            .map_content
+                                                            .iter()
+                                                            .position(|x| {
+                                                                x.level_name == level_part
+                                                            })
+                                                            .unwrap()]
+                                                    .level_type]
+                                                        [self.login_user_config.language as usize],
                                                 ],
                                                 [0_f32, 0_f32, 40_f32, 1000_f32, 0.0],
                                                 [255, 255, 255, 255, 0, 0, 0],
@@ -2822,58 +3243,61 @@ impl eframe::App for App {
                                                 [1, 2, 1, 4],
                                             );
                                         } else {
-                                            let id = self.track_resource(self.resource_text.clone(), "Operation_Start_Name");
-                                            let id2 = self.track_resource(self.resource_text.clone(), "Operation_Start_Name_Type");
-                                            self.resource_text[id].text_content = format!("{} {}", &level_part, &read_map_information.map_content[read_map_information.map_content.iter().position(|x| x.level_name == level_part).unwrap()].level_name_expand[self.login_user_config.language as usize]);
-                                            self.resource_text[id2].text_content = game_text[&read_map_information.map_content[read_map_information.map_content.iter().position(|x| x.level_name == level_part).unwrap()].level_type][self.login_user_config.language as usize].clone();
+                                            let id = self.track_resource(
+                                                self.resource_text.clone(),
+                                                "Operation_Start_Name",
+                                            );
+                                            let id2 = self.track_resource(
+                                                self.resource_text.clone(),
+                                                "Operation_Start_Name_Type",
+                                            );
+                                            self.resource_text[id].text_content = format!(
+                                                "{} {}",
+                                                &level_part,
+                                                &read_map_information.map_content
+                                                    [read_map_information
+                                                        .map_content
+                                                        .iter()
+                                                        .position(|x| x.level_name == level_part)
+                                                        .unwrap()]
+                                                .level_name_expand
+                                                    [self.login_user_config.language as usize]
+                                            );
+                                            self.resource_text[id2].text_content = game_text
+                                                [&read_map_information.map_content
+                                                    [read_map_information
+                                                        .map_content
+                                                        .iter()
+                                                        .position(|x| x.level_name == level_part)
+                                                        .unwrap()]
+                                                .level_type]
+                                                [self.login_user_config.language as usize]
+                                                .clone();
                                         };
                                     };
                                 };
                             };
-                            let scroll_background = self.track_resource(
-                                self.resource_scroll_background.clone(),
-                                "Operation_Expand",
-                            );
-                            if self.var_decode_f(
-                                self.clone().var_v("operation_last_window_size")[0].clone(),
-                            ) != ctx.available_rect().width()
-                                || self.var_decode_f(
-                                    self.clone().var_v("operation_last_window_size")[1].clone(),
-                                ) != ctx.available_rect().height()
-                            {
-                                self.resource_scroll_background[scroll_background].resume_point =
-                                    -ctx.available_rect().height();
-                                for i in 0..self.resource_scroll_background[scroll_background]
-                                    .image_name
-                                    .len()
-                                {
-                                    let id = self.track_resource(
-                                        self.resource_image.clone(),
-                                        &self.resource_scroll_background[scroll_background]
-                                            .image_name[i]
-                                            .clone(),
-                                    );
-                                    self.resource_image[id].image_size = [
-                                        ctx.available_rect().width(),
-                                        ctx.available_rect().height() + 1_f32,
-                                    ];
-                                    self.resource_image[id].origin_position[1] =
-                                        i as f32 * self.resource_image[id].image_size[1];
-                                    self.resource_scroll_background[scroll_background].boundary =
-                                        ctx.available_rect().height();
-                                }
-                            };
-                            self.image(ui, "Operation_Expand1", ctx);
-                            self.image(ui, "Operation_Expand2", ctx);
-                            self.image(ui, "Operation", ctx);
                             self.image(ui, "Operation_Start_Background", ctx);
                             self.text(ui, "Operation_Start_Name", ctx);
                             self.text(ui, "Operation_Start_Name_Type", ctx);
-                            let id = self.track_resource(self.resource_image.clone(), "Operation_Start_Background");
-                            let id2 = self.track_resource(self.resource_text.clone(), "Operation_Start_Name");
-                            let id3 = self.track_resource(self.resource_text.clone(), "Operation_Start_Name_Type");
-                            self.resource_image[id].image_size = [ctx.available_rect().width(), ctx.available_rect().height()];
-                            if self.timer.now_time - self.split_time("start_operation_time")[0] >= 3_f32 && self.timer.now_time - self.split_time("operation_start_fade_animation")[0] >= self.vertrefresh {
+                            let id = self.track_resource(
+                                self.resource_image.clone(),
+                                "Operation_Start_Background",
+                            );
+                            let id2 = self
+                                .track_resource(self.resource_text.clone(), "Operation_Start_Name");
+                            let id3 = self.track_resource(
+                                self.resource_text.clone(),
+                                "Operation_Start_Name_Type",
+                            );
+                            self.resource_image[id].image_size =
+                                [ctx.available_rect().width(), ctx.available_rect().height()];
+                            if self.timer.now_time - self.split_time("start_operation_time")[0]
+                                >= 3_f32
+                                && self.timer.now_time
+                                    - self.split_time("operation_start_fade_animation")[0]
+                                    >= self.vertrefresh
+                            {
                                 if self.var_b("reseted_operation_start_animation_timer") {
                                     self.resource_image[id].alpha -= 15;
                                     self.resource_text[id2].rgba[3] -= 15;
@@ -2889,11 +3313,15 @@ impl eframe::App for App {
                                         self.add_split_time("start_operation_time", true);
                                     };
                                 } else {
-                                    self.modify_var("reseted_operation_start_animation_timer", true);
+                                    self.modify_var(
+                                        "reseted_operation_start_animation_timer",
+                                        true,
+                                    );
                                     self.add_split_time("start_operation_time", true);
                                     self.resource_image[id].overlay_color = [0, 0, 0, 255];
                                 };
                             };
+                        };
                     };
                     let fade_in_or_out = self.var_b("fade_in_or_out");
                     if self.fade(
@@ -2902,16 +3330,127 @@ impl eframe::App for App {
                         ui,
                         "cut_to_animation",
                         "Cut_To_Background",
+                        20,
                     ) == 0
                         && !fade_in_or_out
                     {
                         self.modify_var("cut_to", false);
+                    } else if self.fade(
+                        fade_in_or_out,
+                        ctx,
+                        ui,
+                        "cut_to_animation",
+                        "Cut_To_Background",
+                        10,
+                    ) == 255
+                        && fade_in_or_out
+                    {
+                        self.switch_page("Operation_Result");
+                        self.modify_var("cut_to", true);
+                        self.add_split_time("cut_to_animation", true);
                     };
                 });
                 self.modify_var(
                     "operation_last_window_size",
                     vec![ctx.available_rect().width(), ctx.available_rect().height()],
                 );
+            }
+            "Operation_Result" => {
+                let id = self.track_resource(self.resource_text.clone(), "Operation_Start_Name");
+                if !self.check_updated(&self.page.clone()) {
+                    self.add_text(
+                        [
+                            "Operation_Over_Text",
+                            &format!(
+                                "{}\n{}",
+                                self.resource_text[id].text_content,
+                                game_text["operation_over"]
+                                    [self.login_user_config.language as usize]
+                            ),
+                        ],
+                        [0_f32, 0_f32, 60_f32, 1000_f32, 0.0],
+                        [255, 255, 255, 255, 0, 0, 0],
+                        [false, false, true, true],
+                        false,
+                        [1, 4, 1, 4],
+                    );
+                    self.add_var("changed_fade", false);
+                };
+                let id2 = self.track_resource(self.resource_text.clone(), "Operation_Over_Text");
+                self.resource_text[id2].text_content = format!(
+                    "{}\n{}",
+                    self.resource_text[id].text_content,
+                    game_text["operation_over"][self.login_user_config.language as usize]
+                );
+                egui::CentralPanel::default().show(ctx, |ui| {
+                    self.text(ui, "Operation_Over_Text", ctx);
+                    if self.timer.now_time < 2_f32 {
+                        self.modify_var("changed_fade", false);
+                    } else {
+                        if !self.var_b("changed_fade") {
+                            self.modify_var("fade_in_or_out", false);
+                            self.modify_var("changed_fade", true);
+                        };
+                        let id = self.track_resource(
+                            self.resource_rect.clone(),
+                            "Operation_Fail_Background",
+                        );
+                        if self.timer.now_time
+                            - self.split_time("operation_over_background_animation")[0]
+                            >= self.vertrefresh
+                            && self.resource_rect[id].color[3] != 0
+                        {
+                            self.add_split_time("operation_over_background_animation", true);
+                            if self.resource_rect[id].color[3] <= 10 {
+                                self.resource_rect[id].color[3] = 0;
+                            } else {
+                                self.resource_rect[id].color[3] -= 10;
+                            };
+                        };
+                        if self.resource_rect[id].color[3] == 0 {
+                            let enable = !self.var_b("cut_to");
+                            if self.switch("Operation_Over", ui, ctx, enable, true)[0] == 0 {
+                                self.modify_var("fade_in_or_out", true);
+                            };
+                        };
+                    };
+                    let id3 = self
+                        .track_resource(self.resource_rect.clone(), "Operation_Fail_Background");
+                    self.resource_rect[id3].size =
+                        [ctx.available_rect().width(), ctx.available_rect().height()];
+                    self.message_box_display(ctx, ui);
+                    self.rect(ui, "Operation_Fail_Background", ctx);
+                    let fade_in_or_out = self.var_b("fade_in_or_out");
+                    if self.fade(
+                        fade_in_or_out,
+                        ctx,
+                        ui,
+                        "cut_to_animation",
+                        "Cut_To_Background",
+                        10,
+                    ) == 0
+                        && !fade_in_or_out
+                    {
+                        self.modify_var("cut_to", false);
+                    } else if self.fade(
+                        fade_in_or_out,
+                        ctx,
+                        ui,
+                        "cut_to_animation",
+                        "Cut_To_Background",
+                        20,
+                    ) == 255
+                        && fade_in_or_out
+                        && self.var_b("changed_fade")
+                    {
+                        self.modify_var("cut_to", true);
+                        self.switch_page("Select_Level");
+                        self.modify_var("fade_in_or_out", false);
+                        self.add_split_time("cut_to_animation", true);
+                        self.add_split_time("scroll_animation", true);
+                        self.add_split_time("opened_level_animation", true);
+                    };
+                });
             }
             "Error" => {
                 self.check_updated(&self.page.clone());
@@ -2929,6 +3468,7 @@ impl eframe::App for App {
                     self.text(ui, "Error_Pages_Sorry", ctx);
                     self.text(ui, "Error_Pages_Reason", ctx);
                     self.text(ui, "Error_Pages_Solution", ctx);
+                    self.message_box_display(ctx, ui);
                 });
             }
             _ => {
@@ -2938,21 +3478,24 @@ impl eframe::App for App {
                         game_text["error_page_not_found"][self.config.language as usize].clone(),
                         self.page
                     );
+                } else {
+                    self.problem_report(
+                        &format!(
+                            "{}{}",
+                            game_text["error_page_not_found"][self.config.language as usize]
+                                .clone(),
+                            self.page
+                        ),
+                        SeverityLevel::Error,
+                        &game_text["error_page_not_found_annotation"]
+                            [self.config.language as usize]
+                            .clone(),
+                    );
+                    std::thread::spawn(|| {
+                        kira_play_wav("Resources/assets/sounds/Error.wav").unwrap();
+                    });
+                    self.switch_page("Error");
                 };
-                self.problem_report(
-                    &format!(
-                        "{}{}",
-                        game_text["error_page_not_found"][self.config.language as usize].clone(),
-                        self.page
-                    ),
-                    SeverityLevel::Error,
-                    &game_text["error_page_not_found_annotation"][self.config.language as usize]
-                        .clone(),
-                );
-                std::thread::spawn(|| {
-                    kira_play_wav("Resources/assets/sounds/Error.wav").unwrap();
-                });
-                self.switch_page("Error")
             }
         };
         egui::TopBottomPanel::top("Debug mode")
@@ -2995,7 +3538,7 @@ impl eframe::App for App {
                     egui::Window::new("render_resource_list")
                     .frame(self.frame)
                     .title_bar(false)
-                    .open(&mut self.var_b("debug_resource_list_window"))
+                    .open(&mut self.var_b("debug_render_resource_list_window"))
                     .show(ctx, |ui| {
                         ui.vertical_centered(|ui| {
                             ui.heading(game_text["debug_render_resource_list"][self.config.language as usize].clone());
@@ -3241,6 +3784,11 @@ impl eframe::App for App {
                                         general_click_feedback();
                                         let flip = !self.var_b("debug_resource_list_window");
                                         self.modify_var("debug_resource_list_window", flip);
+                                    };
+                                    if ui.button(game_text["debug_render_resource_list"][self.config.language as usize].clone()).clicked() {
+                                        general_click_feedback();
+                                        let flip = !self.var_b("debug_render_resource_list_window");
+                                        self.modify_var("debug_render_resource_list_window", flip);
                                     };
                                     if ui.button(game_text["debug_problem_report"][self.config.language as usize].clone()).clicked()
                                     {

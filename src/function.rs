@@ -356,7 +356,7 @@ impl MovePath {
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub struct Enemy {
-    pub enemy_id: String,
+    pub enemy_name: String,
     pub enemy_hp: f32,
     pub enemy_def: f32,
     pub enemy_speed: f32,
@@ -490,6 +490,9 @@ pub struct Map {
     pub map_intro: String,
     pub map_content: Vec<Level>,
     pub map_connecting_line: Vec<[String; 2]>,
+    pub map_initial_unlock_status: bool,
+    pub map_unlock_description: Vec<String>,
+    pub map_lock_intro: String,
 }
 
 #[allow(dead_code)]
@@ -542,6 +545,12 @@ impl Map {
                     Some(pair)
                 })
                 .collect(),
+            map_initial_unlock_status: value["map_initial_unlock_status"].as_bool()?,
+            map_unlock_description: value["map_unlock_description"]
+                .members()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect(),
+            map_lock_intro: value["map_lock_intro"].as_str()?.to_string(),
         })
     }
     pub fn to_json_value(&self) -> JsonValue {
@@ -565,7 +574,10 @@ impl Map {
             }).collect::<Vec<_>>(),
             map_connecting_line: self.map_connecting_line.iter().map(|pair| { // 新增连接线字段
                 json::array![pair[0].clone(), pair[1].clone()]
-            }).collect::<Vec<_>>()
+            }).collect::<Vec<_>>(),
+            map_initial_unlock_status: self.map_initial_unlock_status,
+            map_unlock_description: self.map_unlock_description.clone(),
+            map_lock_intro: self.map_lock_intro.clone(),
         }
     }
 }
@@ -644,10 +656,15 @@ pub struct UserGunStatus {
     pub gun_level: i32,
 }
 
+#[derive(Debug, Clone)]
+pub struct UserMapStatus {
+    pub map_name: String,
+    pub map_unlock_status: bool,
+}
+
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct User {
-    pub version: u8,
     pub name: String,
     pub password: String,
     pub language: u8,
@@ -655,6 +672,7 @@ pub struct User {
     pub current_map: String,
     pub level_status: Vec<UserLevelStatus>,
     pub gun_status: Vec<UserGunStatus>,
+    pub map_status: Vec<UserMapStatus>,
     pub settings: HashMap<String, String>,
     pub current_level: String,
 }
@@ -670,7 +688,6 @@ impl User {
             };
         }
         Some(User {
-            version: value["version"].as_u8()?,
             name: value["name"].as_str()?.to_string(),
             password: value["password"].as_str()?.to_string(),
             language: value["language"].as_u8()?,
@@ -695,6 +712,15 @@ impl User {
                     })
                 })
                 .collect(),
+            map_status: value["map_status"]
+                .members()
+                .filter_map(|v| {
+                    Some(UserMapStatus {
+                        map_name: v["map_name"].as_str()?.to_string(),
+                        map_unlock_status: v["map_unlock_status"].as_bool()?,
+                    })
+                })
+                .collect(),
             settings: parsed,
             current_level: value["current_level"].as_str()?.to_string(),
         })
@@ -702,7 +728,6 @@ impl User {
 
     pub fn to_json_value(&self) -> JsonValue {
         json::object! {
-            version: self.version,
             name: self.name.clone(),
             password: self.password.clone(),
             language: self.language,
@@ -716,6 +741,10 @@ impl User {
             gun_status: self.gun_status.iter().map(|l| json::object! {
                 gun_recognition_name: l.gun_recognition_name.clone(),
                 gun_level: l.gun_level,
+            }).collect::<Vec<_>>(),
+            map_status: self.map_status.iter().map(|l| json::object! {
+                map_name: l.map_name.clone(),
+                map_status: l.map_unlock_status,
             }).collect::<Vec<_>>(),
             settings: self.settings.iter().fold(json::object! {}, |mut obj, (k, v)| {
                 obj.insert(k, v.clone()).expect("插入设置项失败");
@@ -799,14 +828,7 @@ pub fn check_resource_exist<T: RustConstructorResource>(
     resource_list: Vec<T>,
     resource_name: &str,
 ) -> bool {
-    let mut found_resource: bool = false;
-    for (i, _a) in resource_list.iter().enumerate() {
-        if resource_list[i].name() == resource_name {
-            found_resource = true;
-            break;
-        };
-    }
-    found_resource
+    resource_list.iter().any(|x| x.name() == resource_name)
 }
 
 pub trait RustConstructorResource {
@@ -1105,6 +1127,39 @@ pub struct SwitchClickAction {
     pub action: bool,
 }
 
+#[derive(Clone, Debug)]
+pub struct MessageBox {
+    pub discern_type: String,
+    pub name: String,
+    pub box_size: [f32; 2],
+    pub box_content_name: String,
+    pub box_title_name: String,
+    pub box_image_name: String,
+    pub box_keep_existing: bool,
+    pub box_existing_time: f32,
+    pub box_exist: bool,
+    pub box_speed: f32,
+    pub box_restore_speed: f32,
+    pub box_memory_offset: f32,
+}
+
+impl RustConstructorResource for MessageBox {
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn expose_type(&self) -> &str {
+        &self.discern_type
+    }
+
+    fn reg_render_resource(&self, render_list: &mut Vec<RenderResource>) {
+        render_list.push(RenderResource {
+            discern_type: self.expose_type().to_string(),
+            name: self.name.to_string(),
+        });
+    }
+}
+
 #[allow(dead_code)]
 #[derive(Clone)]
 pub struct App {
@@ -1130,6 +1185,7 @@ pub struct App {
     pub last_frame_time: Option<f64>,
     pub enemy_list: Vec<Enemy>,
     pub pause_list: Vec<PauseMessage>,
+    pub resource_message_box: Vec<MessageBox>,
 }
 
 impl App {
@@ -1162,7 +1218,6 @@ impl App {
             problem_list: Vec::new(),
             storage_gun_content: Vec::new(),
             login_user_config: User {
-                version: 0,
                 name: "".to_string(),
                 password: "".to_string(),
                 language: 0,
@@ -1170,6 +1225,7 @@ impl App {
                 current_map: "".to_string(),
                 level_status: vec![],
                 gun_status: vec![],
+                map_status: vec![],
                 settings: hash_map::HashMap::new(),
                 current_level: "".to_string(),
             },
@@ -1223,6 +1279,12 @@ impl App {
                 },
                 PageData {
                     discern_type: "PageData".to_string(),
+                    name: "Operation_Result".to_string(),
+                    forced_update: true,
+                    change_page_updated: false,
+                },
+                PageData {
+                    discern_type: "PageData".to_string(),
                     name: "Error".to_string(),
                     forced_update: true,
                     change_page_updated: false,
@@ -1246,11 +1308,14 @@ impl App {
             last_frame_time: None,
             enemy_list: Vec::new(),
             pause_list: Vec::new(),
+            resource_message_box: Vec::new(),
         }
     }
 
     pub fn switch_page(&mut self, page: &str) {
         self.page = page.to_string();
+        self.timer.start_time = self.timer.total_time;
+        self.update_timer();
     }
 
     pub fn launch_page_preload(&mut self, ctx: &egui::Context) {
@@ -2198,6 +2263,134 @@ impl App {
             false,
             [0, 0, 0, 0],
         );
+        self.add_rect(
+            "Operation_Win_Background",
+            [0_f32, 0_f32, ctx.available_rect().width(), 300_f32, 0_f32],
+            [0, 0, 1, 2],
+            [true, false, false, true],
+            [0, 0, 0, 255, 255, 255, 255, 255],
+            0.0,
+        );
+        self.add_text(
+            ["Operation_Win_Text", ""],
+            [0_f32, 0_f32, 80_f32, 1000_f32, 0.0],
+            [255, 255, 255, 255, 0, 0, 0],
+            [false, false, true, true],
+            false,
+            [0, 0, 1, 2],
+        );
+        self.add_rect(
+            "Operation_Fail_Background",
+            [
+                0_f32,
+                0_f32,
+                ctx.available_rect().width(),
+                ctx.available_rect().height(),
+                0_f32,
+            ],
+            [1, 2, 1, 2],
+            [false, false, true, true],
+            [255, 0, 0, 0, 255, 255, 255, 255],
+            0.0,
+        );
+        self.add_image_texture(
+            "Operation_Over",
+            "Resources/assets/images/start_operation.png",
+            [true, false],
+            true,
+            ctx,
+        );
+        self.add_image(
+            "Operation_Over",
+            [0_f32, 0_f32, 50_f32, 50_f32],
+            [1, 2, 3, 4],
+            [false, false, true, true, false],
+            [255, 0, 0, 0, 0],
+            "Operation_Over",
+        );
+        self.add_switch(
+            ["Operation_Over", "Operation_Over"],
+            vec![
+                SwitchData {
+                    texture: "Operation_Over".to_string(),
+                    color: [255, 255, 255, 255],
+                },
+                SwitchData {
+                    texture: "Operation_Over".to_string(),
+                    color: [180, 180, 180, 255],
+                },
+                SwitchData {
+                    texture: "Operation_Over".to_string(),
+                    color: [150, 150, 150, 255],
+                },
+            ],
+            [true, true, true],
+            1,
+            vec![SwitchClickAction {
+                click_method: PointerButton::Primary,
+                action: false,
+            }],
+        );
+        self.add_image_texture(
+            "Refresh",
+            "Resources/assets/images/refresh.png",
+            [true, false],
+            true,
+            ctx,
+        );
+        self.add_image(
+            "Refresh",
+            [150_f32, -150_f32, 50_f32, 50_f32],
+            [1, 2, 1, 1],
+            [true, false, false, false, false],
+            [255, 0, 0, 0, 0],
+            "Refresh",
+        );
+        self.add_switch(
+            ["Refresh", "Refresh"],
+            vec![
+                SwitchData {
+                    texture: "Refresh".to_string(),
+                    color: [255, 255, 255, 255],
+                },
+                SwitchData {
+                    texture: "Refresh".to_string(),
+                    color: [180, 180, 180, 255],
+                },
+                SwitchData {
+                    texture: "Refresh".to_string(),
+                    color: [150, 150, 150, 255],
+                },
+            ],
+            [true, true, true],
+            1,
+            vec![SwitchClickAction {
+                click_method: PointerButton::Primary,
+                action: false,
+            }],
+        );
+        self.add_image_texture(
+            "Close_Message_Box",
+            "Resources/assets/images/close_message_box.png",
+            [false, false],
+            true,
+            ctx,
+        );
+        self.add_image_texture(
+            "Icon_Dev",
+            "Resources/assets/images/icon_dev.png",
+            [false, false],
+            true,
+            ctx,
+        );
+        self.add_image(
+            "Icon_Dev",
+            [0_f32, 0_f32, 50_f32, 50_f32],
+            [0, 0, 0, 0],
+            [false, false, true, true, false],
+            [255, 0, 0, 0, 0],
+            "Icon_Dev",
+        );
     }
 
     pub fn fade(
@@ -2207,6 +2400,7 @@ impl App {
         ui: &mut Ui,
         split_time_name: &str,
         resource_name: &str,
+        fade_speed: u8,
     ) -> u8 {
         let cut_to_rect_id = self.track_resource(self.resource_rect.clone(), resource_name);
         self.resource_rect[cut_to_rect_id].size =
@@ -2214,18 +2408,15 @@ impl App {
         if self.timer.now_time - self.split_time(split_time_name)[0] >= self.vertrefresh {
             self.add_split_time(split_time_name, true);
             if fade_in_or_out {
-                if self.resource_rect[cut_to_rect_id].color[3] < 255 {
-                    for _ in 0..20 {
-                        self.resource_rect[cut_to_rect_id].color[3] =
-                            self.resource_rect[cut_to_rect_id].color[3].saturating_add(1);
-                    }
-                };
-            } else if self.resource_rect[cut_to_rect_id].color[3] > 0 {
-                for _ in 0..20 {
-                    if self.resource_rect[cut_to_rect_id].color[3] > 0 {
-                        self.resource_rect[cut_to_rect_id].color[3] -= 1;
+                self.resource_rect[cut_to_rect_id].color[3] =
+                    if self.resource_rect[cut_to_rect_id].color[3] > 255 - fade_speed {
+                        255
+                    } else {
+                        self.resource_rect[cut_to_rect_id].color[3] + fade_speed
                     };
-                }
+            } else {
+                self.resource_rect[cut_to_rect_id].color[3] =
+                    self.resource_rect[cut_to_rect_id].color[3].saturating_sub(fade_speed)
             };
         };
         self.rect(ui, resource_name, ctx);
@@ -2252,7 +2443,6 @@ impl App {
         time
     }
 
-    #[allow(dead_code)]
     pub fn add_enemy(
         &mut self,
         enemy_hp_def_speed_invincible_time_position_activated_time_size_walk_interval_and_animation_interval: [f32; 11],
@@ -2277,7 +2467,7 @@ impl App {
             };
         }
         self.enemy_list.push(Enemy {
-            enemy_id: enemy_name_image_and_type[0].clone(),
+            enemy_name: format!("Enemy_{}", enemy_name_image_and_type[0]),
             enemy_hp: enemy_hp_def_speed_invincible_time_position_activated_time_size_walk_interval_and_animation_interval[0],
             enemy_def: enemy_hp_def_speed_invincible_time_position_activated_time_size_walk_interval_and_animation_interval[1],
             enemy_speed: enemy_hp_def_speed_invincible_time_position_activated_time_size_walk_interval_and_animation_interval[2],
@@ -2318,10 +2508,10 @@ impl App {
         for i in 0..enemy_image_count_minus_target_point_alpha_and_increase_alpha_speed[0] {
             if !check_resource_exist(
                 self.resource_image_texture.clone(),
-                &format!("{}_{}", enemy_name_image_and_type[0], i),
+                &format!("Enemy_{}_{}", enemy_name_image_and_type[0], i),
             ) {
                 self.add_image_texture(
-                    &format!("{}_{}", enemy_name_image_and_type[0], i),
+                    &format!("Enemy_{}_{}", enemy_name_image_and_type[0], i),
                     &format!(
                         "{}_{}{}",
                         enemy_name_image_and_type[1], i, enemy_name_image_and_type[2]
@@ -2333,7 +2523,7 @@ impl App {
             };
         }
         self.add_image(
-            &enemy_name_image_and_type[0],
+            &format!("Enemy_{}", enemy_name_image_and_type[0]),
             [
                 enemy_hp_def_speed_invincible_time_position_activated_time_size_walk_interval_and_animation_interval[4],
                 enemy_hp_def_speed_invincible_time_position_activated_time_size_walk_interval_and_animation_interval[5],
@@ -2343,7 +2533,7 @@ impl App {
             [0, 0, 0, 0],
             [false, false, true, false, true],
             [enemy_image_count_minus_target_point_alpha_and_increase_alpha_speed[2] as u8, 0, 0, 0, 255],
-            &format!("{}_0", enemy_name_image_and_type[0]),
+            &format!("Enemy_{}_0", enemy_name_image_and_type[0]),
         );
     }
 
@@ -2353,7 +2543,7 @@ impl App {
                 for i in 0..read_operation.target_enemy.len() {
                     let mut found_enemy = -1;
                     for u in 0..self.enemy_list.len() {
-                        if self.enemy_list[u].enemy_id == format!("json_{}", i) {
+                        if self.enemy_list[u].enemy_name == format!("Enemy_json_{}", i) {
                             found_enemy = u as i32;
                             break;
                         };
@@ -2407,7 +2597,7 @@ impl App {
                 for i in 0..self.enemy_list.len() {
                     let id = self.track_resource(
                         self.resource_image.clone(),
-                        &self.enemy_list[i].enemy_id.clone(),
+                        &self.enemy_list[i].enemy_name.clone(),
                     );
                     if self.enemy_list[i].enemy_activated {
                         self.resource_image[id].origin_position = [
@@ -2481,15 +2671,21 @@ impl App {
                                 let id2_id = self.var_u("gun_selected") as usize;
                                 let id2 = self.track_resource(
                                     self.resource_image.clone(),
-                                    &self.storage_gun_content[id2_id]
-                                        .gun_recognition_name
-                                        .clone(),
+                                    &format!(
+                                        "Gun_{}",
+                                        self.storage_gun_content[id2_id]
+                                            .gun_recognition_name
+                                            .clone()
+                                    ),
                                 );
                                 let gun_id = self.track_resource(
                                     self.resource_switch.clone(),
-                                    &self.storage_gun_content[id2_id]
-                                        .gun_recognition_name
-                                        .clone(),
+                                    &format!(
+                                        "Gun_{}",
+                                        self.storage_gun_content[id2_id]
+                                            .gun_recognition_name
+                                            .clone()
+                                    ),
                                 );
                                 let gun_rect = egui::Rect::from_center_size(
                                     egui::Pos2 {
@@ -2668,7 +2864,7 @@ impl App {
                             x.name
                                 == format!(
                                     "{}_{}",
-                                    self.enemy_list[i].enemy_id,
+                                    self.enemy_list[i].enemy_name,
                                     self.enemy_list[i].enemy_current_animation_count
                                 )
                         }) {
@@ -2699,7 +2895,7 @@ impl App {
                             self.enemy_list[i].enemy_activated = true;
                         };
                     };
-                    self.image(ui, &self.enemy_list[i].enemy_id.clone(), ctx);
+                    self.image(ui, &self.enemy_list[i].enemy_name.clone(), ctx);
                     if self.enemy_list[i].enemy_activated {
                         ui.painter().line(
                             vec![
@@ -2739,12 +2935,15 @@ impl App {
                             [255, 52, 40]
                         };
                         if self.enemy_list[i].enemy_memory_hp != self.enemy_list[i].enemy_hp {
-                            if self.enemy_list[i].enemy_memory_hp - self.enemy_list[i].enemy_hp
-                                <= 0.1
-                            {
-                                self.enemy_list[i].enemy_memory_hp = self.enemy_list[i].enemy_hp;
-                            } else {
-                                self.enemy_list[i].enemy_memory_hp -= 0.1;
+                            if refresh {
+                                if self.enemy_list[i].enemy_memory_hp - self.enemy_list[i].enemy_hp
+                                    <= 0.5
+                                {
+                                    self.enemy_list[i].enemy_memory_hp =
+                                        self.enemy_list[i].enemy_hp;
+                                } else {
+                                    self.enemy_list[i].enemy_memory_hp -= 0.5;
+                                };
                             };
                             let enemy_memory_hp_multiple = if self.enemy_list[i].enemy_memory_hp
                                 / self.enemy_list[i].enemy_initial_hp
@@ -2780,10 +2979,6 @@ impl App {
                                 },
                             );
                         };
-                        println!(
-                            "{}-{}",
-                            self.enemy_list[i].enemy_memory_hp, self.enemy_list[i].enemy_hp
-                        );
                         ui.painter().line(
                             vec![
                                 Pos2 {
@@ -2851,14 +3046,10 @@ impl App {
     ) -> usize {
         let list = resource_list.clone();
         if check_resource_exist(list, resource_name) {
-            let mut id: i32 = -1;
-            for (i, _a) in resource_list.iter().enumerate() {
-                if resource_list[i].name() == resource_name {
-                    id = i as i32;
-                    break;
-                };
-            }
-            id as usize
+            resource_list
+                .iter()
+                .position(|x| x.name() == resource_name)
+                .unwrap()
         } else {
             if self.config.rc_strict_mode {
                 panic!(
@@ -2962,17 +3153,13 @@ impl App {
             };
             self.rect(ui, "Dock_Background", ctx);
             if self.switch("Home_Home", ui, ctx, true, true)[0] == 0 {
-                self.timer.start_time = self.timer.total_time;
-                self.update_timer();
+                self.switch_page("Home_Page");
                 self.add_split_time("dock_animation", true);
                 self.add_split_time("title_animation", true);
-                self.switch_page("Home_Page");
             };
             if self.switch("Home_Settings", ui, ctx, true, true)[0] == 0 {
-                self.timer.start_time = self.timer.total_time;
-                self.update_timer();
-                self.add_split_time("dock_animation", true);
                 self.switch_page("Home_Setting");
+                self.add_split_time("dock_animation", true);
             };
             let id2 = self.track_resource(self.resource_switch.clone(), "Home_Power");
             if self.switch("Home_Power", ui, ctx, true, true)[0] == 0 {
@@ -2981,29 +3168,22 @@ impl App {
                     self.login_user_config.to_json_value(),
                 )
                 .unwrap();
-                if self.resource_switch[id2].state == 0 {
-                    write_to_json(
-                        "Resources/config/Preferences.json",
-                        self.config.to_json_value(),
-                    )
-                    .unwrap();
-                    exit(0);
-                } else {
+                if self.resource_switch[id2].state == 1 {
                     self.config.login_user_name = "".to_string();
-                    self.timer.start_time = self.timer.total_time;
-                    self.update_timer();
-                    self.add_split_time("ScrollWallpaper", true);
-                    self.switch_page("Login");
-                }
+                };
+                write_to_json(
+                    "Resources/config/Preferences.json",
+                    self.config.to_json_value(),
+                )
+                .unwrap();
+                exit(0);
             };
             if self.switch("Home_Journey", ui, ctx, true, true)[0] == 0 {
-                self.timer.start_time = self.timer.total_time;
-                self.update_timer();
+                self.switch_page("Home_Select_Map");
                 self.add_split_time("dock_animation", true);
                 if check_resource_exist(self.timer.split_time.clone(), "map_select_animation") {
                     self.add_split_time("map_select_animation", true);
                 };
-                self.switch_page("Home_Select_Map");
             };
         };
         self.resource_rect[id].size[0] = ctx.available_rect().width() - 100_f32;
@@ -3184,7 +3364,7 @@ impl App {
                 ),
             ),
             self.resource_rect[id].rounding,
-            Color32::from_rgba_premultiplied(
+            Color32::from_rgba_unmultiplied(
                 self.resource_rect[id].color[0],
                 self.resource_rect[id].color[1],
                 self.resource_rect[id].color[2],
@@ -3192,7 +3372,7 @@ impl App {
             ),
             Stroke {
                 width: self.resource_rect[id].border_width,
-                color: Color32::from_rgba_premultiplied(
+                color: Color32::from_rgba_unmultiplied(
                     self.resource_rect[id].border_color[0],
                     self.resource_rect[id].border_color[1],
                     self.resource_rect[id].border_color[2],
@@ -4203,7 +4383,418 @@ impl App {
         };
     }
 
-    #[allow(dead_code)]
+    pub fn add_message_box(
+        &mut self,
+        box_itself_title_content_image_name: [&str; 4],
+        box_size: [f32; 2],
+        box_keep_existing: bool,
+        box_existing_time: f32,
+        box_normal_and_restore_speed: [f32; 2],
+    ) {
+        if !check_resource_exist(
+            self.resource_message_box.clone(),
+            box_itself_title_content_image_name[0],
+        ) {
+            let id = self
+                .resource_image
+                .iter()
+                .position(|x| x.name == box_itself_title_content_image_name[3])
+                .unwrap();
+            self.resource_image[id].image_size = [box_size[1] - 15_f32, box_size[1] - 15_f32];
+            self.resource_image[id].center_display = [true, false, false, true];
+            self.resource_image[id].x_grid = [1, 1];
+            self.resource_image[id].y_grid = [0, 1];
+            let id2 = self
+                .resource_text
+                .iter()
+                .position(|x| x.name == box_itself_title_content_image_name[1])
+                .unwrap();
+            let id3 = self
+                .resource_text
+                .iter()
+                .position(|x| x.name == box_itself_title_content_image_name[2])
+                .unwrap();
+            self.resource_text[id2].center_display = [true, true, false, false];
+            self.resource_text[id3].center_display = [true, true, false, false];
+            self.resource_text[id2].x_grid = [1, 1];
+            self.resource_text[id2].y_grid = [0, 1];
+            self.resource_text[id3].x_grid = [1, 1];
+            self.resource_text[id3].y_grid = [0, 1];
+            self.resource_text[id2].wrap_width = box_size[0] - box_size[1] + 5_f32;
+            self.resource_text[id3].wrap_width = box_size[0] - box_size[1] + 5_f32;
+            self.resource_image[id].name = format!("MessageBox_{}", self.resource_image[id].name);
+            self.resource_text[id2].name = format!("MessageBox_{}", self.resource_text[id2].name);
+            self.resource_text[id3].name = format!("MessageBox_{}", self.resource_text[id3].name);
+            self.resource_message_box.push(MessageBox {
+                discern_type: "MessageBox".to_string(),
+                name: box_itself_title_content_image_name[0].to_string(),
+                box_size,
+                box_title_name: format!("MessageBox_{}", box_itself_title_content_image_name[1]),
+                box_content_name: format!("MessageBox_{}", box_itself_title_content_image_name[2]),
+                box_image_name: format!("MessageBox_{}", box_itself_title_content_image_name[3]),
+                box_keep_existing,
+                box_existing_time,
+                box_exist: true,
+                box_speed: box_normal_and_restore_speed[0],
+                box_restore_speed: box_normal_and_restore_speed[1],
+                box_memory_offset: 0_f32,
+            });
+            if !box_keep_existing {
+                self.add_split_time(
+                    &format!("MessageBox_{}", box_itself_title_content_image_name[0]),
+                    false,
+                );
+            };
+            self.add_split_time(
+                &format!(
+                    "MessageBox_{}_animation",
+                    box_itself_title_content_image_name[0]
+                ),
+                false,
+            );
+            self.add_rect(
+                &format!("MessageBox_{}", box_itself_title_content_image_name[0]),
+                [0_f32, 0_f32, box_size[0], box_size[1], 20_f32],
+                [1, 1, 0, 1],
+                [true, true, false, false],
+                [100, 100, 100, 125, 240, 255, 255, 255],
+                0.0,
+            );
+            self.add_image(
+                &format!(
+                    "MessageBox_{}_Close",
+                    box_itself_title_content_image_name[0]
+                ),
+                [0_f32, 0_f32, 30_f32, 30_f32],
+                [0, 0, 0, 0],
+                [false, false, true, true, false],
+                [255, 0, 0, 0, 0],
+                "Close_Message_Box",
+            );
+            self.add_switch(
+                [
+                    &format!(
+                        "MessageBox_{}_Close",
+                        box_itself_title_content_image_name[0]
+                    ),
+                    &format!(
+                        "MessageBox_{}_Close",
+                        box_itself_title_content_image_name[0]
+                    ),
+                ],
+                vec![
+                    SwitchData {
+                        texture: "Close_Message_Box".to_string(),
+                        color: [255, 255, 255, 0],
+                    },
+                    SwitchData {
+                        texture: "Close_Message_Box".to_string(),
+                        color: [180, 180, 180, 200],
+                    },
+                    SwitchData {
+                        texture: "Close_Message_Box".to_string(),
+                        color: [255, 255, 255, 200],
+                    },
+                    SwitchData {
+                        texture: "Close_Message_Box".to_string(),
+                        color: [180, 180, 180, 200],
+                    },
+                ],
+                [false, true, true],
+                2,
+                vec![SwitchClickAction {
+                    click_method: PointerButton::Primary,
+                    action: true,
+                }],
+            );
+        } else if self.config.rc_strict_mode {
+            panic!(
+                "{}{}",
+                box_itself_title_content_image_name[0],
+                self.game_text.game_text["error_message_box_already_exists"]
+                    [self.config.language as usize]
+            );
+        } else {
+            self.problem_report(
+                &format!(
+                    "{}{}",
+                    box_itself_title_content_image_name[0],
+                    self.game_text.game_text["error_message_box_already_exists"]
+                        [self.config.language as usize]
+                ),
+                SeverityLevel::SevereWarning,
+                &self.game_text.game_text["error_message_box_already_exists_annotation"]
+                    [self.config.language as usize]
+                    .clone(),
+            );
+        };
+    }
+
+    pub fn message_box_display(&mut self, ctx: &egui::Context, ui: &mut Ui) {
+        let mut offset = 0_f32;
+        let mut delete_count = 0;
+        for u in 0..self.resource_message_box.len() {
+            let mut deleted = false;
+            let i = u - delete_count;
+            let id = self
+                .resource_image
+                .iter()
+                .position(|x| x.name == self.resource_message_box[i].box_image_name)
+                .unwrap();
+            let id2 = self
+                .resource_rect
+                .iter()
+                .position(|x| x.name == format!("MessageBox_{}", self.resource_message_box[i].name))
+                .unwrap();
+            let id3 = self
+                .resource_text
+                .iter()
+                .position(|x| x.name == self.resource_message_box[i].box_title_name)
+                .unwrap();
+            let id4 = self
+                .resource_text
+                .iter()
+                .position(|x| x.name == self.resource_message_box[i].box_content_name)
+                .unwrap();
+            let id5 = self
+                .resource_switch
+                .iter()
+                .position(|x| {
+                    x.name == format!("MessageBox_{}_Close", self.resource_message_box[i].name)
+                })
+                .unwrap();
+            let id6 = self
+                .resource_image
+                .iter()
+                .position(|x| {
+                    x.name == format!("MessageBox_{}_Close", self.resource_message_box[i].name)
+                })
+                .unwrap();
+            if self.resource_message_box[i].box_size[1]
+                < self.get_text_size(&self.resource_message_box[i].box_title_name.clone(), ui)[1]
+                    + self.get_text_size(&self.resource_message_box[i].box_content_name.clone(), ui)
+                        [1]
+                    + 10_f32
+            {
+                self.resource_message_box[i].box_size[1] = self
+                    .get_text_size(&self.resource_message_box[i].box_title_name.clone(), ui)[1]
+                    + self
+                        .get_text_size(&self.resource_message_box[i].box_content_name.clone(), ui)
+                        [1]
+                    + 10_f32;
+                self.resource_rect[id2].size[1] = self.resource_message_box[i].box_size[1];
+                self.resource_image[id].image_size = [
+                    self.resource_message_box[i].box_size[1] - 15_f32,
+                    self.resource_message_box[i].box_size[1] - 15_f32,
+                ];
+                self.resource_text[id3].wrap_width = self.resource_message_box[i].box_size[0]
+                    - self.resource_message_box[i].box_size[1]
+                    + 5_f32;
+                self.resource_text[id4].wrap_width = self.resource_message_box[i].box_size[0]
+                    - self.resource_message_box[i].box_size[1]
+                    + 5_f32;
+            };
+            if self.timer.total_time
+                - self.split_time(&format!(
+                    "MessageBox_{}_animation",
+                    self.resource_message_box[i].name
+                ))[1]
+                >= self.vertrefresh
+            {
+                self.add_split_time(
+                    &format!("MessageBox_{}_animation", self.resource_message_box[i].name),
+                    true,
+                );
+                if offset != self.resource_message_box[i].box_memory_offset {
+                    if self.resource_message_box[i].box_memory_offset < offset {
+                        if self.resource_message_box[i].box_memory_offset
+                            + self.resource_message_box[i].box_restore_speed
+                            >= offset
+                        {
+                            self.resource_message_box[i].box_memory_offset = offset;
+                        } else {
+                            self.resource_message_box[i].box_memory_offset +=
+                                self.resource_message_box[i].box_restore_speed;
+                        };
+                    } else if self.resource_message_box[i].box_memory_offset
+                        - self.resource_message_box[i].box_restore_speed
+                        <= offset
+                    {
+                        self.resource_message_box[i].box_memory_offset = offset;
+                    } else {
+                        self.resource_message_box[i].box_memory_offset -=
+                            self.resource_message_box[i].box_restore_speed;
+                    };
+                };
+                if self.resource_rect[id2].origin_position[0]
+                    != -self.resource_message_box[i].box_size[0] - 5_f32
+                {
+                    if self.resource_message_box[i].box_exist {
+                        if self.resource_rect[id2].origin_position[0]
+                            - self.resource_message_box[i].box_speed
+                            <= -self.resource_message_box[i].box_size[0] - 5_f32
+                        {
+                            self.resource_rect[id2].origin_position[0] =
+                                -self.resource_message_box[i].box_size[0] - 5_f32;
+                            self.add_split_time(
+                                &format!("MessageBox_{}", self.resource_message_box[i].name),
+                                true,
+                            );
+                        } else {
+                            self.resource_rect[id2].origin_position[0] -=
+                                self.resource_message_box[i].box_speed;
+                        };
+                    } else if self.resource_rect[id2].origin_position[0]
+                        + self.resource_message_box[i].box_speed
+                        >= 15_f32
+                    {
+                        self.resource_rect[id2].origin_position[0] = 15_f32;
+                        delete_count += 1;
+                        deleted = true;
+                    } else {
+                        self.resource_rect[id2].origin_position[0] +=
+                            self.resource_message_box[i].box_speed;
+                    };
+                };
+            };
+            self.resource_rect[id2].origin_position[1] =
+                self.resource_message_box[i].box_memory_offset + 20_f32;
+            self.resource_image[id].origin_position = [
+                self.resource_rect[id2].origin_position[0] + 5_f32,
+                self.resource_rect[id2].origin_position[1]
+                    + self.resource_message_box[i].box_size[1] / 2_f32,
+            ];
+            self.resource_text[id3].origin_position = [
+                self.resource_image[id].origin_position[0]
+                    + self.resource_image[id].image_size[0]
+                    + 5_f32,
+                self.resource_rect[id2].origin_position[1] + 5_f32,
+            ];
+            self.resource_text[id4].origin_position = [
+                self.resource_image[id].origin_position[0]
+                    + self.resource_image[id].image_size[0]
+                    + 5_f32,
+                self.resource_text[id3].origin_position[1]
+                    + self.get_text_size(&self.resource_message_box[i].box_title_name.clone(), ui)
+                        [1],
+            ];
+            self.resource_image[id6].origin_position = self.resource_rect[id2].position;
+            if (!self.resource_message_box[i].box_keep_existing
+                && self.timer.total_time
+                    - self.split_time(&format!("MessageBox_{}", self.resource_message_box[i].name))
+                        [1]
+                    >= self.resource_message_box[i].box_existing_time
+                || self.resource_message_box[i].box_keep_existing
+                    && !self.resource_message_box[i].box_exist)
+                && self.resource_rect[id2].origin_position[0]
+                    == -self.resource_message_box[i].box_size[0] - 5_f32
+            {
+                self.resource_message_box[i].box_exist = false;
+                if self.resource_rect[id2].origin_position[0]
+                    + self.resource_message_box[i].box_speed
+                    >= 15_f32
+                {
+                    self.resource_rect[id2].origin_position[0] = 15_f32;
+                } else {
+                    self.resource_rect[id2].origin_position[0] +=
+                        self.resource_message_box[i].box_speed;
+                };
+            };
+            self.rect(
+                ui,
+                &format!("MessageBox_{}", self.resource_message_box[i].name),
+                ctx,
+            );
+            self.image(
+                ui,
+                &self.resource_message_box[i].box_image_name.clone(),
+                ctx,
+            );
+            self.text(ui, &self.resource_text[id3].name.clone(), ctx);
+            self.text(ui, &self.resource_text[id4].name.clone(), ctx);
+            if let Some(mouse_pos) = ui.input(|i| i.pointer.hover_pos()) {
+                let rect = egui::Rect::from_min_size(
+                    Pos2 {
+                        x: self.resource_image[id6].image_position[0],
+                        y: self.resource_image[id6].image_position[1],
+                    },
+                    Vec2 {
+                        x: self.resource_rect[id2].size[0] + 25_f32,
+                        y: self.resource_rect[id2].size[1] + 25_f32,
+                    },
+                );
+                if rect.contains(mouse_pos) {
+                    self.resource_switch[id5].appearance[0].color[3] = 200;
+                } else {
+                    self.resource_switch[id5].appearance[0].color[3] = 0;
+                };
+            };
+            if self.switch(
+                &format!("MessageBox_{}_Close", self.resource_message_box[i].name),
+                ui,
+                ctx,
+                self.resource_switch[id5].state == 0,
+                true,
+            )[0] == 0
+            {
+                self.resource_message_box[i].box_exist = false;
+            };
+            if deleted {
+                self.resource_image.remove(
+                    self.resource_image
+                        .iter()
+                        .position(|x| x.name == self.resource_message_box[i].box_image_name)
+                        .unwrap(),
+                );
+                self.resource_text.remove(
+                    self.resource_text
+                        .iter()
+                        .position(|x| x.name == self.resource_message_box[i].box_title_name)
+                        .unwrap(),
+                );
+                self.resource_text.remove(
+                    self.resource_text
+                        .iter()
+                        .position(|x| x.name == self.resource_message_box[i].box_content_name)
+                        .unwrap(),
+                );
+                self.resource_rect.remove(
+                    self.resource_rect
+                        .iter()
+                        .position(|x| {
+                            x.name == format!("MessageBox_{}", self.resource_message_box[i].name)
+                        })
+                        .unwrap(),
+                );
+                self.timer.split_time.remove(
+                    self.timer
+                        .split_time
+                        .iter()
+                        .position(|x| {
+                            x.name
+                                == format!(
+                                    "MessageBox_{}_animation",
+                                    self.resource_message_box[i].name
+                                )
+                        })
+                        .unwrap(),
+                );
+                self.timer.split_time.remove(
+                    self.timer
+                        .split_time
+                        .iter()
+                        .position(|x| {
+                            x.name == format!("MessageBox_{}", self.resource_message_box[i].name)
+                        })
+                        .unwrap(),
+                );
+                self.resource_message_box.remove(i);
+            } else {
+                offset += self.resource_message_box[i].box_size[1] + 15_f32;
+            };
+        }
+    }
+
     pub fn add_switch(
         &mut self,
         name_and_switch_image_name: [&str; 2],
@@ -4269,7 +4860,6 @@ impl App {
         });
     }
 
-    #[allow(dead_code)]
     pub fn switch(
         &mut self,
         name: &str,
