@@ -4,7 +4,7 @@
         "训练敌人",
         "Train Enemy"
     ],
-    "enemy_hp": 100.0,
+    "enemy_hp": 10.0,
     "enemy_def": 0.0,
     "enemy_speed": 0.5,
     "enemy_invincible_time": 0.1,

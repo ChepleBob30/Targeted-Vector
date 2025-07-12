@@ -28,7 +28,24 @@
                 100,
                 400
             ],
-            "level_initial_status": 0
+            "level_initial_status": true
+        },
+        {
+            "level_name": "1-2",
+            "level_name_expand": [
+                "测试",
+                "Test"
+            ],
+            "level_description": [
+                "这是一个测试关卡的注释",
+                "Test"
+            ],
+            "level_type": "main",
+            "level_position": [
+                300,
+                400
+            ],
+            "level_initial_status": false
         }
     ],
     "map_connecting_line": [

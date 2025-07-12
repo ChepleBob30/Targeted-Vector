@@ -257,6 +257,7 @@ pub struct OperationGlobal {
     pub operation_background: String,
     pub operation_background_expand: String,
     pub operation_start_background: String,
+    pub operation_over_background: String,
 }
 
 impl OperationGlobal {
@@ -275,6 +276,7 @@ impl OperationGlobal {
             operation_background: value["operation_background"].as_str()?.to_string(),
             operation_background_expand: value["operation_background_expand"].as_str()?.to_string(),
             operation_start_background: value["operation_start_background"].as_str()?.to_string(),
+            operation_over_background: value["operation_over_background"].as_str()?.to_string(),
         })
     }
 }
@@ -476,7 +478,43 @@ pub struct Level {
     pub level_description: Vec<String>,
     pub level_type: String,
     pub level_position: [f32; 2],
-    pub level_initial_status: i8,
+    pub level_initial_status: bool,
+    pub unlock_map: Vec<UnlockMap>,
+    pub unlock_level: Vec<UnlockLevel>,
+}
+
+#[derive(Debug, Clone)]
+#[allow(dead_code)]
+pub struct UnlockMap {
+    pub map_name: String,
+    pub require_perfect_clear: bool,
+}
+
+impl UnlockMap {
+    pub fn from_json_value(value: &JsonValue) -> Option<UnlockMap> {
+        Some(Self {
+            map_name: value["map_name"].as_str()?.to_string(),
+            require_perfect_clear: value["require_perfect_clear"].as_bool()?,
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+#[allow(dead_code)]
+pub struct UnlockLevel {
+    pub level_name: String,
+    pub level_map: String,
+    pub require_perfect_clear: bool,
+}
+
+impl UnlockLevel {
+    pub fn from_json_value(value: &JsonValue) -> Option<UnlockLevel> {
+        Some(Self {
+            level_name: value["level_name"].as_str()?.to_string(),
+            level_map: value["level_map"].as_str()?.to_string(),
+            require_perfect_clear: value["require_perfect_clear"].as_bool()?,
+        })
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -530,7 +568,15 @@ impl Map {
                             v["level_position"][0].as_f32()?,
                             v["level_position"][1].as_f32()?,
                         ],
-                        level_initial_status: v["level_initial_status"].as_i8()?,
+                        level_initial_status: v["level_initial_status"].as_bool()?,
+                        unlock_map: v["unlock_map"]
+                            .members()
+                            .filter_map(UnlockMap::from_json_value)
+                            .collect(),
+                        unlock_level: v["unlock_level"]
+                            .members()
+                            .filter_map(UnlockLevel::from_json_value)
+                            .collect(),
                     })
                 })
                 .collect(),
@@ -2634,6 +2680,7 @@ impl App {
                                                 + (ctx.available_rect().height() - 720_f32) / 2_f32,
                                         },
                                     ) {
+                                        self.modify_var("perfect_clear", false);
                                         self.enemy_list[i].enemy_out = true;
                                         self.enemy_list[i].enemy_activated = false;
                                         self.resource_image[id].overlay_color =
@@ -4679,13 +4726,11 @@ impl App {
                         [1],
             ];
             self.resource_image[id6].origin_position = self.resource_rect[id2].position;
-            if (!self.resource_message_box[i].box_keep_existing
+            if !self.resource_message_box[i].box_keep_existing
                 && self.timer.total_time
                     - self.split_time(&format!("MessageBox_{}", self.resource_message_box[i].name))
                         [1]
                     >= self.resource_message_box[i].box_existing_time
-                || self.resource_message_box[i].box_keep_existing
-                    && !self.resource_message_box[i].box_exist)
                 && self.resource_rect[id2].origin_position[0]
                     == -self.resource_message_box[i].box_size[0] - 5_f32
             {
@@ -4733,11 +4778,20 @@ impl App {
                 &format!("MessageBox_{}_Close", self.resource_message_box[i].name),
                 ui,
                 ctx,
-                self.resource_switch[id5].state == 0,
+                self.resource_switch[id5].state == 0 && self.resource_message_box[i].box_exist,
                 true,
             )[0] == 0
             {
                 self.resource_message_box[i].box_exist = false;
+                if self.resource_rect[id2].origin_position[0]
+                    + self.resource_message_box[i].box_speed
+                    >= 15_f32
+                {
+                    self.resource_rect[id2].origin_position[0] = 15_f32;
+                } else {
+                    self.resource_rect[id2].origin_position[0] +=
+                        self.resource_message_box[i].box_speed;
+                };
             };
             if deleted {
                 self.resource_image.remove(

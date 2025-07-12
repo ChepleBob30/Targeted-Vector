@@ -9,7 +9,7 @@
     "gun_shoot_sound": "Resources/assets/sounds/Shoot.wav",
     "gun_shoot_speed": 0.05,
     "gun_reload_time":  0.05,
-    "gun_basic_damage": 10.0,
+    "gun_basic_damage": 5.0,
     "gun_catridge_clip": 20,
     "gun_recoil": 5.0,
     "gun_temperature_degree": 15,

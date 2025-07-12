@@ -148,8 +148,8 @@ impl eframe::App for App {
                         self.add_message_box(
                             ["Dev_Welcome", "Dev_Welcome1", "Dev_Welcome2", "Icon_Dev"],
                             [500_f32, 50_f32],
-                            true,
-                            0_f32,
+                            false,
+                            5_f32,
                             [30_f32, 10_f32],
                         );
                     };
@@ -278,8 +278,8 @@ impl eframe::App for App {
                                                 "Icon_Dev",
                                             ],
                                             [500_f32, 80_f32],
-                                            true,
-                                            0_f32,
+                                            false,
+                                            5_f32,
                                             [30_f32, 10_f32],
                                         );
                                     };
@@ -1524,7 +1524,12 @@ impl eframe::App for App {
                             self.login_user_config.level_status.push(UserLevelStatus {
                                 level_name: map_information.map_content[i].level_name.clone(),
                                 level_map: self.login_user_config.current_map.clone(),
-                                level_status: map_information.map_content[i].level_initial_status,
+                                level_status: if map_information.map_content[i].level_initial_status
+                                {
+                                    0
+                                } else {
+                                    -1
+                                },
                             });
                         };
                     }
@@ -1891,6 +1896,8 @@ impl eframe::App for App {
                     self.add_split_time("horizontal_scrolling_time", false);
                     self.add_split_time("cost_recover_time", false);
                     self.add_split_time("operation_start_fade_animation", false);
+                    self.add_var("perfect_clear", true);
+                    self.add_var("operation_over_image", "".to_string());
                     self.add_var("reseted_operation_start_animation_timer", false);
                     self.add_var("in_operation", false);
                     self.add_var("first_in_operation_correction", false);
@@ -1957,6 +1964,10 @@ impl eframe::App for App {
                             read_from_json(self.login_user_config.current_level.clone())
                         {
                             if let Some(read_operation) = Operation::from_json_value(&json_value) {
+                                self.modify_var(
+                                    "operation_over_image",
+                                    read_operation.global.operation_over_background,
+                                );
                                 self.modify_var("in_operation", false);
                                 self.modify_var(
                                     "target_point",
@@ -2314,6 +2325,7 @@ impl eframe::App for App {
                                 };
                             };
                         }
+                        self.pause_list = vec![];
                         self.modify_var("gun_selected", Value::UInt(0));
                         self.modify_var("gun_selectable_len", gun_list_content.len() as u32);
                         self.modify_var("reseted_operation_start_animation_timer", false);
@@ -2324,6 +2336,7 @@ impl eframe::App for App {
                         self.modify_var("forced_cooling", false);
                         self.modify_var("pause_total_time", Value::Float(0_f32));
                         self.modify_var("operation_runtime", Value::Float(0_f32));
+                        self.modify_var("perfect_clear", true);
                         self.add_split_time("start_operation_time", true);
                         self.add_split_time("operation_over_background_animation", true);
                         self.add_split_time("gun_shooting_time", true);
@@ -3111,6 +3124,80 @@ impl eframe::App for App {
                                             "operation_over_background_animation",
                                             true,
                                         );
+                                        let path = self.var_s("operation_over_image");
+                                        self.add_image_texture(
+                                            "Operation_Over_Image",
+                                            &path,
+                                            [false, false],
+                                            false,
+                                            ctx,
+                                        );
+                                        if !check_resource_exist(
+                                            self.resource_image.clone(),
+                                            "Operation_Over_Image",
+                                        ) {
+                                            self.add_image(
+                                                "Operation_Over_Image",
+                                                [
+                                                    0_f32,
+                                                    0_f32,
+                                                    ctx.available_rect().width(),
+                                                    ctx.available_rect().height(),
+                                                ],
+                                                [1, 2, 1, 2],
+                                                [false, false, true, true, false],
+                                                [255, 0, 0, 0, 0],
+                                                "Operation_Over_Image",
+                                            );
+                                        } else {
+                                            let id = self
+                                                .resource_image
+                                                .clone()
+                                                .iter()
+                                                .position(|x| x.name == "Operation_Over_Image")
+                                                .unwrap();
+                                            let id2 = self
+                                                .resource_image_texture
+                                                .clone()
+                                                .iter()
+                                                .position(|x| x.name == "Operation_Over_Image")
+                                                .unwrap();
+                                            self.resource_image[id].image_texture =
+                                                self.resource_image_texture[id2].texture.clone();
+                                        };
+                                        self.add_image_texture(
+                                            "Result",
+                                            "Resources/assets/images/operation_fail.png",
+                                            [false, false],
+                                            false,
+                                            ctx,
+                                        );
+                                        if !check_resource_exist(
+                                            self.resource_image.clone(),
+                                            "Result",
+                                        ) {
+                                            self.add_image(
+                                                "Result",
+                                                [0_f32, 50_f32, 100_f32, 100_f32],
+                                                [1, 4, 1, 3],
+                                                [false, true, true, false, false],
+                                                [255, 0, 0, 0, 0],
+                                                "Result",
+                                            );
+                                        } else {
+                                            let id = self
+                                                .resource_image
+                                                .iter()
+                                                .position(|x| x.name == "Result")
+                                                .unwrap();
+                                            let id2 = self
+                                                .resource_image_texture
+                                                .iter()
+                                                .position(|x| x.name == "Result")
+                                                .unwrap();
+                                            self.resource_image[id].image_texture =
+                                                self.resource_image_texture[id2].texture.clone();
+                                        };
                                     } else {
                                         self.resource_rect[id].color[3] += 10;
                                     };
@@ -3348,6 +3435,115 @@ impl eframe::App for App {
                         self.switch_page("Operation_Result");
                         self.modify_var("cut_to", true);
                         self.add_split_time("cut_to_animation", true);
+                        let path = self.var_s("operation_over_image");
+                        self.add_image_texture(
+                            "Operation_Over_Image",
+                            &path,
+                            [false, false],
+                            false,
+                            ctx,
+                        );
+                        if !check_resource_exist(
+                            self.resource_image.clone(),
+                            "Operation_Over_Image",
+                        ) {
+                            self.add_image(
+                                "Operation_Over_Image",
+                                [
+                                    0_f32,
+                                    0_f32,
+                                    ctx.available_rect().width(),
+                                    ctx.available_rect().height(),
+                                ],
+                                [1, 2, 1, 2],
+                                [false, false, true, true, false],
+                                [255, 0, 0, 0, 0],
+                                "Operation_Over_Image",
+                            );
+                        } else {
+                            let id = self
+                                .resource_image
+                                .clone()
+                                .iter()
+                                .position(|x| x.name == "Operation_Over_Image")
+                                .unwrap();
+                            let id2 = self
+                                .resource_image_texture
+                                .clone()
+                                .iter()
+                                .position(|x| x.name == "Operation_Over_Image")
+                                .unwrap();
+                            self.resource_image[id].image_texture =
+                                self.resource_image_texture[id2].texture.clone();
+                        };
+                        let mut map_information = Map {
+                            map_name: vec![],
+                            map_author: "".to_string(),
+                            map_image: "".to_string(),
+                            map_width: 0_f32,
+                            map_scroll_offset: 0_f32,
+                            map_description: vec![],
+                            map_intro: "".to_string(),
+                            map_content: vec![],
+                            map_connecting_line: vec![],
+                            map_initial_unlock_status: false,
+                            map_unlock_description: vec![],
+                            map_lock_intro: "".to_string(),
+                        };
+                        if let Ok(json_value) = read_from_json(&self.login_user_config.current_map)
+                        {
+                            if let Some(read_map_information) = Map::from_json_value(&json_value) {
+                                map_information = read_map_information;
+                            };
+                        };
+                        let result_index = if self.var_b("perfect_clear") { 2 } else { 1 };
+                        self.add_image_texture(
+                            "Result",
+                            &format!(
+                                "Resources/assets/images/level_{}{}.png",
+                                map_information.map_content[map_information
+                                    .map_content
+                                    .iter()
+                                    .position(|x| x.level_name
+                                        == self.login_user_config.current_level[self
+                                            .login_user_config
+                                            .current_level
+                                            .rfind("_")
+                                            .unwrap()
+                                            + 1..]
+                                            .strip_suffix(".json")
+                                            .unwrap())
+                                    .unwrap()]
+                                .level_type,
+                                result_index
+                            ),
+                            [false, false],
+                            false,
+                            ctx,
+                        );
+                        if !check_resource_exist(self.resource_image.clone(), "Result") {
+                            self.add_image(
+                                "Result",
+                                [0_f32, 50_f32, 100_f32, 100_f32],
+                                [1, 4, 1, 3],
+                                [false, true, true, false, false],
+                                [255, 0, 0, 0, 0],
+                                "Result",
+                            );
+                        } else {
+                            let id = self
+                                .resource_image
+                                .iter()
+                                .position(|x| x.name == "Result")
+                                .unwrap();
+                            let id2 = self
+                                .resource_image_texture
+                                .iter()
+                                .position(|x| x.name == "Result")
+                                .unwrap();
+                            self.resource_image[id].image_texture =
+                                self.resource_image_texture[id2].texture.clone();
+                        };
                     };
                 });
                 self.modify_var(
@@ -3368,11 +3564,11 @@ impl eframe::App for App {
                                     [self.login_user_config.language as usize]
                             ),
                         ],
-                        [0_f32, 0_f32, 60_f32, 1000_f32, 0.0],
+                        [0_f32, -50_f32, 60_f32, 1000_f32, 0.0],
                         [255, 255, 255, 255, 0, 0, 0],
-                        [false, false, true, true],
+                        [false, false, true, false],
                         false,
-                        [1, 4, 1, 4],
+                        [1, 4, 1, 3],
                     );
                     self.add_var("changed_fade", false);
                 };
@@ -3382,7 +3578,12 @@ impl eframe::App for App {
                     self.resource_text[id].text_content,
                     game_text["operation_over"][self.login_user_config.language as usize]
                 );
+                let id3 = self.track_resource(self.resource_image.clone(), "Operation_Over_Image");
+                self.resource_image[id3].image_size =
+                    [ctx.available_rect().width(), ctx.available_rect().height()];
                 egui::CentralPanel::default().show(ctx, |ui| {
+                    self.image(ui, "Operation_Over_Image", ctx);
+                    self.image(ui, "Result", ctx);
                     self.text(ui, "Operation_Over_Text", ctx);
                     if self.timer.now_time < 2_f32 {
                         self.modify_var("changed_fade", false);
@@ -3432,6 +3633,47 @@ impl eframe::App for App {
                         && !fade_in_or_out
                     {
                         self.modify_var("cut_to", false);
+                        // if let Ok(json_value) = read_from_json(&self.login_user_config.current_map)
+                        // {
+                        //     if let Some(read_map_information) = Map::from_json_value(&json_value) {
+                        //         for i in 0..read_map_information.map_content[read_map_information
+                        //             .map_content
+                        //             .iter()
+                        //             .position(|x| {
+                        //                 x.level_name
+                        //                     == self.login_user_config.current_level[self
+                        //                         .login_user_config
+                        //                         .current_level
+                        //                         .rfind("_")
+                        //                         .unwrap()
+                        //                         + 1..]
+                        //                         .strip_suffix(".json")
+                        //                         .unwrap()
+                        //             })
+                        //             .unwrap()]
+                        //         .unlock_map
+                        //         .len()
+                        //         {
+                        //             if list_files_recursive(Path::new("Resources/config"), "map_").iter().any(|x| x.contains(&PathBuf::from(read_map_information.map_content[read_map_information
+                        //             .map_content
+                        //             .iter()
+                        //             .position(|x| {
+                        //                 x.level_name
+                        //                     == self.login_user_config.current_level[self
+                        //                         .login_user_config
+                        //                         .current_level
+                        //                         .rfind("_")
+                        //                         .unwrap()
+                        //                         + 1..]
+                        //                         .strip_suffix(".json")
+                        //                         .unwrap()
+                        //             })
+                        //             .unwrap()]
+                        //             .unlock_map[i].map_name.clone()))) {
+                        //             };
+                        //         };
+                        //     };
+                        // };
                     } else if self.fade(
                         fade_in_or_out,
                         ctx,

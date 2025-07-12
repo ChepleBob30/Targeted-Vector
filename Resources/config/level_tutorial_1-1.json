@@ -1,6 +1,6 @@
 {
     "global": {
-        "target_point": 1,
+        "target_point": 2,
         "storage_bullet": 100,
         "cost": 0,
         "cost_recover_speed": 1,
@@ -8,7 +8,8 @@
         "target_line": [[0.0, 720.0], [1280.0, 720.0]],
         "operation_background": "Resources/assets/images/map_tutorial_operation_background.png",
         "operation_background_expand": "Resources/assets/images/map_tutorial_operation_background_expand.png",
-        "operation_start_background": "Resources/assets/images/map_tutorial_operation_start_background.png"
+        "operation_start_background": "Resources/assets/images/map_tutorial_operation_start_background.png",
+        "operation_over_background": "Resources/assets/images/map_tutorial_operation_start_background.png"
     },
     "target_enemy": [
         {
@@ -24,12 +25,34 @@
         },
         {
             "enemy_recognition_name": "Train_Enemy",
-            "enemy_position": [30.0, 0.0],
+            "enemy_position": [640.0, 0.0],
             "enemy_size": [60.0, 60.0],
             "enemy_path": [
                 "down"
             ],
             "enemy_approach_time": 10.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 5
+        },
+        {
+            "enemy_recognition_name": "Train_Enemy",
+            "enemy_position": [640.0, 0.0],
+            "enemy_size": [60.0, 60.0],
+            "enemy_path": [
+                "down"
+            ],
+            "enemy_approach_time": 15.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 5
+        },
+        {
+            "enemy_recognition_name": "Train_Enemy",
+            "enemy_position": [640.0, 0.0],
+            "enemy_size": [60.0, 60.0],
+            "enemy_path": [
+                "down"
+            ],
+            "enemy_approach_time": 20.0,
             "enemy_approach_alpha": 0,
             "enemy_increase_alpha_speed": 5
         }

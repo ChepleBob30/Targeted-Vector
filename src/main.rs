@@ -1,26 +1,25 @@
-//! Targeted Vector v0.20.0-alpha.1
+//! Targeted Vector v1.0.0-beta.1
 //! Developer: Cheple_Bob
 //! This is a rust shooter built on top of RustConstructor.
 //! Special Thanks:
 //! 试卷毁灭者: Give me some advice on how to make Targeted Vector.
 //! Gavin: Help me improve some function.
-use egui::IconData;
-use function::App;
-use std::collections::HashMap;
-use std::sync::Arc;
-
 use crate::function::GameText;
 use crate::function::User;
-// Only for macOS app generate.
-use function::Config;
-// use function::find_app_bundle;
+use egui::IconData;
 use function::read_from_json;
+use function::App;
+use function::Config;
+use std::collections::HashMap;
+use std::sync::Arc;
+// Only for macOS app generate.
+
+// use function::find_app_bundle;
 // use function::write_to_json;
 
 mod function;
 mod pages;
 fn main() {
-    // Only for macOS app generate.
     let mut config = Config {
         launch_path: "".to_string(),
         language: 0,
@@ -28,6 +27,8 @@ fn main() {
         amount_languages: 0,
         rc_strict_mode: false,
     };
+
+    // Only for macOS app generate.
     // let launch_path;
     // loop {
     //     match find_app_bundle("Targeted Vector", 100, config.launch_path.clone()) {
@@ -43,11 +44,14 @@ fn main() {
     //         },
     //     };
     // };
+
     if let Ok(json_value) = read_from_json("Resources/config/Preferences.json") {
         if let Some(read_config) = Config::from_json_value(&json_value) {
             config = read_config;
         };
     };
+
+    // Only for macOS app generate.
     // config.launch_path = launch_path;
     // write_to_json("Resources/config/Preferences.json", config.to_json_value()).unwrap();
 
