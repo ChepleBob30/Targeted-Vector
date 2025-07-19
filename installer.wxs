@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*" Name="Targeted Vector" Language="1033" Version="1.1.0" 
+           Manufacturer="Binder" UpgradeCode="7781427d-a182-4a5f-a8d6-f400b30e9e08">
+    <Package InstallerVersion="200" Compressed="yes" InstallScope="perUser" />
+
+    <Media Id="1" Cabinet="TargetedVector.cab" EmbedCab="yes" />
+    
+    <Property Id="ARPPRODUCTICON" Value="icon.ico" />
+    <Icon Id="icon.ico" SourceFile="Resources\assets\images\icon.ico" />
+
+    <MajorUpgrade 
+      DowngradeErrorMessage="A newer version is already installed" 
+      AllowSameVersionUpgrades="no"
+    />
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="LocalAppDataFolder">
+        <Directory Id="INSTALLDIR" Name="Targeted Vector">
+          <!-- 主程序组件 -->
+          <Component Id="MainExecutable" Guid="483e69b1-4827-4f94-bd45-c312b068f52e">
+            <File Id="AppExe" Source="target\release\Targeted-Vector.exe" KeyPath="yes" />
+          </Component>
+          
+          <!-- 创建Resources目录 -->
+          <Directory Id="dirResources" Name="Resources">
+          </Directory>
+        </Directory>
+      </Directory>
+      
+      <!-- 开始菜单组件 -->
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="AppProgramMenuDir" Name="Targeted Vector">
+          <Component Id="Shortcut" Guid="e7d13d98-9524-4cc5-bf86-191cb55dab22">
+            <Shortcut Id="StartMenuShortcut" Name="Targeted Vector" 
+                      Target="[INSTALLDIR]Targeted-Vector.exe" WorkingDirectory="INSTALLDIR" />
+            <RemoveFolder Id="AppProgramMenuDir" On="uninstall" />
+            
+            <RegistryValue 
+                Root="HKCU" 
+                Key="Software\Targeted Vector" 
+                Name="Installed" 
+                Type="integer" 
+                Value="1" 
+                KeyPath="yes" />
+          </Component>
+        </Directory>
+      </Directory>
+    </Directory>
+    
+    <!-- 引用 Heat 生成的资源 -->
+    <Feature Id="MainFeature" Title="Main">
+      <ComponentRef Id="MainExecutable" />
+      <ComponentRef Id="Shortcut" />
+      <ComponentGroupRef Id="ResourcesGroup" />
+    </Feature>
+  </Product>
+  
+  <!-- 包含 Heat 生成的资源文件 -->
+  <?include resources.wxs ?>
+</Wix>

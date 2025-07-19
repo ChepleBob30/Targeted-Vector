@@ -1,4 +1,4 @@
-//! Targeted Vector v1.0.0-beta.1
+//! Targeted Vector v1.1.0-beta.1
 //! Developer: Cheple_Bob
 //! This is a rust shooter built on top of RustConstructor.
 //! Special Thanks:
@@ -12,8 +12,8 @@ use function::App;
 use function::Config;
 use std::collections::HashMap;
 use std::sync::Arc;
-// Only for macOS app generate.
 
+// Only for macOS app generate.
 // use function::find_app_bundle;
 // use function::write_to_json;
 
@@ -26,6 +26,7 @@ fn main() {
         login_user_name: "".to_string(),
         amount_languages: 0,
         rc_strict_mode: false,
+        enable_debug_mode: false,
     };
 
     // Only for macOS app generate.

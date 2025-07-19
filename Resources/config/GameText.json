@@ -109,8 +109,8 @@
       "Page"
     ],
     "debug_game_version": [
-      "靶向载体 v1.0.0-beta.1",
-      "Targeted Vector v1.0.0-beta.1"
+      "靶向载体 v1.1.0-beta.1",
+      "Targeted Vector v1.1.0-beta.1"
     ],
     "debug_game_now_time": [
       "当前页面运行时间",
@@ -499,6 +499,38 @@
     "dev_welcome_play_tvec_content": [
       "此版本未经过系统化测试，如果你发现任何bug，请在github上反馈给我。感谢你的合作！",
       "This version has not been systematically tested. If you find any bugs, please report them to me on github. Thank you for your cooperation!"
+    ],
+    "unlock_new_map": [
+      "解锁新地图",
+      "Unlock new map"
+    ],
+    "unlock_new_map_content": [
+      "请在\"选择地图\"页面查看。",
+      "Please view it on the \"Select Map\" page."
+    ],
+    "unlock_new_level": [
+      "解锁新关卡",
+      "Unlock new level"
+    ],
+    "unlock_new_level_content": [
+      "请在",
+      "Please view it on the"
+    ],
+    "unlock_new_level_content2": [
+      "地图查看。",
+      "map."
+    ],
+    "editor_select_mode": [
+      "请选择模式",
+      "Please select a mode"
+    ],
+    "editor_map_mode": [
+      "添加地图",
+      "Add map"
+    ],
+    "editor_level_mode": [
+      "添加关卡",
+      "Add level"
     ]
   }
 }

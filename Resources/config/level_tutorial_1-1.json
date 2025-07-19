@@ -30,7 +30,7 @@
             "enemy_path": [
                 "down"
             ],
-            "enemy_approach_time": 10.0,
+            "enemy_approach_time": 8.0,
             "enemy_approach_alpha": 0,
             "enemy_increase_alpha_speed": 5
         },
@@ -41,7 +41,7 @@
             "enemy_path": [
                 "down"
             ],
-            "enemy_approach_time": 15.0,
+            "enemy_approach_time": 11.0,
             "enemy_approach_alpha": 0,
             "enemy_increase_alpha_speed": 5
         },
@@ -52,9 +52,59 @@
             "enemy_path": [
                 "down"
             ],
-            "enemy_approach_time": 20.0,
+            "enemy_approach_time": 14.0,
             "enemy_approach_alpha": 0,
             "enemy_increase_alpha_speed": 5
+        }
+    ],
+    "message_box": [
+        {
+            "box_size": [300.0, 100.0],
+            "box_image_path": "Resources/assets/images/tutorial_move.png",
+            "box_title": [
+                "移动枪口",
+                "Move Muzzle"
+            ],
+            "box_content": [
+                "移动鼠标以改变枪口位置。",
+                "Move mouse to change muzzle position."
+            ],
+            "box_title_color": [255, 255, 255, 255],
+            "box_content_color": [255, 255, 255, 255],
+            "box_existing_time": 4.0,
+            "box_appear_time": 1.0
+        },
+        {
+            "box_size": [300.0, 100.0],
+            "box_image_path": "Resources/assets/images/tutorial_fire.png",
+            "box_title": [
+                "开火",
+                "Fire"
+            ],
+            "box_content": [
+                "点击鼠标左键以发射子弹。",
+                "Click LMB to fire."
+            ],
+            "box_title_color": [255, 255, 255, 255],
+            "box_content_color": [255, 255, 255, 255],
+            "box_existing_time": 5.0,
+            "box_appear_time": 5.0
+        },
+        {
+            "box_size": [300.0, 100.0],
+            "box_image_path": "Resources/assets/images/tutorial_defend.png",
+            "box_title": [
+                "守住阵地",
+                "Defend"
+            ],
+            "box_content": [
+                "不要让敌人到达你的阵地（红线处）！",
+                "Don't let enemy reach your base (red line)!"
+            ],
+            "box_title_color": [255, 255, 255, 255],
+            "box_content_color": [255, 255, 255, 255],
+            "box_existing_time": 5.0,
+            "box_appear_time": 5.0
         }
     ]
 }

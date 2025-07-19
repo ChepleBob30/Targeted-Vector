@@ -2,8 +2,8 @@
 use crate::function::{
     check_file_exists, check_resource_exist, count_files_recursive, create_pretty_json,
     general_click_feedback, kira_play_wav, list_files_recursive, read_from_json, write_to_json,
-    App, Gun, Map, Operation, PauseMessage, SeverityLevel, SwitchClickAction, SwitchData, User,
-    UserGunStatus, UserLevelStatus, UserMapStatus, Value,
+    App, Gun, JsonReadEnemy, Map, Operation, PauseMessage, SeverityLevel, SwitchClickAction,
+    SwitchData, User, UserGunStatus, UserLevelStatus, UserMapStatus, Value,
 };
 use chrono::{Local, Timelike};
 use eframe::egui;
@@ -13,7 +13,7 @@ use rfd::FileDialog;
 use std::{
     collections::{hash_map, HashMap},
     fs,
-    path::Path,
+    path::{Path, PathBuf},
     process::exit,
     thread,
     vec::Vec,
@@ -1091,6 +1091,7 @@ impl eframe::App for App {
                     self.add_split_time("map_select_animation", false);
                     self.add_var("fade_in_or_out", true);
                     self.add_var("scroll_offset", 0_f32);
+                    self.add_var("remove_node", false);
                 };
                 let mut map_information = Map {
                     map_name: vec![],
@@ -1427,6 +1428,7 @@ impl eframe::App for App {
                             self.modify_var("scroll_offset", map_information.map_scroll_offset);
                             self.modify_var("fade_in_or_out", false);
                             self.switch_page("Select_Level");
+                            self.modify_var("remove_node", true);
                             self.timer.start_time = self.timer.total_time;
                             self.update_timer();
                             self.add_split_time("cut_to_animation", true);
@@ -1481,6 +1483,8 @@ impl eframe::App for App {
                     }
                 };
                 if !self.check_updated(&self.page.clone()) {
+                    self.add_var("expect_scroll_distance", Value::Float(0_f32));
+                    self.add_var("select_level_switch_target", "".to_string());
                     self.add_split_time("scroll_animation", false);
                     self.add_split_time("opened_level_animation", false);
                     self.add_var("opened_level", -1_i32);
@@ -1509,7 +1513,21 @@ impl eframe::App for App {
                     {
                         self.modify_var("fade_in_or_out", true);
                         self.modify_var("cut_to", true);
+                        self.modify_var(
+                            "select_level_switch_target",
+                            "Home_Select_Map".to_string(),
+                        );
                     };
+
+                    // 在未来版本实装
+                    // if self.var_i("opened_level") == -1
+                    //     && self.switch("Editor", ui, ctx, true, true)[0] == 0
+                    // {
+                    //     self.modify_var("fade_in_or_out", true);
+                    //     self.modify_var("cut_to", true);
+                    //     self.modify_var("select_level_switch_target", "Editor".to_string());
+                    // };
+
                     // 补全缺少的关卡数据
                     for i in 0..map_information.map_content.len() {
                         let mut level_status = -2;
@@ -1579,6 +1597,11 @@ impl eframe::App for App {
                         };
                     }
                     // 显示关卡节点
+                    if self.var_b("remove_node") {
+                        self.resource_image.retain(|x| !x.name.contains("Node_"));
+                        self.resource_switch.retain(|x| !x.name.contains("Node_"));
+                        self.modify_var("remove_node", false);
+                    };
                     for i in 0..map_information.map_content.len() {
                         let mut level_status = -1;
                         for u in 0..self.login_user_config.level_status.len() {
@@ -1587,36 +1610,28 @@ impl eframe::App for App {
                             {
                                 level_status = self.login_user_config.level_status[u].level_status;
                                 break;
-                            }
+                            };
                         }
                         if !check_resource_exist(
                             self.resource_switch.clone(),
-                            &map_information.map_content[i].level_name,
+                            &format!("Node_{}", map_information.map_content[i].level_name),
                         ) && level_status != -1
                         {
-                            if !check_resource_exist(
-                                self.resource_image_texture.clone(),
+                            self.add_image_texture(
                                 &format!(
                                     "Resources/assets/images/level_{}{}.png",
                                     map_information.map_content[i].level_type, level_status
                                 ),
-                            ) {
-                                self.add_image_texture(
-                                    &format!(
-                                        "Resources/assets/images/level_{}{}.png",
-                                        map_information.map_content[i].level_type, level_status
-                                    ),
-                                    &format!(
-                                        "Resources/assets/images/level_{}{}.png",
-                                        map_information.map_content[i].level_type, level_status
-                                    ),
-                                    [false, false],
-                                    true,
-                                    ctx,
-                                );
-                            };
+                                &format!(
+                                    "Resources/assets/images/level_{}{}.png",
+                                    map_information.map_content[i].level_type, level_status
+                                ),
+                                [false, false],
+                                false,
+                                ctx,
+                            );
                             self.add_image(
-                                &map_information.map_content[i].level_name,
+                                &format!("Node_{}", map_information.map_content[i].level_name),
                                 [
                                     map_information.map_content[i].level_position[0],
                                     map_information.map_content[i].level_position[1],
@@ -1633,8 +1648,8 @@ impl eframe::App for App {
                             );
                             self.add_switch(
                                 [
-                                    &map_information.map_content[i].level_name,
-                                    &map_information.map_content[i].level_name,
+                                    &format!("Node_{}", map_information.map_content[i].level_name),
+                                    &format!("Node_{}", map_information.map_content[i].level_name),
                                 ],
                                 vec![
                                     SwitchData {
@@ -1675,13 +1690,21 @@ impl eframe::App for App {
                             );
                         };
                         if level_status != -1 {
+                            if map_information.map_content[i].level_position[0] + 100_f32
+                                > self.var_f("expect_scroll_distance")
+                            {
+                                self.modify_var(
+                                    "expect_scroll_distance",
+                                    map_information.map_content[i].level_position[0] + 100_f32,
+                                );
+                            };
                             let id = self.track_resource(
                                 self.resource_image.clone(),
-                                &map_information.map_content[i].level_name,
+                                &format!("Node_{}", map_information.map_content[i].level_name),
                             );
                             let id2 = self.track_resource(
                                 self.resource_switch.clone(),
-                                &map_information.map_content[i].level_name,
+                                &format!("Node_{}", map_information.map_content[i].level_name),
                             );
                             if self.resource_switch[id2].state == 1 {
                                 self.modify_var("opened_level", i as i32);
@@ -1693,7 +1716,7 @@ impl eframe::App for App {
                             ];
                             let enable = !self.var_b("cut_to") && self.var_i("opened_level") == -1;
                             if self.switch(
-                                &map_information.map_content[i].level_name,
+                                &format!("Node_{}", map_information.map_content[i].level_name),
                                 ui,
                                 ctx,
                                 enable,
@@ -1714,7 +1737,10 @@ impl eframe::App for App {
                                     if u != i && another_level_status != -1 {
                                         let switch_id = self.track_resource(
                                             self.resource_switch.clone(),
-                                            &map_information.map_content[u].level_name,
+                                            &format!(
+                                                "Node_{}",
+                                                map_information.map_content[u].level_name
+                                            ),
                                         );
                                         self.resource_switch[switch_id].state = 0;
                                     };
@@ -1728,7 +1754,10 @@ impl eframe::App for App {
                                     if mouse_pos.x < self.resource_rect[rect_id].position[0] {
                                         let id = self.track_resource(
                                             self.resource_switch.clone(),
-                                            &map_information.map_content[i].level_name,
+                                            &format!(
+                                                "Node_{}",
+                                                map_information.map_content[i].level_name
+                                            ),
                                         );
                                         self.resource_switch[id].state = 0;
                                         self.modify_var("opened_level", -1);
@@ -1791,14 +1820,21 @@ impl eframe::App for App {
                             self.resource_rect[rect_id].origin_position[0] -= 50_f32;
                         };
                     } else {
-                        self.image(ui, "Scroll_Backward", ctx);
+                        if self.var_f("scroll_offset") < 0_f32 {
+                            self.image(ui, "Scroll_Backward", ctx);
+                        };
                         if self.resource_rect[rect_id].origin_position[0] != 0_f32
                             && self.timer.now_time - self.split_time("opened_level_animation")[0]
                                 >= self.vertrefresh
                         {
                             self.add_split_time("opened_level_animation", true);
                             self.resource_rect[rect_id].origin_position[0] += 50_f32;
-                        } else if self.resource_rect[rect_id].origin_position[0] == 0_f32 {
+                        } else if self.resource_rect[rect_id].origin_position[0] == 0_f32
+                            && self.var_f("scroll_offset")
+                                > ctx.available_rect().width() - map_information.map_width
+                            && -self.var_f("scroll_offset") + ctx.available_rect().width()
+                                < self.var_f("expect_scroll_distance")
+                        {
                             self.image(ui, "Scroll_Forward", ctx);
                         };
                         if let Some(mouse_pos) = ui.input(|i| i.pointer.hover_pos()) {
@@ -1817,11 +1853,16 @@ impl eframe::App for App {
                                 } else if mouse_pos.x > (ctx.available_rect().width() - 50_f32)
                                     && self.var_f("scroll_offset")
                                         > ctx.available_rect().width() - map_information.map_width
+                                    && -self.var_f("scroll_offset") + ctx.available_rect().width()
+                                        < self.var_f("expect_scroll_distance")
                                 {
                                     for _ in 0..5 {
                                         if self.var_f("scroll_offset")
                                             > ctx.available_rect().width()
                                                 - map_information.map_width
+                                            && -self.var_f("scroll_offset")
+                                                + ctx.available_rect().width()
+                                                < self.var_f("expect_scroll_distance")
                                         {
                                             let scroll_offset = self.var_f("scroll_offset");
                                             self.modify_var("scroll_offset", scroll_offset - 1_f32);
@@ -1840,6 +1881,21 @@ impl eframe::App for App {
                         self.modify_var(
                             "scroll_offset",
                             ctx.available_rect().width() - map_information.map_width,
+                        );
+                    };
+                    if -self.var_f("scroll_offset") + ctx.available_rect().width()
+                        > self.var_f("expect_scroll_distance")
+                    {
+                        let expect_scroll_distance = self.var_f("expect_scroll_distance");
+                        self.modify_var(
+                            "scroll_offset",
+                            Value::Float(
+                                if ctx.available_rect().width() - expect_scroll_distance > 0_f32 {
+                                    0_f32
+                                } else {
+                                    ctx.available_rect().width() - expect_scroll_distance
+                                },
+                            ),
                         );
                     };
                     self.message_box_display(ctx, ui);
@@ -1863,9 +1919,13 @@ impl eframe::App for App {
                             .unwrap();
                             self.modify_var("fade_in_or_out", false);
                             if self.var_i("opened_level") == -1 {
-                                self.switch_page("Home_Select_Map");
-                                self.add_split_time("dock_animation", true);
-                                self.add_split_time("map_select_animation", true);
+                                let target_page = &self.var_s("select_level_switch_target");
+                                self.switch_page(target_page);
+                                if target_page == "Home_Select_Map" {
+                                    self.modify_var("refreshed_map_data", false);
+                                    self.add_split_time("dock_animation", true);
+                                    self.add_split_time("map_select_animation", true);
+                                };
                             } else {
                                 self.switch_page("Operation");
                                 self.modify_var("prepared_operation", false);
@@ -1896,11 +1956,12 @@ impl eframe::App for App {
                     self.add_split_time("horizontal_scrolling_time", false);
                     self.add_split_time("cost_recover_time", false);
                     self.add_split_time("operation_start_fade_animation", false);
+                    self.add_var("enter_operation_loaded", false);
+                    self.add_var("loaded_unlock_list", false);
                     self.add_var("perfect_clear", true);
                     self.add_var("operation_over_image", "".to_string());
                     self.add_var("reseted_operation_start_animation_timer", false);
                     self.add_var("in_operation", false);
-                    self.add_var("first_in_operation_correction", false);
                     self.add_var("current_killed_target_enemy", Value::UInt(0));
                     self.add_var("target_point", Value::UInt(0));
                     self.add_var("target_enemy", Value::UInt(0));
@@ -1942,6 +2003,9 @@ impl eframe::App for App {
                     let bar_id8 = self.track_resource(self.resource_text.clone(), "Bullet_Text");
                     let bar_id9 = self.track_resource(self.resource_text.clone(), "Cost_Text");
                     if !self.var_b("prepared_operation") {
+                        for i in 0..self.resource_message_box.len() {
+                            self.resource_message_box[i].box_exist = false;
+                        }
                         for _ in 0..self.resource_image_texture.len() {
                             if let Some(index) = self
                                 .resource_image_texture
@@ -1964,6 +2028,76 @@ impl eframe::App for App {
                             read_from_json(self.login_user_config.current_level.clone())
                         {
                             if let Some(read_operation) = Operation::from_json_value(&json_value) {
+                                self.enemy_list = Vec::new();
+                                for i in 0..read_operation.target_enemy.len() {
+                                    if !self
+                                        .enemy_list
+                                        .iter()
+                                        .any(|x| x.enemy_name == format!("Enemy_json_{}", i))
+                                    {
+                                        if let Ok(json_value) = read_from_json(
+                                            format!(
+                                                "Resources/config/enemy_{}.json",
+                                                read_operation.target_enemy[i]
+                                                    .enemy_recognition_name
+                                            )
+                                            .to_lowercase(),
+                                        ) {
+                                            if let Some(read_enemy) =
+                                                JsonReadEnemy::from_json_value(&json_value)
+                                            {
+                                                self.add_enemy(
+                                                    [
+                                                        read_enemy.enemy_hp,
+                                                        read_enemy.enemy_def,
+                                                        read_enemy.enemy_speed,
+                                                        read_enemy.enemy_invincible_time,
+                                                        read_operation.target_enemy[i]
+                                                            .enemy_position[0],
+                                                        read_operation.target_enemy[i]
+                                                            .enemy_position[1],
+                                                        read_operation.target_enemy[i]
+                                                            .enemy_approach_time,
+                                                        read_operation.target_enemy[i].enemy_size
+                                                            [0],
+                                                        read_operation.target_enemy[i].enemy_size
+                                                            [1],
+                                                        read_enemy.enemy_walk_interval,
+                                                        read_enemy.enemy_animation_interval,
+                                                    ],
+                                                    [
+                                                        read_enemy.enemy_image_count,
+                                                        read_enemy.enemy_minus_target_point,
+                                                        read_operation.target_enemy[i]
+                                                            .enemy_approach_alpha
+                                                            as u32,
+                                                        read_operation.target_enemy[i]
+                                                            .enemy_increase_alpha_speed
+                                                            as u32,
+                                                    ],
+                                                    [
+                                                        read_enemy.enemy_tag,
+                                                        read_operation.target_enemy[i]
+                                                            .enemy_path
+                                                            .clone(),
+                                                    ],
+                                                    [
+                                                        format!("json_{}", i),
+                                                        read_enemy.enemy_image.clone(),
+                                                        read_enemy.enemy_image_type.clone(),
+                                                    ],
+                                                    [true, false],
+                                                    ctx,
+                                                );
+                                            };
+                                        };
+                                    };
+                                }
+                                self.operation_preload_message_box.clear();
+                                for i in 0..read_operation.message_box.len() {
+                                    self.operation_preload_message_box
+                                        .push(read_operation.message_box[i].clone());
+                                }
                                 self.modify_var(
                                     "operation_over_image",
                                     read_operation.global.operation_over_background,
@@ -2326,10 +2460,10 @@ impl eframe::App for App {
                             };
                         }
                         self.pause_list = vec![];
+                        self.modify_var("enter_operation_loaded", false);
                         self.modify_var("gun_selected", Value::UInt(0));
                         self.modify_var("gun_selectable_len", gun_list_content.len() as u32);
                         self.modify_var("reseted_operation_start_animation_timer", false);
-                        self.modify_var("first_in_operation_correction", false);
                         self.storage_gun_content = gun_list_content;
                         self.modify_var("prepared_operation", true);
                         self.modify_var("pause", false);
@@ -2337,7 +2471,7 @@ impl eframe::App for App {
                         self.modify_var("pause_total_time", Value::Float(0_f32));
                         self.modify_var("operation_runtime", Value::Float(0_f32));
                         self.modify_var("perfect_clear", true);
-                        self.add_split_time("start_operation_time", true);
+                        self.modify_var("loaded_unlock_list", false);
                         self.add_split_time("operation_over_background_animation", true);
                         self.add_split_time("gun_shooting_time", true);
                         self.add_split_time("gun_end_shooting_time", true);
@@ -2345,12 +2479,7 @@ impl eframe::App for App {
                         self.add_split_time("horizontal_scrolling_time", true);
                         self.add_split_time("cost_recover_time", true);
                         self.add_split_time("operation_start_fade_animation", true);
-                        self.enemy_list = Vec::new();
                     } else if self.var_b("in_operation") {
-                        if !self.var_b("first_in_operation_correction") {
-                            self.modify_var("first_in_operation_correction", true);
-                            self.add_split_time("start_operation_time", true);
-                        };
                         let operation_refresh_time = self.split_time("operation_refresh_time")[0];
                         let refresh_index = self.find_pause_index(operation_refresh_time);
                         let refresh = if self.var_b("pause") {
@@ -3057,7 +3186,9 @@ impl eframe::App for App {
                             self.add_split_time("operation_over_background_animation", true);
                             self.modify_var("in_operation", false);
                         };
+                        self.operation_message_box_display(ctx, ui);
                     } else {
+                        ctx.set_cursor_icon(egui::CursorIcon::None);
                         let scroll_background = self.track_resource(
                             self.resource_scroll_background.clone(),
                             "Operation_Expand",
@@ -3264,81 +3395,81 @@ impl eframe::App for App {
                                 self.rect(ui, "Operation_Win_Background", ctx);
                                 self.text(ui, "Operation_Win_Text", ctx);
                             };
-                        } else {
-                            let level_part: String;
-                            if let Some(last_underscore) =
-                                self.login_user_config.current_level.rfind('_')
-                            {
-                                level_part = self.login_user_config.current_level
-                                    [last_underscore + 1..]
-                                    .strip_suffix(".json")
-                                    .unwrap_or("")
-                                    .to_string();
-                                if let Ok(json_value) =
-                                    read_from_json(&self.login_user_config.current_map)
+                        } else if !self.var_b("enter_operation_loaded") {
+                                let level_part: String;
+                                if let Some(last_underscore) =
+                                    self.login_user_config.current_level.rfind('_')
                                 {
-                                    if let Some(read_map_information) =
-                                        Map::from_json_value(&json_value)
+                                    level_part = self.login_user_config.current_level
+                                        [last_underscore + 1..]
+                                        .strip_suffix(".json")
+                                        .unwrap_or("")
+                                        .to_string();
+                                    if let Ok(json_value) =
+                                        read_from_json(&self.login_user_config.current_map)
                                     {
-                                        if !check_resource_exist(
-                                            self.resource_text.clone(),
-                                            "Operation_Start_Name",
-                                        ) {
-                                            self.add_text(
-                                                [
-                                                    "Operation_Start_Name",
-                                                    &format!(
-                                                        "{} {}",
-                                                        &level_part,
-                                                        &read_map_information.map_content
-                                                            [read_map_information
-                                                                .map_content
-                                                                .iter()
-                                                                .position(
-                                                                    |x| x.level_name == level_part
-                                                                )
-                                                                .unwrap()]
-                                                        .level_name_expand
-                                                            [self.login_user_config.language
-                                                                as usize]
-                                                    ),
-                                                ],
-                                                [0_f32, 0_f32, 80_f32, 1000_f32, 0.0],
-                                                [255, 255, 255, 255, 0, 0, 0],
-                                                [false, false, true, true],
-                                                false,
-                                                [1, 2, 1, 2],
-                                            );
-                                            self.add_text(
-                                                [
-                                                    "Operation_Start_Name_Type",
-                                                    &game_text[&read_map_information.map_content
-                                                        [read_map_information
+                                        if let Some(read_map_information) =
+                                            Map::from_json_value(&json_value)
+                                        {
+                                            if !check_resource_exist(
+                                                self.resource_text.clone(),
+                                                "Operation_Start_Name",
+                                            ) {
+                                                self.add_text(
+                                                    [
+                                                        "Operation_Start_Name",
+                                                        &format!(
+                                                            "{} {}",
+                                                            &level_part,
+                                                            &read_map_information.map_content
+                                                                [read_map_information
+                                                                    .map_content
+                                                                    .iter()
+                                                                    .position(|x| x.level_name
+                                                                        == level_part)
+                                                                    .unwrap()]
+                                                            .level_name_expand
+                                                                [self.login_user_config.language
+                                                                    as usize]
+                                                        ),
+                                                    ],
+                                                    [0_f32, 0_f32, 80_f32, 1000_f32, 0.0],
+                                                    [255, 255, 255, 255, 0, 0, 0],
+                                                    [false, false, true, true],
+                                                    false,
+                                                    [1, 2, 1, 2],
+                                                );
+                                                self.add_text(
+                                                    [
+                                                        "Operation_Start_Name_Type",
+                                                        &game_text[&read_map_information
+                                                            .map_content[read_map_information
                                                             .map_content
                                                             .iter()
                                                             .position(|x| {
                                                                 x.level_name == level_part
                                                             })
                                                             .unwrap()]
-                                                    .level_type]
-                                                        [self.login_user_config.language as usize],
-                                                ],
-                                                [0_f32, 0_f32, 40_f32, 1000_f32, 0.0],
-                                                [255, 255, 255, 255, 0, 0, 0],
-                                                [false, false, true, true],
-                                                false,
-                                                [1, 2, 1, 4],
-                                            );
-                                        } else {
-                                            let id = self.track_resource(
-                                                self.resource_text.clone(),
-                                                "Operation_Start_Name",
-                                            );
-                                            let id2 = self.track_resource(
-                                                self.resource_text.clone(),
-                                                "Operation_Start_Name_Type",
-                                            );
-                                            self.resource_text[id].text_content = format!(
+                                                        .level_type]
+                                                            [self.login_user_config.language
+                                                                as usize],
+                                                    ],
+                                                    [0_f32, 0_f32, 40_f32, 1000_f32, 0.0],
+                                                    [255, 255, 255, 255, 0, 0, 0],
+                                                    [false, false, true, true],
+                                                    false,
+                                                    [1, 2, 1, 4],
+                                                );
+                                            } else {
+                                                let id = self.track_resource(
+                                                    self.resource_text.clone(),
+                                                    "Operation_Start_Name",
+                                                );
+                                                let id2 = self.track_resource(
+                                                    self.resource_text.clone(),
+                                                    "Operation_Start_Name_Type",
+                                                );
+                                                self.resource_text[id].text_content = format!(
                                                 "{} {}",
                                                 &level_part,
                                                 &read_map_information.map_content
@@ -3350,65 +3481,70 @@ impl eframe::App for App {
                                                 .level_name_expand
                                                     [self.login_user_config.language as usize]
                                             );
-                                            self.resource_text[id2].text_content = game_text
-                                                [&read_map_information.map_content
-                                                    [read_map_information
-                                                        .map_content
-                                                        .iter()
-                                                        .position(|x| x.level_name == level_part)
-                                                        .unwrap()]
-                                                .level_type]
-                                                [self.login_user_config.language as usize]
-                                                .clone();
+                                                self.resource_text[id2].text_content = game_text
+                                                    [&read_map_information.map_content
+                                                        [read_map_information
+                                                            .map_content
+                                                            .iter()
+                                                            .position(|x| {
+                                                                x.level_name == level_part
+                                                            })
+                                                            .unwrap()]
+                                                    .level_type]
+                                                    [self.login_user_config.language as usize]
+                                                    .clone();
+                                                self.modify_var("enter_operation_loaded", true);
+                                                self.add_split_time("start_operation_time", true);
+                                            };
                                         };
                                     };
                                 };
-                            };
-                            self.image(ui, "Operation_Start_Background", ctx);
-                            self.text(ui, "Operation_Start_Name", ctx);
-                            self.text(ui, "Operation_Start_Name_Type", ctx);
-                            let id = self.track_resource(
-                                self.resource_image.clone(),
-                                "Operation_Start_Background",
-                            );
-                            let id2 = self
-                                .track_resource(self.resource_text.clone(), "Operation_Start_Name");
-                            let id3 = self.track_resource(
-                                self.resource_text.clone(),
-                                "Operation_Start_Name_Type",
-                            );
-                            self.resource_image[id].image_size =
-                                [ctx.available_rect().width(), ctx.available_rect().height()];
-                            if self.timer.now_time - self.split_time("start_operation_time")[0]
-                                >= 3_f32
-                                && self.timer.now_time
-                                    - self.split_time("operation_start_fade_animation")[0]
-                                    >= self.vertrefresh
-                            {
-                                if self.var_b("reseted_operation_start_animation_timer") {
-                                    self.resource_image[id].alpha -= 15;
-                                    self.resource_text[id2].rgba[3] -= 15;
-                                    self.resource_text[id3].rgba[3] -= 15;
-                                    self.add_split_time("operation_start_fade_animation", true);
-                                    if self.resource_image[id].alpha == 0 {
-                                        self.resource_image[id].alpha = 255;
-                                        self.resource_text[id2].rgba[3] = 255;
-                                        self.resource_text[id3].rgba[3] = 255;
-                                        self.modify_var("in_operation", true);
-                                        self.add_split_time("cost_recover_time", true);
-                                        self.add_split_time("operation_refresh_time", true);
+                            } else {
+                                self.image(ui, "Operation_Start_Background", ctx);
+                                self.text(ui, "Operation_Start_Name", ctx);
+                                self.text(ui, "Operation_Start_Name_Type", ctx);
+                                let id = self.track_resource(
+                                    self.resource_image.clone(),
+                                    "Operation_Start_Background",
+                                );
+                                let id2 = self
+                                    .track_resource(self.resource_text.clone(), "Operation_Start_Name");
+                                let id3 = self.track_resource(
+                                    self.resource_text.clone(),
+                                    "Operation_Start_Name_Type",
+                                );
+                                self.resource_image[id].image_size =
+                                    [ctx.available_rect().width(), ctx.available_rect().height()];
+                                if self.timer.now_time - self.split_time("start_operation_time")[0]
+                                    >= 3_f32
+                                    && self.timer.now_time
+                                        - self.split_time("operation_start_fade_animation")[0]
+                                        >= self.vertrefresh
+                                {
+                                    if self.var_b("reseted_operation_start_animation_timer") {
+                                        self.resource_image[id].alpha -= 15;
+                                        self.resource_text[id2].rgba[3] -= 15;
+                                        self.resource_text[id3].rgba[3] -= 15;
+                                        self.add_split_time("operation_start_fade_animation", true);
+                                        if self.resource_image[id].alpha == 0 {
+                                            self.resource_image[id].alpha = 255;
+                                            self.resource_text[id2].rgba[3] = 255;
+                                            self.resource_text[id3].rgba[3] = 255;
+                                            self.modify_var("in_operation", true);
+                                            self.add_split_time("cost_recover_time", true);
+                                            self.add_split_time("operation_refresh_time", true);
+                                            self.add_split_time("start_operation_time", true);
+                                        };
+                                    } else {
+                                        self.modify_var(
+                                            "reseted_operation_start_animation_timer",
+                                            true,
+                                        );
                                         self.add_split_time("start_operation_time", true);
+                                        self.resource_image[id].overlay_color = [0, 0, 0, 255];
                                     };
-                                } else {
-                                    self.modify_var(
-                                        "reseted_operation_start_animation_timer",
-                                        true,
-                                    );
-                                    self.add_split_time("start_operation_time", true);
-                                    self.resource_image[id].overlay_color = [0, 0, 0, 255];
                                 };
                             };
-                        };
                     };
                     let fade_in_or_out = self.var_b("fade_in_or_out");
                     if self.fade(
@@ -3581,6 +3717,752 @@ impl eframe::App for App {
                 let id3 = self.track_resource(self.resource_image.clone(), "Operation_Over_Image");
                 self.resource_image[id3].image_size =
                     [ctx.available_rect().width(), ctx.available_rect().height()];
+                if !self.var_b("loaded_unlock_list")
+                    && !self.var_b("cut_to")
+                    && self.var_u("target_point") != 0
+                {
+                    self.modify_var("loaded_unlock_list", true);
+                    if let Ok(json_value) = read_from_json(&self.login_user_config.current_map) {
+                        if let Some(read_map_information) = Map::from_json_value(&json_value) {
+                            let status = if self.var_b("perfect_clear") { 2 } else { 1 };
+                            let level_status = self.login_user_config.level_status.clone();
+                            if self.login_user_config.level_status[level_status
+                                .iter()
+                                .position(|x| {
+                                    x.level_name
+                                        == self.login_user_config.current_level[self
+                                            .login_user_config
+                                            .current_level
+                                            .rfind("_")
+                                            .unwrap()
+                                            + 1..]
+                                            .strip_suffix(".json")
+                                            .unwrap()
+                                })
+                                .unwrap()]
+                            .level_status
+                                < status
+                            {
+                                self.login_user_config.level_status[level_status
+                                    .iter()
+                                    .position(|x| {
+                                        x.level_name
+                                            == self.login_user_config.current_level[self
+                                                .login_user_config
+                                                .current_level
+                                                .rfind("_")
+                                                .unwrap()
+                                                + 1..]
+                                                .strip_suffix(".json")
+                                                .unwrap()
+                                    })
+                                    .unwrap()]
+                                .level_status = status;
+                            };
+                            self.resource_image
+                                .retain(|x| !x.name.contains("Unlock_Map"));
+                            self.resource_text
+                                .retain(|x| !x.name.contains("Unlock_Map"));
+                            self.resource_message_box
+                                .retain(|x| !x.name.contains("Unlock_Map"));
+                            self.resource_image
+                                .retain(|x| !x.name.contains("Unlock_Level"));
+                            self.resource_text
+                                .retain(|x| !x.name.contains("Unlock_Level"));
+                            self.resource_message_box
+                                .retain(|x| !x.name.contains("Unlock_Level"));
+                            for i in 0..read_map_information.map_content[read_map_information
+                                .map_content
+                                .iter()
+                                .position(|x| {
+                                    x.level_name
+                                        == self.login_user_config.current_level[self
+                                            .login_user_config
+                                            .current_level
+                                            .rfind("_")
+                                            .unwrap()
+                                            + 1..]
+                                            .strip_suffix(".json")
+                                            .unwrap()
+                                })
+                                .unwrap()]
+                            .unlock_level
+                            .len()
+                            {
+                                if list_files_recursive(Path::new("Resources/config"), "map_")
+                                    .iter()
+                                    .any(|x| {
+                                        x.contains(&PathBuf::from(
+                                            read_map_information.map_content[read_map_information
+                                                .map_content
+                                                .iter()
+                                                .position(|x| {
+                                                    x.level_name
+                                                        == self.login_user_config.current_level[self
+                                                            .login_user_config
+                                                            .current_level
+                                                            .rfind("_")
+                                                            .unwrap()
+                                                            + 1..]
+                                                            .strip_suffix(".json")
+                                                            .unwrap()
+                                                })
+                                                .unwrap()]
+                                            .unlock_level[i]
+                                                .level_map
+                                                .clone(),
+                                        ))
+                                    })
+                                {
+                                    if let Ok(json_value) = read_from_json(
+                                        read_map_information.map_content[read_map_information
+                                            .map_content
+                                            .iter()
+                                            .position(|x| {
+                                                x.level_name
+                                                    == self.login_user_config.current_level[self
+                                                        .login_user_config
+                                                        .current_level
+                                                        .rfind("_")
+                                                        .unwrap()
+                                                        + 1..]
+                                                        .strip_suffix(".json")
+                                                        .unwrap()
+                                            })
+                                            .unwrap()]
+                                        .unlock_level[i]
+                                            .level_map
+                                            .clone(),
+                                    ) {
+                                        if let Some(read_map_information2) =
+                                            Map::from_json_value(&json_value)
+                                        {
+                                            if read_map_information2.map_content.iter().any(|x| {
+                                                x.level_name
+                                                    == read_map_information.map_content
+                                                        [read_map_information
+                                                            .map_content
+                                                            .iter()
+                                                            .position(|x| {
+                                                                x.level_name
+                                                                    == self
+                                                                        .login_user_config
+                                                                        .current_level[self
+                                                                        .login_user_config
+                                                                        .current_level
+                                                                        .rfind("_")
+                                                                        .unwrap()
+                                                                        + 1..]
+                                                                        .strip_suffix(".json")
+                                                                        .unwrap()
+                                                            })
+                                                            .unwrap()]
+                                                    .unlock_level[i]
+                                                        .level_name
+                                                        .clone()
+                                            }) {
+                                                let mut unlock = false;
+                                                if read_map_information.map_content
+                                                    [read_map_information
+                                                        .map_content
+                                                        .iter()
+                                                        .position(|x| {
+                                                            x.level_name
+                                                                == self
+                                                                    .login_user_config
+                                                                    .current_level[self
+                                                                    .login_user_config
+                                                                    .current_level
+                                                                    .rfind("_")
+                                                                    .unwrap()
+                                                                    + 1..]
+                                                                    .strip_suffix(".json")
+                                                                    .unwrap()
+                                                        })
+                                                        .unwrap()]
+                                                .unlock_level[i]
+                                                    .require_perfect_clear
+                                                    && self.var_b("perfect_clear")
+                                                    || !read_map_information.map_content
+                                                        [read_map_information
+                                                            .map_content
+                                                            .iter()
+                                                            .position(|x| {
+                                                                x.level_name
+                                                                    == self
+                                                                        .login_user_config
+                                                                        .current_level[self
+                                                                        .login_user_config
+                                                                        .current_level
+                                                                        .rfind("_")
+                                                                        .unwrap()
+                                                                        + 1..]
+                                                                        .strip_suffix(".json")
+                                                                        .unwrap()
+                                                            })
+                                                            .unwrap()]
+                                                    .unlock_level[i]
+                                                        .require_perfect_clear
+                                                {
+                                                    if !self
+                                                        .login_user_config
+                                                        .level_status
+                                                        .iter()
+                                                        .any(|x| {
+                                                            x.level_name
+                                                                == read_map_information.map_content
+                                                                    [read_map_information
+                                                                        .map_content
+                                                                        .iter()
+                                                                        .position(|x| {
+                                                                            x.level_name
+                                                    == self.login_user_config.current_level[self
+                                                        .login_user_config
+                                                        .current_level
+                                                        .rfind("_")
+                                                        .unwrap()
+                                                        + 1..]
+                                                        .strip_suffix(".json")
+                                                        .unwrap()
+                                                                        })
+                                                                        .unwrap()]
+                                                                .unlock_level[i]
+                                                                    .level_name
+                                                                    .clone()
+                                                        })
+                                                    {
+                                                        unlock = true;
+                                                        self.login_user_config.level_status.push(
+                                                            UserLevelStatus {
+                                                                level_name: read_map_information
+                                                                    .map_content
+                                                                    [read_map_information
+                                                                        .map_content
+                                                                        .iter()
+                                                                        .position(|x| {
+                                                                            x.level_name
+                                                                        == self
+                                                                            .login_user_config
+                                                                            .current_level[self
+                                                                            .login_user_config
+                                                                            .current_level
+                                                                            .rfind("_")
+                                                                            .unwrap()
+                                                                            + 1..]
+                                                                            .strip_suffix(".json")
+                                                                            .unwrap()
+                                                                        })
+                                                                        .unwrap()]
+                                                                .unlock_level[i]
+                                                                    .level_name
+                                                                    .clone(),
+                                                                level_map: read_map_information
+                                                                    .map_content
+                                                                    [read_map_information
+                                                                        .map_content
+                                                                        .iter()
+                                                                        .position(|x| {
+                                                                            x.level_name
+                                                                        == self
+                                                                            .login_user_config
+                                                                            .current_level[self
+                                                                            .login_user_config
+                                                                            .current_level
+                                                                            .rfind("_")
+                                                                            .unwrap()
+                                                                            + 1..]
+                                                                            .strip_suffix(".json")
+                                                                            .unwrap()
+                                                                        })
+                                                                        .unwrap()]
+                                                                .unlock_level[i]
+                                                                    .level_map
+                                                                    .clone(),
+                                                                level_status: 0,
+                                                            },
+                                                        );
+                                                    } else if self.login_user_config.level_status
+                                                        [level_status
+                                                            .iter()
+                                                            .position(|x| {
+                                                                x.level_name
+                                                                    == read_map_information
+                                                                        .map_content
+                                                                        [read_map_information
+                                                                            .map_content
+                                                                            .iter()
+                                                                            .position(|x| {
+                                                                                x.level_name
+                                                                        == self
+                                                                            .login_user_config
+                                                                            .current_level[self
+                                                                            .login_user_config
+                                                                            .current_level
+                                                                            .rfind("_")
+                                                                            .unwrap()
+                                                                            + 1..]
+                                                                            .strip_suffix(".json")
+                                                                            .unwrap()
+                                                                            })
+                                                                            .unwrap()]
+                                                                    .unlock_level[i]
+                                                                        .level_name
+                                                                        .clone()
+                                                            })
+                                                            .unwrap()]
+                                                    .level_status
+                                                        < 0
+                                                    {
+                                                        unlock = true;
+                                                        self.login_user_config.level_status
+                                                            [level_status
+                                                                .iter()
+                                                                .position(|x| {
+                                                                    x.level_name
+                                                                        == read_map_information
+                                                                            .map_content
+                                                                            [read_map_information
+                                                                                .map_content
+                                                                                .iter()
+                                                                                .position(|x| {
+                                                                                    x.level_name
+                                                                        == self
+                                                                            .login_user_config
+                                                                            .current_level[self
+                                                                            .login_user_config
+                                                                            .current_level
+                                                                            .rfind("_")
+                                                                            .unwrap()
+                                                                            + 1..]
+                                                                            .strip_suffix(".json")
+                                                                            .unwrap()
+                                                                                })
+                                                                                .unwrap()]
+                                                                        .unlock_level[i]
+                                                                            .level_name
+                                                                            .clone()
+                                                                })
+                                                                .unwrap()]
+                                                        .level_status = 0;
+                                                    };
+                                                };
+                                                if unlock {
+                                                    self.add_image_texture(
+                                                        &format!("Unlock_Level{}", i),
+                                                        &format!(
+                                                            "Resources/assets/images/level_{}0.png",
+                                                            read_map_information2.map_content
+                                                                [read_map_information2
+                                                                    .map_content
+                                                                    .iter()
+                                                                    .position(|x| {
+                                                                        x.level_name
+                                                                        == read_map_information
+                                                                            .map_content
+                                                                            [read_map_information
+                                                                                .map_content
+                                                                                .iter()
+                                                                                .position(|x| {
+                                                                                    x.level_name
+                                                                        == self
+                                                                            .login_user_config
+                                                                            .current_level[self
+                                                                            .login_user_config
+                                                                            .current_level
+                                                                            .rfind("_")
+                                                                            .unwrap()
+                                                                            + 1..]
+                                                                            .strip_suffix(".json")
+                                                                            .unwrap()
+                                                                                })
+                                                                                .unwrap()]
+                                                                        .unlock_level[i]
+                                                                            .level_name
+                                                                            .clone()
+                                                                    })
+                                                                    .unwrap()]
+                                                            .level_type
+                                                        ),
+                                                        [false, false],
+                                                        false,
+                                                        ctx,
+                                                    );
+                                                    self.add_image(
+                                                        &format!("Unlock_Level{}", i),
+                                                        [0_f32, 0_f32, 50_f32, 50_f32],
+                                                        [0, 0, 0, 0],
+                                                        [false, false, true, true, false],
+                                                        [255, 0, 0, 0, 0],
+                                                        &format!("Unlock_Level{}", i),
+                                                    );
+                                                    self.add_text(
+                                                        [
+                                                            &format!("Unlock_Level{}_Title", i),
+                                                            &format!(
+                                                                "{}: {}",
+                                                                game_text["unlock_new_level"][self
+                                                                    .login_user_config
+                                                                    .language
+                                                                    as usize],
+                                                                read_map_information.map_content
+                                                                    [read_map_information
+                                                                        .map_content
+                                                                        .iter()
+                                                                        .position(|x| {
+                                                                            x.level_name
+                                                                        == self
+                                                                            .login_user_config
+                                                                            .current_level[self
+                                                                            .login_user_config
+                                                                            .current_level
+                                                                            .rfind("_")
+                                                                            .unwrap()
+                                                                            + 1..]
+                                                                            .strip_suffix(".json")
+                                                                            .unwrap()
+                                                                        })
+                                                                        .unwrap()]
+                                                                .unlock_level[i]
+                                                                    .level_name
+                                                                    .clone()
+                                                            ),
+                                                        ],
+                                                        [0_f32, 0_f32, 20_f32, 1000_f32, 0.0],
+                                                        [255, 255, 255, 255, 0, 0, 0],
+                                                        [false, false, true, true],
+                                                        false,
+                                                        [0, 0, 1, 2],
+                                                    );
+                                                    self.add_text(
+                                                        [
+                                                            &format!("Unlock_Level{}_Content", i),
+                                                            &format!(
+                                                                "{}\"{}\"{}",
+                                                                game_text
+                                                                    ["unlock_new_level_content"]
+                                                                    [self.login_user_config.language
+                                                                        as usize],
+                                                                read_map_information2.map_name[self
+                                                                    .login_user_config
+                                                                    .language
+                                                                    as usize],
+                                                                game_text
+                                                                    ["unlock_new_level_content2"]
+                                                                    [self.login_user_config.language
+                                                                        as usize]
+                                                            ),
+                                                        ],
+                                                        [0_f32, 0_f32, 15_f32, 1000_f32, 0.0],
+                                                        [255, 255, 255, 255, 0, 0, 0],
+                                                        [false, false, true, true],
+                                                        false,
+                                                        [0, 0, 1, 2],
+                                                    );
+                                                    self.add_message_box(
+                                                        [
+                                                            &format!("Unlock_Level{}", i),
+                                                            &format!("Unlock_Level{}_Title", i),
+                                                            &format!("Unlock_Level{}_Content", i),
+                                                            &format!("Unlock_Level{}", i),
+                                                        ],
+                                                        [500_f32, 80_f32],
+                                                        false,
+                                                        5_f32,
+                                                        [30_f32, 10_f32],
+                                                    );
+                                                };
+                                            };
+                                        };
+                                    };
+                                };
+                            }
+                            for i in 0..read_map_information.map_content[read_map_information
+                                .map_content
+                                .iter()
+                                .position(|x| {
+                                    x.level_name
+                                        == self.login_user_config.current_level[self
+                                            .login_user_config
+                                            .current_level
+                                            .rfind("_")
+                                            .unwrap()
+                                            + 1..]
+                                            .strip_suffix(".json")
+                                            .unwrap()
+                                })
+                                .unwrap()]
+                            .unlock_map
+                            .len()
+                            {
+                                if list_files_recursive(Path::new("Resources/config"), "map_")
+                                    .iter()
+                                    .any(|x| {
+                                        x.contains(&PathBuf::from(
+                                            read_map_information.map_content[read_map_information
+                                                .map_content
+                                                .iter()
+                                                .position(|x| {
+                                                    x.level_name
+                                                        == self.login_user_config.current_level[self
+                                                            .login_user_config
+                                                            .current_level
+                                                            .rfind("_")
+                                                            .unwrap()
+                                                            + 1..]
+                                                            .strip_suffix(".json")
+                                                            .unwrap()
+                                                })
+                                                .unwrap()]
+                                            .unlock_map[i]
+                                                .map_name
+                                                .clone(),
+                                        ))
+                                    })
+                                {
+                                    let mut unlock = false;
+                                    if read_map_information.map_content[read_map_information
+                                        .map_content
+                                        .iter()
+                                        .position(|x| {
+                                            x.level_name
+                                                == self.login_user_config.current_level[self
+                                                    .login_user_config
+                                                    .current_level
+                                                    .rfind("_")
+                                                    .unwrap()
+                                                    + 1..]
+                                                    .strip_suffix(".json")
+                                                    .unwrap()
+                                        })
+                                        .unwrap()]
+                                    .unlock_map[i]
+                                        .require_perfect_clear
+                                        && self.var_b("perfect_clear")
+                                        || !read_map_information.map_content[read_map_information
+                                            .map_content
+                                            .iter()
+                                            .position(|x| {
+                                                x.level_name
+                                                    == self.login_user_config.current_level[self
+                                                        .login_user_config
+                                                        .current_level
+                                                        .rfind("_")
+                                                        .unwrap()
+                                                        + 1..]
+                                                        .strip_suffix(".json")
+                                                        .unwrap()
+                                            })
+                                            .unwrap()]
+                                        .unlock_map[i]
+                                            .require_perfect_clear
+                                    {
+                                        if !self.login_user_config.map_status.iter().any(|x| {
+                                            x.map_name
+                                                == read_map_information.map_content
+                                                    [read_map_information
+                                                        .map_content
+                                                        .iter()
+                                                        .position(|x| {
+                                                            x.level_name
+                                                                == self
+                                                                    .login_user_config
+                                                                    .current_level[self
+                                                                    .login_user_config
+                                                                    .current_level
+                                                                    .rfind("_")
+                                                                    .unwrap()
+                                                                    + 1..]
+                                                                    .strip_suffix(".json")
+                                                                    .unwrap()
+                                                        })
+                                                        .unwrap()]
+                                                .unlock_map[i]
+                                                    .map_name
+                                                    .clone()
+                                        }) {
+                                            unlock = true;
+                                            self.login_user_config.map_status.push(UserMapStatus {
+                                                map_name: read_map_information.map_content
+                                                    [read_map_information
+                                                        .map_content
+                                                        .iter()
+                                                        .position(|x| {
+                                                            x.level_name
+                                                                == self
+                                                                    .login_user_config
+                                                                    .current_level[self
+                                                                    .login_user_config
+                                                                    .current_level
+                                                                    .rfind("_")
+                                                                    .unwrap()
+                                                                    + 1..]
+                                                                    .strip_suffix(".json")
+                                                                    .unwrap()
+                                                        })
+                                                        .unwrap()]
+                                                .unlock_map[i]
+                                                    .map_name
+                                                    .clone(),
+                                                map_unlock_status: true,
+                                            });
+                                        } else {
+                                            let map_status =
+                                                self.login_user_config.map_status.clone();
+                                            if !self.login_user_config.map_status[map_status
+                                                .iter()
+                                                .position(|x| {
+                                                    x.map_name
+                                                        == read_map_information.map_content
+                                                            [read_map_information
+                                                                .map_content
+                                                                .iter()
+                                                                .position(|x| {
+                                                                    x.level_name
+                                                                        == self
+                                                                            .login_user_config
+                                                                            .current_level[self
+                                                                            .login_user_config
+                                                                            .current_level
+                                                                            .rfind("_")
+                                                                            .unwrap()
+                                                                            + 1..]
+                                                                            .strip_suffix(".json")
+                                                                            .unwrap()
+                                                                })
+                                                                .unwrap()]
+                                                        .unlock_map[i]
+                                                            .map_name
+                                                            .clone()
+                                                })
+                                                .unwrap()]
+                                            .map_unlock_status
+                                            {
+                                                self.login_user_config.map_status[map_status
+                                                    .iter()
+                                                    .position(|x| {
+                                                        x.map_name
+                                                            == read_map_information.map_content
+                                                                [read_map_information
+                                                                    .map_content
+                                                                    .iter()
+                                                                    .position(|x| {
+                                                                        x.level_name
+                                                                            == self
+                                                                                .login_user_config
+                                                                                .current_level[self
+                                                                                .login_user_config
+                                                                                .current_level
+                                                                                .rfind("_")
+                                                                                .unwrap()
+                                                                                + 1..]
+                                                                                .strip_suffix(".json")
+                                                                                .unwrap()
+                                                                    })
+                                                                    .unwrap()]
+                                                            .unlock_map[i]
+                                                                .map_name
+                                                                .clone()
+                                                    })
+                                                    .unwrap()]
+                                                .map_unlock_status = true;
+                                                unlock = true;
+                                            };
+                                        };
+                                    };
+                                    if unlock {
+                                        if let Ok(json_value) = read_from_json(
+                                            read_map_information.map_content[read_map_information
+                                                .map_content
+                                                .iter()
+                                                .position(|x| {
+                                                    x.level_name
+                                                        == self.login_user_config.current_level[self
+                                                            .login_user_config
+                                                            .current_level
+                                                            .rfind("_")
+                                                            .unwrap()
+                                                            + 1..]
+                                                            .strip_suffix(".json")
+                                                            .unwrap()
+                                                })
+                                                .unwrap()]
+                                            .unlock_map[i]
+                                                .map_name
+                                                .clone(),
+                                        ) {
+                                            if let Some(read_map_information2) =
+                                                Map::from_json_value(&json_value)
+                                            {
+                                                self.add_image_texture(
+                                                    &format!("Unlock_Map{}", i),
+                                                    &read_map_information2.map_intro,
+                                                    [false, false],
+                                                    false,
+                                                    ctx,
+                                                );
+                                                self.add_image(
+                                                    &format!("Unlock_Map{}", i),
+                                                    [0_f32, 0_f32, 50_f32, 50_f32],
+                                                    [0, 0, 0, 0],
+                                                    [false, false, true, true, false],
+                                                    [255, 0, 0, 0, 0],
+                                                    &format!("Unlock_Map{}", i),
+                                                );
+                                                self.add_text(
+                                                    [
+                                                        &format!("Unlock_Map{}_Title", i),
+                                                        &format!(
+                                                            "{}: {}",
+                                                            game_text["unlock_new_map"][self
+                                                                .login_user_config
+                                                                .language
+                                                                as usize],
+                                                            read_map_information2.map_name[self
+                                                                .login_user_config
+                                                                .language
+                                                                as usize]
+                                                        ),
+                                                    ],
+                                                    [0_f32, 0_f32, 20_f32, 1000_f32, 0.0],
+                                                    [255, 255, 255, 255, 0, 0, 0],
+                                                    [false, false, true, true],
+                                                    false,
+                                                    [0, 0, 1, 2],
+                                                );
+                                                self.add_text(
+                                                    [
+                                                        &format!("Unlock_Map{}_Content", i),
+                                                        &game_text["unlock_new_map_content"][self
+                                                            .login_user_config
+                                                            .language
+                                                            as usize],
+                                                    ],
+                                                    [0_f32, 0_f32, 15_f32, 1000_f32, 0.0],
+                                                    [255, 255, 255, 255, 0, 0, 0],
+                                                    [false, false, true, true],
+                                                    false,
+                                                    [0, 0, 1, 2],
+                                                );
+                                                self.add_message_box(
+                                                    [
+                                                        &format!("Unlock_Map{}", i),
+                                                        &format!("Unlock_Map{}_Title", i),
+                                                        &format!("Unlock_Map{}_Content", i),
+                                                        &format!("Unlock_Map{}", i),
+                                                    ],
+                                                    [500_f32, 200_f32],
+                                                    false,
+                                                    5_f32,
+                                                    [30_f32, 10_f32],
+                                                );
+                                            };
+                                        };
+                                    };
+                                };
+                            }
+                        };
+                    };
+                };
                 egui::CentralPanel::default().show(ctx, |ui| {
                     self.image(ui, "Operation_Over_Image", ctx);
                     self.image(ui, "Result", ctx);
@@ -3596,6 +4478,9 @@ impl eframe::App for App {
                             self.resource_rect.clone(),
                             "Operation_Fail_Background",
                         );
+                        if self.var_b("cut_to") || self.resource_rect[id].color[3] != 0 {
+                            ctx.set_cursor_icon(egui::CursorIcon::None);
+                        };
                         if self.timer.now_time
                             - self.split_time("operation_over_background_animation")[0]
                             >= self.vertrefresh
@@ -3633,47 +4518,6 @@ impl eframe::App for App {
                         && !fade_in_or_out
                     {
                         self.modify_var("cut_to", false);
-                        // if let Ok(json_value) = read_from_json(&self.login_user_config.current_map)
-                        // {
-                        //     if let Some(read_map_information) = Map::from_json_value(&json_value) {
-                        //         for i in 0..read_map_information.map_content[read_map_information
-                        //             .map_content
-                        //             .iter()
-                        //             .position(|x| {
-                        //                 x.level_name
-                        //                     == self.login_user_config.current_level[self
-                        //                         .login_user_config
-                        //                         .current_level
-                        //                         .rfind("_")
-                        //                         .unwrap()
-                        //                         + 1..]
-                        //                         .strip_suffix(".json")
-                        //                         .unwrap()
-                        //             })
-                        //             .unwrap()]
-                        //         .unlock_map
-                        //         .len()
-                        //         {
-                        //             if list_files_recursive(Path::new("Resources/config"), "map_").iter().any(|x| x.contains(&PathBuf::from(read_map_information.map_content[read_map_information
-                        //             .map_content
-                        //             .iter()
-                        //             .position(|x| {
-                        //                 x.level_name
-                        //                     == self.login_user_config.current_level[self
-                        //                         .login_user_config
-                        //                         .current_level
-                        //                         .rfind("_")
-                        //                         .unwrap()
-                        //                         + 1..]
-                        //                         .strip_suffix(".json")
-                        //                         .unwrap()
-                        //             })
-                        //             .unwrap()]
-                        //             .unlock_map[i].map_name.clone()))) {
-                        //             };
-                        //         };
-                        //     };
-                        // };
                     } else if self.fade(
                         fade_in_or_out,
                         ctx,
@@ -3687,6 +4531,69 @@ impl eframe::App for App {
                     {
                         self.modify_var("cut_to", true);
                         self.switch_page("Select_Level");
+                        self.modify_var("remove_node", true);
+                        self.modify_var("fade_in_or_out", false);
+                        self.add_split_time("cut_to_animation", true);
+                        self.add_split_time("scroll_animation", true);
+                        self.add_split_time("opened_level_animation", true);
+                    };
+                });
+            }
+            "Editor" => {
+                if !self.check_updated(&self.page.clone()) {
+                    self.add_var("editor_state", "Preparation".to_string());
+                };
+                let id = self
+                    .resource_rect
+                    .iter()
+                    .position(|x| x.name == "Editor_Background")
+                    .unwrap();
+                let id2 = self
+                    .resource_rect
+                    .iter()
+                    .position(|x| x.name == "Editor_Left_Sidebar")
+                    .unwrap();
+                let id3 = self
+                    .resource_rect
+                    .iter()
+                    .position(|x| x.name == "Editor_Right_Sidebar")
+                    .unwrap();
+                self.resource_rect[id].size =
+                    [ctx.available_rect().width(), ctx.available_rect().height()];
+                self.resource_rect[id2].size = [300_f32, ctx.available_rect().height()];
+                self.resource_rect[id3].size = [300_f32, ctx.available_rect().height()];
+                egui::CentralPanel::default().show(ctx, |ui| {
+                    self.rect(ui, "Editor_Background", ctx);
+                    self.image(ui, "Editor_Background", ctx);
+                    self.rect(ui, "Editor_Left_Sidebar", ctx);
+                    self.rect(ui, "Editor_Right_Sidebar", ctx);
+                    if self.var_s("editor_state") == "Preparation" {};
+                    let fade_in_or_out = self.var_b("fade_in_or_out");
+                    if self.fade(
+                        fade_in_or_out,
+                        ctx,
+                        ui,
+                        "cut_to_animation",
+                        "Cut_To_Background",
+                        10,
+                    ) == 0
+                        && !fade_in_or_out
+                    {
+                        self.modify_var("cut_to", false);
+                    } else if self.fade(
+                        fade_in_or_out,
+                        ctx,
+                        ui,
+                        "cut_to_animation",
+                        "Cut_To_Background",
+                        20,
+                    ) == 255
+                        && fade_in_or_out
+                        && self.var_b("changed_fade")
+                    {
+                        self.modify_var("cut_to", true);
+                        self.switch_page("Select_Level");
+                        self.modify_var("remove_node", true);
                         self.modify_var("fade_in_or_out", false);
                         self.add_split_time("cut_to_animation", true);
                         self.add_split_time("scroll_animation", true);
@@ -3748,7 +4655,7 @@ impl eframe::App for App {
             })
             .show_separator_line(false)
             .show(ctx, |ui| {
-                if ctx.input(|i| i.key_pressed(egui::Key::F3)) {
+                if ctx.input(|i| i.key_pressed(egui::Key::F3)) && self.config.enable_debug_mode {
                     std::thread::spawn(|| {
                         kira_play_wav("Resources/assets/sounds/Notification.wav").unwrap();
                     });
@@ -4014,63 +4921,63 @@ impl eframe::App for App {
                                 .wrap(),
                             );
                             ui.separator();
-                                ui.vertical(|ui| {
-                                    if ui.button(game_text["debug_frame_number_details"][self.config.language as usize].clone()).clicked()
-                                    {
-                                        general_click_feedback();
-                                        let flip = !self.var_b("debug_fps_window");
-                                        self.modify_var("debug_fps_window", flip);
-                                    };
-                                    if ui.button(game_text["debug_resource_list"][self.config.language as usize].clone()).clicked()
-                                    {
-                                        general_click_feedback();
-                                        let flip = !self.var_b("debug_resource_list_window");
-                                        self.modify_var("debug_resource_list_window", flip);
-                                    };
-                                    if ui.button(game_text["debug_render_resource_list"][self.config.language as usize].clone()).clicked() {
-                                        general_click_feedback();
-                                        let flip = !self.var_b("debug_render_resource_list_window");
-                                        self.modify_var("debug_render_resource_list_window", flip);
-                                    };
-                                    if ui.button(game_text["debug_problem_report"][self.config.language as usize].clone()).clicked()
-                                    {
-                                        general_click_feedback();
-                                        let flip = !self.var_b("debug_problem_window");
-                                        self.modify_var("debug_problem_window", flip);
-                                    };
-                                });
-                                ui.vertical(|ui| {
-                                    ui.label(
-                                        egui::WidgetText::from(game_text["debug_game_version"][self.config.language as usize].clone().to_string())
+                            ui.vertical(|ui| {
+                                if ui.button(game_text["debug_frame_number_details"][self.config.language as usize].clone()).clicked()
+                                {
+                                    general_click_feedback();
+                                    let flip = !self.var_b("debug_fps_window");
+                                    self.modify_var("debug_fps_window", flip);
+                                };
+                                if ui.button(game_text["debug_resource_list"][self.config.language as usize].clone()).clicked()
+                                {
+                                    general_click_feedback();
+                                    let flip = !self.var_b("debug_resource_list_window");
+                                    self.modify_var("debug_resource_list_window", flip);
+                                };
+                                if ui.button(game_text["debug_render_resource_list"][self.config.language as usize].clone()).clicked() {
+                                    general_click_feedback();
+                                    let flip = !self.var_b("debug_render_resource_list_window");
+                                    self.modify_var("debug_render_resource_list_window", flip);
+                                };
+                                if ui.button(game_text["debug_problem_report"][self.config.language as usize].clone()).clicked()
+                                {
+                                    general_click_feedback();
+                                    let flip = !self.var_b("debug_problem_window");
+                                    self.modify_var("debug_problem_window", flip);
+                                };
+                            });
+                            ui.vertical(|ui| {
+                                ui.label(
+                                    egui::WidgetText::from(game_text["debug_game_version"][self.config.language as usize].clone().to_string())
+                                    .color(egui::Color32::GRAY)
+                                    .background_color(egui::Color32::from_black_alpha(220)),
+                                );
+                                ui.label(
+                                    egui::WidgetText::from(format!("{}: {}", game_text["debug_game_page"][self.config.language as usize].clone(), self.page))
                                         .color(egui::Color32::GRAY)
                                         .background_color(egui::Color32::from_black_alpha(220)),
-                                    );
-                                    ui.label(
-                                        egui::WidgetText::from(format!("{}: {}", game_text["debug_game_page"][self.config.language as usize].clone(), self.page))
-                                            .color(egui::Color32::GRAY)
-                                            .background_color(egui::Color32::from_black_alpha(220)),
-                                    );
-                                    ui.label(
-                                        egui::WidgetText::from(format!("{}: {}", game_text["debug_login_user"][self.config.language as usize].clone(), self.config.login_user_name))
-                                            .color(egui::Color32::GRAY)
-                                            .background_color(egui::Color32::from_black_alpha(220)),
-                                    );
-                                    ui.label(
-                                        egui::WidgetText::from(format!("{}: {:.0}{}", game_text["debug_fps"][self.config.language as usize].clone(), self.current_fps(), game_text["debug_fps2"][self.config.language as usize].clone()))
-                                            .color(egui::Color32::GRAY)
-                                            .background_color(egui::Color32::from_black_alpha(220)),
-                                    );
-                                    ui.label(
-                                        egui::WidgetText::from(format!("{}: {:.2}{}", game_text["debug_game_now_time"][self.config.language as usize].clone(), self.timer.now_time, game_text["debug_game_second"][self.config.language as usize].clone()))
-                                            .color(egui::Color32::GRAY)
-                                            .background_color(egui::Color32::from_black_alpha(220)),
-                                    );
-                                    ui.label(
-                                        egui::WidgetText::from(format!("{}: {:.2}{}", game_text["debug_game_total_time"][self.config.language as usize].clone(), self.timer.total_time, game_text["debug_game_second"][self.config.language as usize].clone()))
-                                            .color(egui::Color32::GRAY)
-                                            .background_color(egui::Color32::from_black_alpha(220)),
-                                    );
-                                });
+                                );
+                                ui.label(
+                                    egui::WidgetText::from(format!("{}: {}", game_text["debug_login_user"][self.config.language as usize].clone(), self.config.login_user_name))
+                                        .color(egui::Color32::GRAY)
+                                        .background_color(egui::Color32::from_black_alpha(220)),
+                                );
+                                ui.label(
+                                    egui::WidgetText::from(format!("{}: {:.0}{}", game_text["debug_fps"][self.config.language as usize].clone(), self.current_fps(), game_text["debug_fps2"][self.config.language as usize].clone()))
+                                        .color(egui::Color32::GRAY)
+                                        .background_color(egui::Color32::from_black_alpha(220)),
+                                );
+                                ui.label(
+                                    egui::WidgetText::from(format!("{}: {:.2}{}", game_text["debug_game_now_time"][self.config.language as usize].clone(), self.timer.now_time, game_text["debug_game_second"][self.config.language as usize].clone()))
+                                        .color(egui::Color32::GRAY)
+                                        .background_color(egui::Color32::from_black_alpha(220)),
+                                );
+                                ui.label(
+                                    egui::WidgetText::from(format!("{}: {:.2}{}", game_text["debug_game_total_time"][self.config.language as usize].clone(), self.timer.total_time, game_text["debug_game_second"][self.config.language as usize].clone()))
+                                        .color(egui::Color32::GRAY)
+                                        .background_color(egui::Color32::from_black_alpha(220)),
+                                );
+                            });
                         });
                     });
                 };

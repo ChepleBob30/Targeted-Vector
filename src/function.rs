@@ -222,6 +222,7 @@ pub struct Config {
     pub login_user_name: String,
     pub amount_languages: u8,
     pub rc_strict_mode: bool,
+    pub enable_debug_mode: bool,
 }
 
 impl Config {
@@ -232,6 +233,7 @@ impl Config {
             login_user_name: value["login_user_name"].as_str()?.to_string(),
             amount_languages: value["amount_languages"].as_u8()?,
             rc_strict_mode: value["rc_strict_mode"].as_bool()?,
+            enable_debug_mode: value["enable_debug_mode"].as_bool()?,
         })
     }
     pub fn to_json_value(&self) -> JsonValue {
@@ -241,6 +243,7 @@ impl Config {
             login_user_name: self.login_user_name.clone(),
             amount_languages: self.amount_languages,
             rc_strict_mode: self.rc_strict_mode,
+            enable_debug_mode: self.enable_debug_mode,
         }
     }
 }
@@ -316,9 +319,58 @@ impl OperationTargetEnemy {
 }
 
 #[derive(Debug, Clone)]
+pub struct OperationMessageBox {
+    pub box_size: [f32; 2],
+    pub box_image_path: String,
+    pub box_title: Vec<String>,
+    pub box_content: Vec<String>,
+    pub box_title_color: [u8; 4],
+    pub box_content_color: [u8; 4],
+    pub box_existing_time: f32,
+    pub box_appear_time: f32,
+    pub box_enable: bool,
+}
+
+impl OperationMessageBox {
+    pub fn from_json_value(value: &JsonValue) -> Option<OperationMessageBox> {
+        Some(OperationMessageBox {
+            box_size: [
+                value["box_size"][0].as_f32()?,
+                value["box_size"][1].as_f32()?,
+            ],
+            box_image_path: value["box_image_path"].as_str()?.to_string(),
+            box_title: value["box_title"]
+                .members()
+                .map(|s| s.to_string())
+                .collect(),
+            box_content: value["box_content"]
+                .members()
+                .map(|s| s.to_string())
+                .collect(),
+            box_title_color: [
+                value["box_title_color"][0].as_u8()?,
+                value["box_title_color"][1].as_u8()?,
+                value["box_title_color"][2].as_u8()?,
+                value["box_title_color"][3].as_u8()?,
+            ],
+            box_content_color: [
+                value["box_content_color"][0].as_u8()?,
+                value["box_content_color"][1].as_u8()?,
+                value["box_content_color"][2].as_u8()?,
+                value["box_content_color"][3].as_u8()?,
+            ],
+            box_existing_time: value["box_existing_time"].as_f32()?,
+            box_appear_time: value["box_appear_time"].as_f32()?,
+            box_enable: true,
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct Operation {
     pub global: OperationGlobal,
     pub target_enemy: Vec<OperationTargetEnemy>,
+    pub message_box: Vec<OperationMessageBox>,
 }
 
 impl Operation {
@@ -328,6 +380,10 @@ impl Operation {
             target_enemy: value["target_enemy"]
                 .members()
                 .map(OperationTargetEnemy::from_json_value)
+                .collect::<Option<Vec<_>>>()?,
+            message_box: value["message_box"]
+                .members()
+                .map(OperationMessageBox::from_json_value)
                 .collect::<Option<Vec<_>>>()?,
         })
     }
@@ -615,7 +671,9 @@ impl Map {
                     level_description: l.level_description.clone(),
                     level_type: l.level_type.clone(),
                     level_position: [l.level_position[0], l.level_position[1]],
-                    level_initial_status: l.level_initial_status // 新增缺失字段
+                    level_initial_status: l.level_initial_status, // 新增缺失字段
+                    unlock_map: l.unlock_map.iter().map(|x| json::object! { map_name: x.map_name.clone(), require_perfect_clear: x.require_perfect_clear }).collect::<Vec<_>>(),
+                    unlock_level: l.unlock_level.iter().map(|x| json::object! { level_name: x.level_name.clone(), level_map: x.level_map.clone(), require_perfect_clear: x.require_perfect_clear }).collect::<Vec<_>>(),
                 }
             }).collect::<Vec<_>>(),
             map_connecting_line: self.map_connecting_line.iter().map(|pair| { // 新增连接线字段
@@ -1232,6 +1290,7 @@ pub struct App {
     pub enemy_list: Vec<Enemy>,
     pub pause_list: Vec<PauseMessage>,
     pub resource_message_box: Vec<MessageBox>,
+    pub operation_preload_message_box: Vec<OperationMessageBox>,
 }
 
 impl App {
@@ -1243,6 +1302,7 @@ impl App {
             login_user_name: "".to_string(),
             amount_languages: 0,
             rc_strict_mode: false,
+            enable_debug_mode: false,
         };
         let mut game_text = GameText {
             game_text: HashMap::new(),
@@ -1335,6 +1395,12 @@ impl App {
                     forced_update: true,
                     change_page_updated: false,
                 },
+                PageData {
+                    discern_type: "PageData".to_string(),
+                    name: "Editor".to_string(),
+                    forced_update: true,
+                    change_page_updated: false,
+                },
             ],
             resource_image: Vec::new(),
             resource_text: Vec::new(),
@@ -1355,6 +1421,7 @@ impl App {
             enemy_list: Vec::new(),
             pause_list: Vec::new(),
             resource_message_box: Vec::new(),
+            operation_preload_message_box: Vec::new(),
         }
     }
 
@@ -2437,6 +2504,89 @@ impl App {
             [255, 0, 0, 0, 0],
             "Icon_Dev",
         );
+        self.add_image_texture(
+            "Editor",
+            "Resources/assets/images/editor.png",
+            [false, false],
+            true,
+            ctx,
+        );
+        self.add_image(
+            "Editor",
+            [120_f32, 10_f32, 50_f32, 50_f32],
+            [0, 1, 0, 1],
+            [true, true, false, false, false],
+            [255, 0, 0, 0, 0],
+            "Editor",
+        );
+        self.add_switch(
+            ["Editor", "Editor"],
+            vec![
+                SwitchData {
+                    texture: "Editor".to_string(),
+                    color: [255, 255, 255, 255],
+                },
+                SwitchData {
+                    texture: "Editor".to_string(),
+                    color: [180, 180, 180, 255],
+                },
+                SwitchData {
+                    texture: "Editor".to_string(),
+                    color: [150, 150, 150, 255],
+                },
+            ],
+            [true, true, true],
+            1,
+            vec![SwitchClickAction {
+                click_method: PointerButton::Primary,
+                action: false,
+            }],
+        );
+        self.add_rect(
+            "Editor_Left_Sidebar",
+            [0_f32, 0_f32, 300_f32, ctx.available_rect().height(), 0_f32],
+            [0, 1, 1, 2],
+            [true, false, false, true],
+            [100, 100, 100, 255, 0, 0, 0, 255],
+            0.5,
+        );
+        self.add_rect(
+            "Editor_Right_Sidebar",
+            [0_f32, 0_f32, 300_f32, ctx.available_rect().height(), 0_f32],
+            [1, 1, 1, 2],
+            [false, false, false, true],
+            [100, 100, 100, 255, 0, 0, 0, 255],
+            0.5,
+        );
+        self.add_image_texture(
+            "Editor_Background",
+            "Resources/assets/images/editor_background.png",
+            [false, false],
+            true,
+            ctx,
+        );
+        self.add_image(
+            "Editor_Background",
+            [0_f32, 0_f32, 300_f32, 300_f32],
+            [1, 2, 1, 2],
+            [false, false, true, true, false],
+            [255, 0, 0, 0, 0],
+            "Editor_Background",
+        );
+        self.add_rect(
+            "Editor_Background",
+            [
+                0_f32,
+                0_f32,
+                ctx.available_rect().width(),
+                ctx.available_rect().height(),
+                0_f32,
+            ],
+            [1, 2, 1, 2],
+            [false, false, true, true],
+            [58, 58, 58, 255, 255, 255, 255, 255],
+            0.0,
+        );
     }
 
     pub fn fade(
@@ -2583,63 +2733,90 @@ impl App {
         );
     }
 
+    pub fn operation_message_box_display(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
+        for i in 0..self.operation_preload_message_box.len() {
+            if self.var_f("operation_runtime")
+                >= self.operation_preload_message_box[i].box_appear_time
+                && self.operation_preload_message_box[i].box_enable
+            {
+                self.operation_preload_message_box[i].box_enable = false;
+                self.add_image_texture(
+                    &format!("Json_MessageBox{}", i),
+                    &self.operation_preload_message_box[i].box_image_path.clone(),
+                    [false, false],
+                    true,
+                    ctx,
+                );
+                self.add_image(
+                    &format!("Json_MessageBox{}", i),
+                    [0_f32, 0_f32, 100_f32, 100_f32],
+                    [1, 2, 1, 2],
+                    [true, true, true, false, false],
+                    [255, 0, 0, 0, 0],
+                    &format!("Json_MessageBox{}", i),
+                );
+                self.add_text(
+                    [
+                        &format!("Json_MessageBox{}_Title", i),
+                        &self.operation_preload_message_box[i].box_title
+                            [self.login_user_config.language as usize]
+                            .clone(),
+                    ],
+                    [0_f32, 0_f32, 20_f32, 325_f32, 0.0],
+                    [
+                        self.operation_preload_message_box[i].box_title_color[0],
+                        self.operation_preload_message_box[i].box_title_color[1],
+                        self.operation_preload_message_box[i].box_title_color[2],
+                        self.operation_preload_message_box[i].box_title_color[3],
+                        0,
+                        0,
+                        0,
+                    ],
+                    [true, true, false, false],
+                    false,
+                    [0, 0, 0, 0],
+                );
+                self.add_text(
+                    [
+                        &format!("Json_MessageBox{}_Content", i),
+                        &self.operation_preload_message_box[i].box_content
+                            [self.login_user_config.language as usize]
+                            .clone(),
+                    ],
+                    [0_f32, 0_f32, 15_f32, 325_f32, 0.0],
+                    [
+                        self.operation_preload_message_box[i].box_content_color[0],
+                        self.operation_preload_message_box[i].box_content_color[1],
+                        self.operation_preload_message_box[i].box_content_color[2],
+                        self.operation_preload_message_box[i].box_content_color[3],
+                        0,
+                        0,
+                        0,
+                    ],
+                    [true, true, false, false],
+                    false,
+                    [0, 0, 0, 0],
+                );
+                self.add_message_box(
+                    [
+                        &format!("Json_MessageBox{}", i),
+                        &format!("Json_MessageBox{}_Title", i),
+                        &format!("Json_MessageBox{}_Content", i),
+                        &format!("Json_MessageBox{}", i),
+                    ],
+                    self.operation_preload_message_box[i].box_size,
+                    self.operation_preload_message_box[i].box_existing_time == 0_f32,
+                    self.operation_preload_message_box[i].box_existing_time,
+                    [30_f32, 10_f32],
+                );
+            };
+        }
+        self.message_box_display(ctx, ui);
+    }
+
     pub fn enemy_refresh(&mut self, ctx: &egui::Context, ui: &Ui, refresh: bool) {
         if let Ok(json_value) = read_from_json(self.login_user_config.current_level.clone()) {
             if let Some(read_operation) = Operation::from_json_value(&json_value) {
-                for i in 0..read_operation.target_enemy.len() {
-                    let mut found_enemy = -1;
-                    for u in 0..self.enemy_list.len() {
-                        if self.enemy_list[u].enemy_name == format!("Enemy_json_{}", i) {
-                            found_enemy = u as i32;
-                            break;
-                        };
-                    }
-                    if found_enemy == -1 {
-                        if let Ok(json_value) = read_from_json(
-                            format!(
-                                "Resources/config/enemy_{}.json",
-                                read_operation.target_enemy[i].enemy_recognition_name
-                            )
-                            .to_lowercase(),
-                        ) {
-                            if let Some(read_enemy) = JsonReadEnemy::from_json_value(&json_value) {
-                                self.add_enemy(
-                                    [
-                                        read_enemy.enemy_hp,
-                                        read_enemy.enemy_def,
-                                        read_enemy.enemy_speed,
-                                        read_enemy.enemy_invincible_time,
-                                        read_operation.target_enemy[i].enemy_position[0],
-                                        read_operation.target_enemy[i].enemy_position[1],
-                                        read_operation.target_enemy[i].enemy_approach_time,
-                                        read_operation.target_enemy[i].enemy_size[0],
-                                        read_operation.target_enemy[i].enemy_size[1],
-                                        read_enemy.enemy_walk_interval,
-                                        read_enemy.enemy_animation_interval,
-                                    ],
-                                    [
-                                        read_enemy.enemy_image_count,
-                                        read_enemy.enemy_minus_target_point,
-                                        read_operation.target_enemy[i].enemy_approach_alpha as u32,
-                                        read_operation.target_enemy[i].enemy_increase_alpha_speed
-                                            as u32,
-                                    ],
-                                    [
-                                        read_enemy.enemy_tag,
-                                        read_operation.target_enemy[i].enemy_path.clone(),
-                                    ],
-                                    [
-                                        format!("json_{}", i),
-                                        read_enemy.enemy_image.clone(),
-                                        read_enemy.enemy_image_type.clone(),
-                                    ],
-                                    [true, false],
-                                    ctx,
-                                );
-                            };
-                        };
-                    };
-                }
                 for i in 0..self.enemy_list.len() {
                     let id = self.track_resource(
                         self.resource_image.clone(),
@@ -4794,10 +4971,28 @@ impl App {
                 };
             };
             if deleted {
+                self.resource_switch.remove(
+                    self.resource_switch
+                        .iter()
+                        .position(|x| {
+                            x.name
+                                == format!("MessageBox_{}_Close", self.resource_message_box[i].name)
+                        })
+                        .unwrap(),
+                );
                 self.resource_image.remove(
                     self.resource_image
                         .iter()
                         .position(|x| x.name == self.resource_message_box[i].box_image_name)
+                        .unwrap(),
+                );
+                self.resource_image.remove(
+                    self.resource_image
+                        .iter()
+                        .position(|x| {
+                            x.name
+                                == format!("MessageBox_{}_Close", self.resource_message_box[i].name)
+                        })
                         .unwrap(),
                 );
                 self.resource_text.remove(
