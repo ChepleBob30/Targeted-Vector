@@ -701,7 +701,7 @@ pub struct Gun {
     pub gun_recoil: f32,
     pub gun_temperature_degree: u32,
     pub gun_tag: Vec<String>,
-    pub gun_initial_level: i32,
+    pub gun_initial_unlock: bool,
     pub gun_no_bullet_shoot_sound: String,
     pub gun_reload_sound: String,
     pub gun_reload_bullet_sound: String,
@@ -737,7 +737,7 @@ impl Gun {
                 .members()
                 .filter_map(|v| v.as_str().map(String::from))
                 .collect(),
-            gun_initial_level: value["gun_initial_level"].as_i32()?,
+            gun_initial_unlock: value["gun_initial_unlock"].as_bool()?,
             gun_no_bullet_shoot_sound: value["gun_no_bullet_shoot_sound"].as_str()?.to_string(),
             gun_reload_bullet_sound: value["gun_reload_bullet_sound"].as_str()?.to_string(),
             gun_reload_sound: value["gun_reload_sound"].as_str()?.to_string(),
@@ -2200,7 +2200,7 @@ impl App {
         );
         self.add_rect(
             "Level_Information_Background",
-            [0_f32, 0_f32, 400_f32, ctx.available_rect().height(), 0_f32],
+            [0_f32, 0_f32, 600_f32, ctx.available_rect().height(), 0_f32],
             [1, 1, 1, 2],
             [true, false, false, true],
             [0, 0, 0, 240, 255, 255, 255, 255],
@@ -2208,7 +2208,7 @@ impl App {
         );
         self.add_text(
             ["Level_Title", ""],
-            [-200_f32, 30_f32, 60_f32, 300_f32, 0.0],
+            [-200_f32, 30_f32, 60_f32, 500_f32, 0.0],
             [255, 255, 255, 255, 0, 0, 0],
             [true, true, true, false],
             false,
@@ -2216,7 +2216,7 @@ impl App {
         );
         self.add_text(
             ["Level_Description", ""],
-            [-200_f32, 0_f32, 20_f32, 300_f32, 0.0],
+            [-200_f32, 0_f32, 20_f32, 500_f32, 0.0],
             [255, 255, 255, 255, 0, 0, 0],
             [true, true, true, false],
             false,
@@ -2586,6 +2586,14 @@ impl App {
             [false, false, true, true],
             [58, 58, 58, 255, 255, 255, 255, 255],
             0.0,
+        );
+        self.add_text(
+            ["Operation_Over_Text2", ""],
+            [0_f32, -50_f32, 60_f32, 1000_f32, 0.0],
+            [255, 255, 255, 255, 0, 0, 0],
+            [true, true, false, false],
+            false,
+            [1, 6, 1, 3],
         );
     }
 

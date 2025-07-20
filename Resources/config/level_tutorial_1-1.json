@@ -1,6 +1,6 @@
 {
     "global": {
-        "target_point": 2,
+        "target_point": 5,
         "storage_bullet": 100,
         "cost": 0,
         "cost_recover_speed": 1,
@@ -13,46 +13,46 @@
     },
     "target_enemy": [
         {
-            "enemy_recognition_name": "Train_Enemy",
+            "enemy_recognition_name": "Train_Target",
             "enemy_position": [640.0, 0.0],
             "enemy_size": [100.0, 100.0],
             "enemy_path": [
                 "down"
             ],
-            "enemy_approach_time": 5.0,
+            "enemy_approach_time": 13.0,
             "enemy_approach_alpha": 0,
             "enemy_increase_alpha_speed": 5
         },
         {
-            "enemy_recognition_name": "Train_Enemy",
+            "enemy_recognition_name": "Train_Target",
             "enemy_position": [640.0, 0.0],
-            "enemy_size": [60.0, 60.0],
+            "enemy_size": [100.0, 100.0],
             "enemy_path": [
                 "down"
             ],
-            "enemy_approach_time": 8.0,
+            "enemy_approach_time": 16.0,
             "enemy_approach_alpha": 0,
             "enemy_increase_alpha_speed": 5
         },
         {
-            "enemy_recognition_name": "Train_Enemy",
+            "enemy_recognition_name": "Train_Target",
             "enemy_position": [640.0, 0.0],
-            "enemy_size": [60.0, 60.0],
+            "enemy_size": [100.0, 100.0],
             "enemy_path": [
                 "down"
             ],
-            "enemy_approach_time": 11.0,
+            "enemy_approach_time": 19.0,
             "enemy_approach_alpha": 0,
             "enemy_increase_alpha_speed": 5
         },
         {
-            "enemy_recognition_name": "Train_Enemy",
+            "enemy_recognition_name": "Train_Target",
             "enemy_position": [640.0, 0.0],
-            "enemy_size": [60.0, 60.0],
+            "enemy_size": [100.0, 100.0],
             "enemy_path": [
                 "down"
             ],
-            "enemy_approach_time": 14.0,
+            "enemy_approach_time": 22.0,
             "enemy_approach_alpha": 0,
             "enemy_increase_alpha_speed": 5
         }
@@ -71,7 +71,7 @@
             ],
             "box_title_color": [255, 255, 255, 255],
             "box_content_color": [255, 255, 255, 255],
-            "box_existing_time": 4.0,
+            "box_existing_time": 3.0,
             "box_appear_time": 1.0
         },
         {
@@ -87,8 +87,24 @@
             ],
             "box_title_color": [255, 255, 255, 255],
             "box_content_color": [255, 255, 255, 255],
-            "box_existing_time": 5.0,
+            "box_existing_time": 3.0,
             "box_appear_time": 5.0
+        },
+        {
+            "box_size": [300.0, 100.0],
+            "box_image_path": "Resources/assets/images/tutorial_reload.png",
+            "box_title": [
+                "换弹",
+                "Reload"
+            ],
+            "box_content": [
+                "如果枪支子弹耗尽，向前推滚轮即可补充子弹。",
+                "If the gun's bullets are exhausted, push the wheel forward to reload."
+            ],
+            "box_title_color": [255, 255, 255, 255],
+            "box_content_color": [255, 255, 255, 255],
+            "box_existing_time": 3.0,
+            "box_appear_time": 9.0
         },
         {
             "box_size": [300.0, 100.0],
@@ -98,13 +114,13 @@
                 "Defend"
             ],
             "box_content": [
-                "不要让敌人到达你的阵地（红线处）！",
-                "Don't let enemy reach your base (red line)!"
+                "不要让敌人到达你的目标区域（红线处）！",
+                "Don't let enemy reach your target area (red line)!"
             ],
-            "box_title_color": [255, 255, 255, 255],
+            "box_title_color": [255, 100, 100, 255],
             "box_content_color": [255, 255, 255, 255],
             "box_existing_time": 5.0,
-            "box_appear_time": 5.0
+            "box_appear_time": 13.0
         }
     ]
 }

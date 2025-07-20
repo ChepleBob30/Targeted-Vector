@@ -16,19 +16,69 @@
         {
             "level_name": "1-1",
             "level_name_expand": [
-                "测试",
-                "Test"
+                "拾枪",
+                "Pick Up"
             ],
             "level_description": [
-                "这是一个测试关卡的注释",
-                "Test"
+                "学习如何使用枪守护阵地。",
+                "Learn how to use gun to defend base."
             ],
             "level_type": "main",
             "level_position": [
                 100,
-                400
+                360
             ],
             "level_initial_status": true,
+            "unlock_map": [],
+            "unlock_level": [
+                {
+                    "level_name": "1-2",
+                    "level_map": "Resources/config/map_tutorial.json",
+                    "require_perfect_clear": false
+                }
+            ]
+        },
+        {
+            "level_name": "1-2",
+            "level_name_expand": [
+                "基础面板",
+                "Basic Panel"
+            ],
+            "level_description": [
+                "学习查看面板上的基础信息并掌握使用枪支的方法。",
+                "Learn to view basic information on the panel and master the use of the gun."
+            ],
+            "level_type": "main",
+            "level_position": [
+                400,
+                360
+            ],
+            "level_initial_status": false,
+            "unlock_map": [],
+            "unlock_level": [
+                {
+                    "level_name": "1-3",
+                    "level_map": "Resources/config/map_tutorial.json",
+                    "require_perfect_clear": false
+                }
+            ]
+        },
+        {
+            "level_name": "1-3",
+            "level_name_expand": [
+                "联合进攻",
+                "Union Attack"
+            ],
+            "level_description": [
+                "训练靶通过各个位置与方向发起了进攻，用子弹向它们展示你学到了什么。",
+                "The target passed through various positions and directions to attack. Use bullets to show what you learned."
+            ],
+            "level_type": "main",
+            "level_position": [
+                700,
+                360
+            ],
+            "level_initial_status": false,
             "unlock_map": [],
             "unlock_level": []
         }
@@ -37,6 +87,10 @@
         [
             "1-1",
             "1-2"
+        ],
+        [
+            "1-2",
+            "1-3"
         ]
     ],
     "map_initial_unlock_status": true,

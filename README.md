@@ -8,7 +8,7 @@
 [![Language: Rust](https://img.shields.io/badge/Language-Rust-5F4C49)](https://www.rust-lang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 ![Github Stars](https://img.shields.io/github/stars/ChepleBob30/targeted-vector?style=flat&color=red)
-[![Version](https://img.shields.io/badge/Version-v1.1.0_beta.1-D81A1A)](https://github.com/ChepleBob30/Targeted-Vector/releases)
+[![Version](https://img.shields.io/badge/Version-v1.2.0_beta.1-D81A1A)](https://github.com/ChepleBob30/Targeted-Vector/releases)
 
 [English](./README.md) | [简体中文](./README_zh.md)
 
@@ -65,15 +65,11 @@ Special thanks to the following for their outstanding contributions to the const
 
 - What platforms will Targeted Vector support?
 
-    *I will support macOS and Windows. If I have enough time, I will also support Linux.*
+    *I will support macOS and Windows.*
 
 - What is the development status of Targeted Vector?
 
     *Targeted Vector is currently in the development phase (beta stage).*
-
-- When can the installation program be provided?
-
-    *I will provide .dmg (macOS installer) and.msi (Windows installer) at the end of the development stage.*
 
 - What languages will the Targeted Vector support?
 

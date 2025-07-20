@@ -1,18 +1,18 @@
 {
-    "enemy_recognition_name": "Train_Enemy",
+    "enemy_recognition_name": "Train_Target",
     "enemy_name": [
-        "训练敌人",
-        "Train Enemy"
+        "训练靶",
+        "Train Target"
     ],
-    "enemy_hp": 10.0,
+    "enemy_hp": 15.0,
     "enemy_def": 0.0,
-    "enemy_speed": 0.5,
+    "enemy_speed": 1,
     "enemy_invincible_time": 0.1,
     "enemy_image_count": 5,
     "enemy_tag": [],
-    "enemy_image": "Resources/assets/images/train_enemy",
+    "enemy_image": "Resources/assets/images/train_target",
     "enemy_image_type": ".png",
-    "enemy_minus_target_point": 1,
+    "enemy_minus_target_point": 0,
     "enemy_walk_interval": 0,
     "enemy_animation_interval": 0.1
 }

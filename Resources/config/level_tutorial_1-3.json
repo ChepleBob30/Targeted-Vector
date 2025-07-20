@@ -1,0 +1,201 @@
+{
+    "global": {
+        "target_point": 3,
+        "storage_bullet": 100,
+        "cost": 0,
+        "cost_recover_speed": 1,
+        "instrument_ceiling": 5,
+        "target_line": [[0.0, 720.0], [1280.0, 720.0]],
+        "operation_background": "Resources/assets/images/map_tutorial_operation_background.png",
+        "operation_background_expand": "Resources/assets/images/map_tutorial_operation_background_expand.png",
+        "operation_start_background": "Resources/assets/images/map_tutorial_operation_start_background.png",
+        "operation_over_background": "Resources/assets/images/map_tutorial_operation_start_background.png"
+    },
+    "target_enemy": [
+        {
+            "enemy_recognition_name": "Train_Target",
+            "enemy_position": [640.0, 0.0],
+            "enemy_size": [90.0, 90.0],
+            "enemy_path": [
+                "left_lower",
+                "right_lower"
+            ],
+            "enemy_approach_time": 5.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 5
+        },
+        {
+            "enemy_recognition_name": "Train_Target",
+            "enemy_position": [320.0, 0.0],
+            "enemy_size": [90.0, 90.0],
+            "enemy_path": [
+                "left_lower",
+                "right_lower"
+            ],
+            "enemy_approach_time": 6.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 5
+        },
+        {
+            "enemy_recognition_name": "Train_Target",
+            "enemy_position": [960.0, 0.0],
+            "enemy_size": [90.0, 90.0],
+            "enemy_path": [
+                "left_lower",
+                "right_lower"
+            ],
+            "enemy_approach_time": 6.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 5
+        },
+        {
+            "enemy_recognition_name": "Reinforced_Train_Target",
+            "enemy_position": [640.0, 0.0],
+            "enemy_size": [100.0, 100.0],
+            "enemy_path": [
+                "down"
+            ],
+            "enemy_approach_time": 8.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 3
+        },
+        {
+            "enemy_recognition_name": "Reinforced_Train_Target",
+            "enemy_position": [320.0, 0.0],
+            "enemy_size": [100.0, 100.0],
+            "enemy_path": [
+                "down"
+            ],
+            "enemy_approach_time": 10.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 3
+        },
+        {
+            "enemy_recognition_name": "Reinforced_Train_Target",
+            "enemy_position": [640.0, 0.0],
+            "enemy_size": [100.0, 100.0],
+            "enemy_path": [
+                "down"
+            ],
+            "enemy_approach_time": 12.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 3
+        },
+        {
+            "enemy_recognition_name": "Reinforced_Train_Target",
+            "enemy_position": [960.0, 0.0],
+            "enemy_size": [100.0, 100.0],
+            "enemy_path": [
+                "down"
+            ],
+            "enemy_approach_time": 14.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 3
+        },
+        {
+            "enemy_recognition_name": "Reinforced_Train_Target",
+            "enemy_position": [640.0, 0.0],
+            "enemy_size": [100.0, 100.0],
+            "enemy_path": [
+                "down"
+            ],
+            "enemy_approach_time": 16.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 3
+        },
+        {
+            "enemy_recognition_name": "Train_Target",
+            "enemy_position": [320.0, 0.0],
+            "enemy_size": [90.0, 90.0],
+            "enemy_path": [
+                "left_lower",
+                "right_lower"
+            ],
+            "enemy_approach_time": 20.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 5
+        },
+        {
+            "enemy_recognition_name": "Reinforced_Train_Target",
+            "enemy_position": [640.0, 0.0],
+            "enemy_size": [100.0, 100.0],
+            "enemy_path": [
+                "left_lower",
+                "right_lower"
+            ],
+            "enemy_approach_time": 21.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 3
+        },
+        {
+            "enemy_recognition_name": "Train_Target",
+            "enemy_position": [960.0, 0.0],
+            "enemy_size": [100.0, 100.0],
+            "enemy_path": [
+                "left_lower",
+                "right_lower"
+            ],
+            "enemy_approach_time": 22.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 5
+        },
+        {
+            "enemy_recognition_name": "Reinforced_Train_Target",
+            "enemy_position": [640.0, 0.0],
+            "enemy_size": [100.0, 100.0],
+            "enemy_path": [
+                "left_lower",
+                "right_lower"
+            ],
+            "enemy_approach_time": 23.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 3
+        },
+        {
+            "enemy_recognition_name": "Train_Target",
+            "enemy_position": [320.0, 0.0],
+            "enemy_size": [90.0, 90.0],
+            "enemy_path": [
+                "left_lower",
+                "right_lower"
+            ],
+            "enemy_approach_time": 24.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 5
+        }
+    ],
+    "message_box": [
+        {
+            "box_size": [400.0, 100.0],
+            "box_image_path": "Resources/assets/images/tutorial_another_path.png",
+            "box_title": [
+                "注意",
+                "Attention"
+            ],
+            "box_content": [
+                "从现在起，敌人的行走路径将会发生改变。",
+                "From now on, the enemy's walk path will change."
+            ],
+            "box_title_color": [255, 0, 0, 255],
+            "box_content_color": [255, 255, 255, 255],
+            "box_existing_time": 3.0,
+            "box_appear_time": 1.0
+        },
+        {
+            "box_size": [400.0, 100.0],
+            "box_image_path": "Resources/assets/images/reinforced_train_target_4.png",
+            "box_title": [
+                "出现新敌人：加固型训练靶",
+                "New enemy: Reinforced Train Target"
+            ],
+            "box_content": [
+                "比普通的训练靶更加坚固，需要花费更多精力才能破坏。",
+                "It is more sturdy than ordinary Train Targets and requires more effort to break."
+            ],
+            "box_title_color": [255, 255, 255, 255],
+            "box_content_color": [255, 255, 255, 255],
+            "box_existing_time": 5.0,
+            "box_appear_time": 7.0
+        }
+    ]
+}

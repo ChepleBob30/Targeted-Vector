@@ -18,7 +18,6 @@ use std::{
     thread,
     vec::Vec,
 };
-
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.update_frame_stats(ctx);
@@ -1530,15 +1529,7 @@ impl eframe::App for App {
 
                     // 补全缺少的关卡数据
                     for i in 0..map_information.map_content.len() {
-                        let mut level_status = -2;
-                        for u in 0..self.login_user_config.level_status.len() {
-                            if self.login_user_config.level_status[u].level_name
-                                == map_information.map_content[i].level_name
-                            {
-                                level_status = self.login_user_config.level_status[u].level_status;
-                            }
-                        }
-                        if level_status == -2 {
+                        if !self.login_user_config.level_status.iter().any(|x| x.level_name == map_information.map_content[i].level_name) {
                             self.login_user_config.level_status.push(UserLevelStatus {
                                 level_name: map_information.map_content[i].level_name.clone(),
                                 level_map: self.login_user_config.current_map.clone(),
@@ -1574,10 +1565,10 @@ impl eframe::App for App {
                                             {
                                                 line[n] = Pos2 {
                                                     x: map_information.map_content[j]
-                                                        .level_position[0]
+                                                        .level_position[0] * (ctx.available_rect().width() / 1280_f32)
                                                         + self.var_f("scroll_offset"),
                                                     y: map_information.map_content[j]
-                                                        .level_position[1],
+                                                        .level_position[1] * (ctx.available_rect().height() / 720_f32),
                                                 };
                                             };
                                             break;
@@ -1710,9 +1701,9 @@ impl eframe::App for App {
                                 self.modify_var("opened_level", i as i32);
                             };
                             self.resource_image[id].origin_position = [
-                                map_information.map_content[i].level_position[0]
+                                map_information.map_content[i].level_position[0] * (ctx.available_rect().width() / 1280_f32)
                                     + self.var_f("scroll_offset"),
-                                map_information.map_content[i].level_position[1],
+                                map_information.map_content[i].level_position[1] * (ctx.available_rect().height() / 720_f32),
                             ];
                             let enable = !self.var_b("cut_to") && self.var_i("opened_level") == -1;
                             if self.switch(
@@ -1789,11 +1780,11 @@ impl eframe::App for App {
                                 [self.login_user_config.language as usize]
                                 .clone();
                         self.resource_text[text_id].origin_position[0] =
-                            self.resource_rect[rect_id].origin_position[0] + 200_f32;
+                            self.resource_rect[rect_id].origin_position[0] + 300_f32;
                         self.resource_text[text_id2].origin_position[0] =
-                            self.resource_rect[rect_id].origin_position[0] + 200_f32;
+                            self.resource_rect[rect_id].origin_position[0] + 300_f32;
                         self.resource_image[image_id].origin_position[0] =
-                            self.resource_rect[rect_id].origin_position[0] + 200_f32;
+                            self.resource_rect[rect_id].origin_position[0] + 300_f32;
                         self.text(ui, "Level_Title", ctx);
                         self.text(ui, "Level_Description", ctx);
                         if self.switch("Start_Operation", ui, ctx, true, false)[0] == 0 {
@@ -1812,7 +1803,7 @@ impl eframe::App for App {
                                 map_information.map_content[opened_level].level_name.clone()
                             );
                         };
-                        if self.resource_rect[rect_id].origin_position[0] != -400_f32
+                        if self.resource_rect[rect_id].origin_position[0] != -600_f32
                             && self.timer.now_time - self.split_time("opened_level_animation")[0]
                                 >= self.vertrefresh
                         {
@@ -2003,27 +1994,12 @@ impl eframe::App for App {
                     let bar_id8 = self.track_resource(self.resource_text.clone(), "Bullet_Text");
                     let bar_id9 = self.track_resource(self.resource_text.clone(), "Cost_Text");
                     if !self.var_b("prepared_operation") {
+                        self.resource_image_texture
+                            .retain(|x| !x.name.contains("Json_") && !x.name.contains("Enemy_"));
                         for i in 0..self.resource_message_box.len() {
                             self.resource_message_box[i].box_exist = false;
                         }
-                        for _ in 0..self.resource_image_texture.len() {
-                            if let Some(index) = self
-                                .resource_image_texture
-                                .iter()
-                                .position(|x| x.name.contains("Enemy_"))
-                            {
-                                self.resource_image_texture.remove(index);
-                            };
-                        }
-                        for _ in 0..self.resource_image.len() {
-                            if let Some(index) = self
-                                .resource_image
-                                .iter()
-                                .position(|x| x.name.contains("Enemy_"))
-                            {
-                                self.resource_image.remove(index);
-                            };
-                        }
+                        self.resource_image.retain(|x| !x.name.contains("Enemy_"));
                         if let Ok(json_value) =
                             read_from_json(self.login_user_config.current_level.clone())
                         {
@@ -2266,57 +2242,25 @@ impl eframe::App for App {
                         let gun_list =
                             list_files_recursive(Path::new("Resources/config"), "gun_").unwrap();
                         let mut gun_list_content = Vec::new();
-                        for _ in 0..self.resource_image_texture.len() {
-                            if let Some(index) = self
-                                .resource_image_texture
-                                .iter()
-                                .position(|x| x.name.contains("Gun_"))
-                            {
-                                self.resource_image_texture.remove(index);
-                            };
-                        }
-                        for _ in 0..self.resource_image.len() {
-                            if let Some(index) = self
-                                .resource_image
-                                .iter()
-                                .position(|x| x.name.contains("Gun_"))
-                            {
-                                self.resource_image.remove(index);
-                            };
-                        }
-                        for _ in 0..self.resource_switch.len() {
-                            if let Some(index) = self
-                                .resource_switch
-                                .iter()
-                                .position(|x| x.name.contains("Gun_"))
-                            {
-                                self.resource_switch.remove(index);
-                            };
-                        }
-                        for _ in 0..self.timer.split_time.len() {
-                            if let Some(index) = self.timer.split_time.iter().position(|x| {
-                                x.name.contains("gun")
-                                    && x.name != "gun_shooting_time"
-                                    && x.name != "gun_end_shooting_time"
-                            }) {
-                                self.timer.split_time.remove(index);
-                            };
-                        }
-                        for _ in 0..self.variables.len() {
-                            if let Some(index) = self.variables.iter().position(|x| {
-                                x.name.contains("gun")
-                                    && x.name != "gun_selectable_len"
-                                    && x.name != "gun_selected"
-                            }) {
-                                self.variables.remove(index);
-                            };
-                        }
+                        self.resource_image_texture
+                            .retain(|x| !x.name.contains("Gun_"));
+                        self.resource_image.retain(|x| !x.name.contains("Gun_"));
+                        self.resource_switch.retain(|x| !x.name.contains("Gun_"));
+                        self.timer.split_time.retain(|x| {
+                            !x.name.contains("gun")
+                                || x.name == "gun_shooting_time"
+                                || x.name == "gun_end_shooting_time"
+                        });
+                        self.variables.retain(|x| {
+                            !x.name.contains("gun")
+                                || x.name == "gun_selectable_len"
+                                || x.name == "gun_selected"
+                        });
                         for (i, _) in gun_list.iter().enumerate().take(
                             count_files_recursive(Path::new("Resources/config"), "gun_").unwrap(),
                         ) {
                             if let Ok(gun_json_message) = read_from_json(gun_list[i].clone()) {
                                 if let Some(gun_message) = Gun::from_json_value(&gun_json_message) {
-                                    let mut gun_unlock_id = 0;
                                     if !self.login_user_config.gun_status.iter().any(|x| {
                                         x.gun_recognition_name == gun_message.gun_recognition_name
                                     }) {
@@ -2324,138 +2268,126 @@ impl eframe::App for App {
                                             gun_recognition_name: gun_message
                                                 .gun_recognition_name
                                                 .clone(),
-                                            gun_level: gun_message.gun_initial_level,
+                                            gun_level: if gun_message.gun_initial_unlock {
+                                                0
+                                            } else {
+                                                -1
+                                            },
                                         });
-                                        gun_unlock_id = self.login_user_config.gun_status.len();
                                     };
-                                    for u in 0..self.login_user_config.gun_status.len() {
-                                        if self.login_user_config.gun_status[u].gun_recognition_name
-                                            == gun_message.gun_recognition_name
-                                        {
-                                            gun_unlock_id = u;
-                                        };
-                                    }
-                                    for u in 0..self.login_user_config.gun_status.len() {
-                                        if self.login_user_config.gun_status[u].gun_recognition_name
-                                            == gun_message.gun_recognition_name.clone()
-                                            && self.login_user_config.gun_status[gun_unlock_id]
-                                                .gun_level
-                                                != -1
-                                        {
-                                            self.add_image_texture(
+                                    if self.login_user_config.gun_status[self
+                                        .login_user_config
+                                        .gun_status
+                                        .iter()
+                                        .position(|x| {
+                                            x.gun_recognition_name
+                                                == gun_message.gun_recognition_name
+                                        })
+                                        .unwrap()]
+                                    .gun_level
+                                        != -1
+                                    {
+                                        self.add_image_texture(
+                                            &format!(
+                                                "Gun_{}",
+                                                gun_message.gun_recognition_name.clone()
+                                            ),
+                                            &gun_message.gun_image.clone(),
+                                            [false, false],
+                                            true,
+                                            ctx,
+                                        );
+                                        self.add_image(
+                                            &format!(
+                                                "Gun_{}",
+                                                gun_message.gun_recognition_name.clone()
+                                            ),
+                                            [
+                                                0_f32,
+                                                0_f32,
+                                                gun_message.gun_size[0],
+                                                gun_message.gun_size[1],
+                                            ],
+                                            [0, 0, 0, 0],
+                                            [true, true, true, true, true],
+                                            [255, 255, 255, 255, 255],
+                                            &format!(
+                                                "Gun_{}",
+                                                gun_message.gun_recognition_name.clone()
+                                            ),
+                                        );
+                                        self.add_switch(
+                                            [
                                                 &format!(
                                                     "Gun_{}",
                                                     gun_message.gun_recognition_name.clone()
                                                 ),
-                                                &gun_message.gun_image.clone(),
-                                                [false, false],
-                                                true,
-                                                ctx,
-                                            );
-                                            self.add_image(
                                                 &format!(
                                                     "Gun_{}",
                                                     gun_message.gun_recognition_name.clone()
                                                 ),
-                                                [
-                                                    0_f32,
-                                                    0_f32,
-                                                    gun_message.gun_size[0],
-                                                    gun_message.gun_size[1],
-                                                ],
-                                                [0, 0, 0, 0],
-                                                [true, true, true, true, true],
-                                                [255, 255, 255, 255, 255],
-                                                &format!(
-                                                    "Gun_{}",
-                                                    gun_message.gun_recognition_name.clone()
-                                                ),
-                                            );
-                                            self.add_switch(
-                                                [
-                                                    &format!(
+                                            ],
+                                            vec![
+                                                SwitchData {
+                                                    texture: format!(
                                                         "Gun_{}",
                                                         gun_message.gun_recognition_name.clone()
                                                     ),
-                                                    &format!(
+                                                    color: [255, 255, 255, 255],
+                                                },
+                                                SwitchData {
+                                                    texture: format!(
                                                         "Gun_{}",
                                                         gun_message.gun_recognition_name.clone()
                                                     ),
-                                                ],
-                                                vec![
-                                                    SwitchData {
-                                                        texture: format!(
-                                                            "Gun_{}",
-                                                            gun_message
-                                                                .gun_recognition_name
-                                                                .clone()
-                                                        ),
-                                                        color: [255, 255, 255, 255],
-                                                    },
-                                                    SwitchData {
-                                                        texture: format!(
-                                                            "Gun_{}",
-                                                            gun_message
-                                                                .gun_recognition_name
-                                                                .clone()
-                                                        ),
-                                                        color: [255, 255, 0, 255],
-                                                    },
-                                                    SwitchData {
-                                                        texture: format!(
-                                                            "Gun_{}",
-                                                            gun_message
-                                                                .gun_recognition_name
-                                                                .clone()
-                                                        ),
-                                                        color: [0, 0, 0, 255],
-                                                    },
-                                                ],
-                                                [false, false, true],
-                                                3,
-                                                vec![SwitchClickAction {
-                                                    click_method: PointerButton::Primary,
-                                                    action: false,
-                                                }],
-                                            );
-                                            gun_list_content.push(gun_message.clone());
-                                            self.add_split_time(
-                                                &format!(
-                                                    "gun{}_reload_interval",
-                                                    gun_list_content.len() - 1
-                                                ),
-                                                false,
-                                            );
-                                            self.add_var(
-                                                &format!(
-                                                    "gun{}_recoil",
-                                                    gun_list_content.len() - 1
-                                                ),
-                                                Value::Float(0_f32),
-                                            );
-                                            self.add_var(
-                                                &format!(
-                                                    "gun{}_temperature",
-                                                    gun_list_content.len() - 1
-                                                ),
-                                                Value::UInt(0),
-                                            );
-                                            self.add_var(
-                                                &format!(
-                                                    "gun{}_surplus_bullets",
-                                                    gun_list_content.len() - 1
-                                                ),
-                                                Value::UInt(gun_message.gun_catridge_clip),
-                                            );
-                                            self.add_var(
-                                                &format!(
-                                                    "gun{}_reload",
-                                                    gun_list_content.len() - 1
-                                                ),
-                                                false,
-                                            );
-                                        };
-                                    }
+                                                    color: [255, 255, 0, 255],
+                                                },
+                                                SwitchData {
+                                                    texture: format!(
+                                                        "Gun_{}",
+                                                        gun_message.gun_recognition_name.clone()
+                                                    ),
+                                                    color: [0, 0, 0, 255],
+                                                },
+                                            ],
+                                            [false, false, true],
+                                            3,
+                                            vec![SwitchClickAction {
+                                                click_method: PointerButton::Primary,
+                                                action: false,
+                                            }],
+                                        );
+                                        gun_list_content.push(gun_message.clone());
+                                        self.add_split_time(
+                                            &format!(
+                                                "gun{}_reload_interval",
+                                                gun_list_content.len() - 1
+                                            ),
+                                            false,
+                                        );
+                                        self.add_var(
+                                            &format!("gun{}_recoil", gun_list_content.len() - 1),
+                                            Value::Float(0_f32),
+                                        );
+                                        self.add_var(
+                                            &format!(
+                                                "gun{}_temperature",
+                                                gun_list_content.len() - 1
+                                            ),
+                                            Value::UInt(0),
+                                        );
+                                        self.add_var(
+                                            &format!(
+                                                "gun{}_surplus_bullets",
+                                                gun_list_content.len() - 1
+                                            ),
+                                            Value::UInt(gun_message.gun_catridge_clip),
+                                        );
+                                        self.add_var(
+                                            &format!("gun{}_reload", gun_list_content.len() - 1),
+                                            false,
+                                        );
+                                    };
                                 };
                             };
                         }
@@ -3396,80 +3328,80 @@ impl eframe::App for App {
                                 self.text(ui, "Operation_Win_Text", ctx);
                             };
                         } else if !self.var_b("enter_operation_loaded") {
-                                let level_part: String;
-                                if let Some(last_underscore) =
-                                    self.login_user_config.current_level.rfind('_')
+                            let level_part: String;
+                            if let Some(last_underscore) =
+                                self.login_user_config.current_level.rfind('_')
+                            {
+                                level_part = self.login_user_config.current_level
+                                    [last_underscore + 1..]
+                                    .strip_suffix(".json")
+                                    .unwrap_or("")
+                                    .to_string();
+                                if let Ok(json_value) =
+                                    read_from_json(&self.login_user_config.current_map)
                                 {
-                                    level_part = self.login_user_config.current_level
-                                        [last_underscore + 1..]
-                                        .strip_suffix(".json")
-                                        .unwrap_or("")
-                                        .to_string();
-                                    if let Ok(json_value) =
-                                        read_from_json(&self.login_user_config.current_map)
+                                    if let Some(read_map_information) =
+                                        Map::from_json_value(&json_value)
                                     {
-                                        if let Some(read_map_information) =
-                                            Map::from_json_value(&json_value)
-                                        {
-                                            if !check_resource_exist(
-                                                self.resource_text.clone(),
-                                                "Operation_Start_Name",
-                                            ) {
-                                                self.add_text(
-                                                    [
-                                                        "Operation_Start_Name",
-                                                        &format!(
-                                                            "{} {}",
-                                                            &level_part,
-                                                            &read_map_information.map_content
-                                                                [read_map_information
-                                                                    .map_content
-                                                                    .iter()
-                                                                    .position(|x| x.level_name
-                                                                        == level_part)
-                                                                    .unwrap()]
-                                                            .level_name_expand
-                                                                [self.login_user_config.language
-                                                                    as usize]
-                                                        ),
-                                                    ],
-                                                    [0_f32, 0_f32, 80_f32, 1000_f32, 0.0],
-                                                    [255, 255, 255, 255, 0, 0, 0],
-                                                    [false, false, true, true],
-                                                    false,
-                                                    [1, 2, 1, 2],
-                                                );
-                                                self.add_text(
-                                                    [
-                                                        "Operation_Start_Name_Type",
-                                                        &game_text[&read_map_information
-                                                            .map_content[read_map_information
+                                        if !check_resource_exist(
+                                            self.resource_text.clone(),
+                                            "Operation_Start_Name",
+                                        ) {
+                                            self.add_text(
+                                                [
+                                                    "Operation_Start_Name",
+                                                    &format!(
+                                                        "{} {}",
+                                                        &level_part,
+                                                        &read_map_information.map_content
+                                                            [read_map_information
+                                                                .map_content
+                                                                .iter()
+                                                                .position(
+                                                                    |x| x.level_name == level_part
+                                                                )
+                                                                .unwrap()]
+                                                        .level_name_expand
+                                                            [self.login_user_config.language
+                                                                as usize]
+                                                    ),
+                                                ],
+                                                [0_f32, 0_f32, 80_f32, 1000_f32, 0.0],
+                                                [255, 255, 255, 255, 0, 0, 0],
+                                                [false, false, true, true],
+                                                false,
+                                                [1, 2, 1, 2],
+                                            );
+                                            self.add_text(
+                                                [
+                                                    "Operation_Start_Name_Type",
+                                                    &game_text[&read_map_information.map_content
+                                                        [read_map_information
                                                             .map_content
                                                             .iter()
                                                             .position(|x| {
                                                                 x.level_name == level_part
                                                             })
                                                             .unwrap()]
-                                                        .level_type]
-                                                            [self.login_user_config.language
-                                                                as usize],
-                                                    ],
-                                                    [0_f32, 0_f32, 40_f32, 1000_f32, 0.0],
-                                                    [255, 255, 255, 255, 0, 0, 0],
-                                                    [false, false, true, true],
-                                                    false,
-                                                    [1, 2, 1, 4],
-                                                );
-                                            } else {
-                                                let id = self.track_resource(
-                                                    self.resource_text.clone(),
-                                                    "Operation_Start_Name",
-                                                );
-                                                let id2 = self.track_resource(
-                                                    self.resource_text.clone(),
-                                                    "Operation_Start_Name_Type",
-                                                );
-                                                self.resource_text[id].text_content = format!(
+                                                    .level_type]
+                                                        [self.login_user_config.language as usize],
+                                                ],
+                                                [0_f32, 0_f32, 40_f32, 1000_f32, 0.0],
+                                                [255, 255, 255, 255, 0, 0, 0],
+                                                [false, false, true, true],
+                                                false,
+                                                [1, 2, 1, 4],
+                                            );
+                                        } else {
+                                            let id = self.track_resource(
+                                                self.resource_text.clone(),
+                                                "Operation_Start_Name",
+                                            );
+                                            let id2 = self.track_resource(
+                                                self.resource_text.clone(),
+                                                "Operation_Start_Name_Type",
+                                            );
+                                            self.resource_text[id].text_content = format!(
                                                 "{} {}",
                                                 &level_part,
                                                 &read_map_information.map_content
@@ -3481,70 +3413,68 @@ impl eframe::App for App {
                                                 .level_name_expand
                                                     [self.login_user_config.language as usize]
                                             );
-                                                self.resource_text[id2].text_content = game_text
-                                                    [&read_map_information.map_content
-                                                        [read_map_information
-                                                            .map_content
-                                                            .iter()
-                                                            .position(|x| {
-                                                                x.level_name == level_part
-                                                            })
-                                                            .unwrap()]
-                                                    .level_type]
-                                                    [self.login_user_config.language as usize]
-                                                    .clone();
-                                                self.modify_var("enter_operation_loaded", true);
-                                                self.add_split_time("start_operation_time", true);
-                                            };
-                                        };
-                                    };
-                                };
-                            } else {
-                                self.image(ui, "Operation_Start_Background", ctx);
-                                self.text(ui, "Operation_Start_Name", ctx);
-                                self.text(ui, "Operation_Start_Name_Type", ctx);
-                                let id = self.track_resource(
-                                    self.resource_image.clone(),
-                                    "Operation_Start_Background",
-                                );
-                                let id2 = self
-                                    .track_resource(self.resource_text.clone(), "Operation_Start_Name");
-                                let id3 = self.track_resource(
-                                    self.resource_text.clone(),
-                                    "Operation_Start_Name_Type",
-                                );
-                                self.resource_image[id].image_size =
-                                    [ctx.available_rect().width(), ctx.available_rect().height()];
-                                if self.timer.now_time - self.split_time("start_operation_time")[0]
-                                    >= 3_f32
-                                    && self.timer.now_time
-                                        - self.split_time("operation_start_fade_animation")[0]
-                                        >= self.vertrefresh
-                                {
-                                    if self.var_b("reseted_operation_start_animation_timer") {
-                                        self.resource_image[id].alpha -= 15;
-                                        self.resource_text[id2].rgba[3] -= 15;
-                                        self.resource_text[id3].rgba[3] -= 15;
-                                        self.add_split_time("operation_start_fade_animation", true);
-                                        if self.resource_image[id].alpha == 0 {
-                                            self.resource_image[id].alpha = 255;
-                                            self.resource_text[id2].rgba[3] = 255;
-                                            self.resource_text[id3].rgba[3] = 255;
-                                            self.modify_var("in_operation", true);
-                                            self.add_split_time("cost_recover_time", true);
-                                            self.add_split_time("operation_refresh_time", true);
+                                            self.resource_text[id2].text_content = game_text
+                                                [&read_map_information.map_content
+                                                    [read_map_information
+                                                        .map_content
+                                                        .iter()
+                                                        .position(|x| x.level_name == level_part)
+                                                        .unwrap()]
+                                                .level_type]
+                                                [self.login_user_config.language as usize]
+                                                .clone();
+                                            self.modify_var("enter_operation_loaded", true);
                                             self.add_split_time("start_operation_time", true);
                                         };
-                                    } else {
-                                        self.modify_var(
-                                            "reseted_operation_start_animation_timer",
-                                            true,
-                                        );
-                                        self.add_split_time("start_operation_time", true);
-                                        self.resource_image[id].overlay_color = [0, 0, 0, 255];
                                     };
                                 };
                             };
+                        } else {
+                            self.image(ui, "Operation_Start_Background", ctx);
+                            self.text(ui, "Operation_Start_Name", ctx);
+                            self.text(ui, "Operation_Start_Name_Type", ctx);
+                            let id = self.track_resource(
+                                self.resource_image.clone(),
+                                "Operation_Start_Background",
+                            );
+                            let id2 = self
+                                .track_resource(self.resource_text.clone(), "Operation_Start_Name");
+                            let id3 = self.track_resource(
+                                self.resource_text.clone(),
+                                "Operation_Start_Name_Type",
+                            );
+                            self.resource_image[id].image_size =
+                                [ctx.available_rect().width(), ctx.available_rect().height()];
+                            if self.timer.now_time - self.split_time("start_operation_time")[0]
+                                >= 3_f32
+                                && self.timer.now_time
+                                    - self.split_time("operation_start_fade_animation")[0]
+                                    >= self.vertrefresh
+                            {
+                                if self.var_b("reseted_operation_start_animation_timer") {
+                                    self.resource_image[id].alpha -= 15;
+                                    self.resource_text[id2].rgba[3] -= 15;
+                                    self.resource_text[id3].rgba[3] -= 15;
+                                    self.add_split_time("operation_start_fade_animation", true);
+                                    if self.resource_image[id].alpha == 0 {
+                                        self.resource_image[id].alpha = 255;
+                                        self.resource_text[id2].rgba[3] = 255;
+                                        self.resource_text[id3].rgba[3] = 255;
+                                        self.modify_var("in_operation", true);
+                                        self.add_split_time("cost_recover_time", true);
+                                        self.add_split_time("operation_refresh_time", true);
+                                        self.add_split_time("start_operation_time", true);
+                                    };
+                                } else {
+                                    self.modify_var(
+                                        "reseted_operation_start_animation_timer",
+                                        true,
+                                    );
+                                    self.add_split_time("start_operation_time", true);
+                                    self.resource_image[id].overlay_color = [0, 0, 0, 255];
+                                };
+                            };
+                        };
                     };
                     let fade_in_or_out = self.var_b("fade_in_or_out");
                     if self.fade(
@@ -3661,8 +3591,8 @@ impl eframe::App for App {
                             self.add_image(
                                 "Result",
                                 [0_f32, 50_f32, 100_f32, 100_f32],
-                                [1, 4, 1, 3],
-                                [false, true, true, false, false],
+                                [1, 6, 1, 3],
+                                [true, true, false, false, false],
                                 [255, 0, 0, 0, 0],
                                 "Result",
                             );
@@ -3700,20 +3630,18 @@ impl eframe::App for App {
                                     [self.login_user_config.language as usize]
                             ),
                         ],
-                        [0_f32, -50_f32, 60_f32, 1000_f32, 0.0],
+                        [0_f32, -50_f32, 40_f32, 1000_f32, 0.0],
                         [255, 255, 255, 255, 0, 0, 0],
-                        [false, false, true, false],
+                        [true, false, false, false],
                         false,
-                        [1, 4, 1, 3],
+                        [1, 6, 1, 3],
                     );
                     self.add_var("changed_fade", false);
                 };
                 let id2 = self.track_resource(self.resource_text.clone(), "Operation_Over_Text");
-                self.resource_text[id2].text_content = format!(
-                    "{}\n{}",
-                    self.resource_text[id].text_content,
-                    game_text["operation_over"][self.login_user_config.language as usize]
-                );
+                self.resource_text[id2].text_content = self.resource_text[id].text_content.clone();
+                let id4 = self.track_resource(self.resource_text.clone(), "Operation_Over_Text2");
+                self.resource_text[id4].text_content = game_text["operation_over"][self.login_user_config.language as usize].clone();
                 let id3 = self.track_resource(self.resource_image.clone(), "Operation_Over_Image");
                 self.resource_image[id3].image_size =
                     [ctx.available_rect().width(), ctx.available_rect().height()];
@@ -4467,6 +4395,7 @@ impl eframe::App for App {
                     self.image(ui, "Operation_Over_Image", ctx);
                     self.image(ui, "Result", ctx);
                     self.text(ui, "Operation_Over_Text", ctx);
+                    self.text(ui, "Operation_Over_Text2", ctx);
                     if self.timer.now_time < 2_f32 {
                         self.modify_var("changed_fade", false);
                     } else {

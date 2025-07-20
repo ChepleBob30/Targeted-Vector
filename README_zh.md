@@ -8,7 +8,7 @@
 [![语言: Rust](https://img.shields.io/badge/语言-Rust-5F4C49)](https://www.rust-lang.org/)
 [![许可证: MIT](https://img.shields.io/badge/许可证-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 ![Github 星星](https://img.shields.io/github/stars/ChepleBob30/targeted-vector?style=flat&color=red)
-[![版本](https://img.shields.io/badge/版本-v1.1.0_beta.1-D81A1A)](https://github.com/ChepleBob30/Targeted-Vector/releases)
+[![版本](https://img.shields.io/badge/版本-v1.2.0_beta.1-D81A1A)](https://github.com/ChepleBob30/Targeted-Vector/releases)
 
 [English](./README.md) | [简体中文](./README_zh.md)
 
@@ -67,15 +67,11 @@
 
 - 靶向载体将支持哪些平台？
 
-    *我将支持macOS和Windows。如果我有足够的时间，我也会支持Linux。*
+    *我将支持macOS和Windows。*
 
 - 靶向载体的发展现状如何？
 
     *靶向载体目前处于开发阶段（beta阶段）。*
-
-- 什么时候能提供安装程序？
-
-    *我将在开发阶段结束时提供.dmg（macOS安装程序）和.msi（Windows安装程序）。*
 
 - 靶向载体会支持什么语言？
 
