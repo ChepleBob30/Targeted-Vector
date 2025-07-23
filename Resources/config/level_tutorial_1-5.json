@@ -1,0 +1,449 @@
+{
+    "global": {
+        "target_point": 3,
+        "storage_bullet": 300,
+        "cost": 0,
+        "cost_recover_speed": 1,
+        "instrument_ceiling": 5,
+        "target_line": [[0.0, 720.0], [1280.0, 720.0]],
+        "operation_background": "Resources/assets/images/map_tutorial_operation_background.png",
+        "operation_background_expand": "Resources/assets/images/map_tutorial_operation_background_expand.png",
+        "operation_start_background": "Resources/assets/images/map_tutorial_operation_start_background.png",
+        "operation_over_background": "Resources/assets/images/map_tutorial_operation_start_background.png"
+    },
+    "target_enemy": [
+        {
+            "enemy_recognition_name": "Advanced_Train_Target",
+            "enemy_position": [640.0, 150.0],
+            "enemy_size": [120.0, 120.0],
+            "enemy_path": [
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "halt",
+                "down",
+                "down",
+                "down",
+                "down",
+                "down"
+            ],
+            "enemy_approach_time": 3.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 1
+        },
+        {
+            "enemy_recognition_name": "Train_Target",
+            "enemy_position": [640.0, 0.0],
+            "enemy_size": [90.0, 90.0],
+            "enemy_path": [
+                "down"
+            ],
+            "enemy_approach_time": 4.5,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 5
+        },
+        {
+            "enemy_recognition_name": "Train_Target",
+            "enemy_position": [903.0, 0.0],
+            "enemy_size": [90.0, 90.0],
+            "enemy_path": [
+                "down"
+            ],
+            "enemy_approach_time": 6.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 5
+        },
+        {
+            "enemy_recognition_name": "Train_Target",
+            "enemy_position": [1263.0, 0.0],
+            "enemy_size": [90.0, 90.0],
+            "enemy_path": [
+                "down"
+            ],
+            "enemy_approach_time": 7.5,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 5
+        },
+        {
+            "enemy_recognition_name": "Train_Target",
+            "enemy_position": [221.0, 0.0],
+            "enemy_size": [90.0, 90.0],
+            "enemy_path": [
+                "down"
+            ],
+            "enemy_approach_time": 9.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 5
+        },
+        {
+            "enemy_recognition_name": "Train_Target",
+            "enemy_position": [563.0, 0.0],
+            "enemy_size": [90.0, 90.0],
+            "enemy_path": [
+                "down"
+            ],
+            "enemy_approach_time": 10.5,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 5
+        },
+        {
+            "enemy_recognition_name": "Train_Target",
+            "enemy_position": [734.0, 0.0],
+            "enemy_size": [90.0, 90.0],
+            "enemy_path": [
+                "down"
+            ],
+            "enemy_approach_time": 12.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 5
+        },
+        {
+            "enemy_recognition_name": "Train_Target",
+            "enemy_position": [854.0, 0.0],
+            "enemy_size": [90.0, 90.0],
+            "enemy_path": [
+                "down"
+            ],
+            "enemy_approach_time": 13.5,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 5
+        },
+        {
+            "enemy_recognition_name": "Train_Target",
+            "enemy_position": [81.0, 0.0],
+            "enemy_size": [90.0, 90.0],
+            "enemy_path": [
+                "down"
+            ],
+            "enemy_approach_time": 15.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 5
+        },
+        {
+            "enemy_recognition_name": "Train_Target",
+            "enemy_position": [485.0, 0.0],
+            "enemy_size": [90.0, 90.0],
+            "enemy_path": [
+                "down"
+            ],
+            "enemy_approach_time": 16.5,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 5
+        },
+        {
+            "enemy_recognition_name": "Train_Target",
+            "enemy_position": [89.0, 0.0],
+            "enemy_size": [90.0, 90.0],
+            "enemy_path": [
+                "down"
+            ],
+            "enemy_approach_time": 18.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 5
+        },
+        {
+            "enemy_recognition_name": "Train_Target",
+            "enemy_position": [916.0, 0.0],
+            "enemy_size": [90.0, 90.0],
+            "enemy_path": [
+                "down"
+            ],
+            "enemy_approach_time": 19.5,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 5
+        },
+        {
+            "enemy_recognition_name": "Train_Target",
+            "enemy_position": [1005.0, 0.0],
+            "enemy_size": [90.0, 90.0],
+            "enemy_path": [
+                "down"
+            ],
+            "enemy_approach_time": 21.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 5
+        },
+        {
+            "enemy_recognition_name": "Reinforced_Train_Target",
+            "enemy_position": [320.0, 0.0],
+            "enemy_size": [100.0, 100.0],
+            "enemy_path": [
+                "down"
+            ],
+            "enemy_approach_time": 23.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 3
+        },
+        {
+            "enemy_recognition_name": "Reinforced_Train_Target",
+            "enemy_position": [960.0, 0.0],
+            "enemy_size": [100.0, 100.0],
+            "enemy_path": [
+                "down"
+            ],
+            "enemy_approach_time": 23.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 3
+        },
+        {
+            "enemy_recognition_name": "Reinforced_Train_Target",
+            "enemy_position": [960.0, 0.0],
+            "enemy_size": [100.0, 100.0],
+            "enemy_path": [
+                "right_lower",
+                "left_lower"
+            ],
+            "enemy_approach_time": 25.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 3
+        },
+        {
+            "enemy_recognition_name": "Reinforced_Train_Target",
+            "enemy_position": [640.0, 0.0],
+            "enemy_size": [100.0, 100.0],
+            "enemy_path": [
+                "down"
+            ],
+            "enemy_approach_time": 27.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 3
+        },
+        {
+            "enemy_recognition_name": "Reinforced_Train_Target",
+            "enemy_position": [320.0, 0.0],
+            "enemy_size": [100.0, 100.0],
+            "enemy_path": [
+                "left_lower",
+                "right_lower"
+            ],
+            "enemy_approach_time": 29.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 3
+        },
+        {
+            "enemy_recognition_name": "Reinforced_Train_Target",
+            "enemy_position": [640.0, 0.0],
+            "enemy_size": [100.0, 100.0],
+            "enemy_path": [
+                "down"
+            ],
+            "enemy_approach_time": 31.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 3
+        },
+        {
+            "enemy_recognition_name": "Reinforced_Train_Target",
+            "enemy_position": [960.0, 0.0],
+            "enemy_size": [100.0, 100.0],
+            "enemy_path": [
+                "right_lower",
+                "left_lower"
+            ],
+            "enemy_approach_time": 33.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 3
+        },
+        {
+            "enemy_recognition_name": "High-speed_Train_Target",
+            "enemy_position": [320.0, 0.0],
+            "enemy_size": [80.0, 80.0],
+            "enemy_path": [
+                "down"
+            ],
+            "enemy_approach_time": 47.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 10
+        },
+        {
+            "enemy_recognition_name": "High-speed_Train_Target",
+            "enemy_position": [640.0, 0.0],
+            "enemy_size": [80.0, 80.0],
+            "enemy_path": [
+                "down"
+            ],
+            "enemy_approach_time": 48.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 10
+        },
+        {
+            "enemy_recognition_name": "High-speed_Train_Target",
+            "enemy_position": [960.0, 0.0],
+            "enemy_size": [80.0, 80.0],
+            "enemy_path": [
+                "down"
+            ],
+            "enemy_approach_time": 49.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 10
+        },
+        {
+            "enemy_recognition_name": "High-speed_Train_Target",
+            "enemy_position": [302.0, 0.0],
+            "enemy_size": [80.0, 80.0],
+            "enemy_path": [
+                "down"
+            ],
+            "enemy_approach_time": 50.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 10
+        },
+        {
+            "enemy_recognition_name": "High-speed_Train_Target",
+            "enemy_position": [134.0, 0.0],
+            "enemy_size": [80.0, 80.0],
+            "enemy_path": [
+                "down"
+            ],
+            "enemy_approach_time": 51.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 10
+        },
+        {
+            "enemy_recognition_name": "High-speed_Train_Target",
+            "enemy_position": [1048.0, 0.0],
+            "enemy_size": [80.0, 80.0],
+            "enemy_path": [
+                "down"
+            ],
+            "enemy_approach_time": 52.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 10
+        },
+        {
+            "enemy_recognition_name": "High-speed_Train_Target",
+            "enemy_position": [406.0, 0.0],
+            "enemy_size": [80.0, 80.0],
+            "enemy_path": [
+                "down"
+            ],
+            "enemy_approach_time": 53.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 10
+        },
+        {
+            "enemy_recognition_name": "High-speed_Train_Target",
+            "enemy_position": [606.0, 0.0],
+            "enemy_size": [80.0, 80.0],
+            "enemy_path": [
+                "down"
+            ],
+            "enemy_approach_time": 54.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 10
+        },
+        {
+            "enemy_recognition_name": "High-speed_Train_Target",
+            "enemy_position": [1132.0, 0.0],
+            "enemy_size": [80.0, 80.0],
+            "enemy_path": [
+                "down"
+            ],
+            "enemy_approach_time": 55.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 10
+        },
+        {
+            "enemy_recognition_name": "High-speed_Train_Target",
+            "enemy_position": [727.0, 0.0],
+            "enemy_size": [80.0, 80.0],
+            "enemy_path": [
+                "down"
+            ],
+            "enemy_approach_time": 56.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 10
+        },
+        {
+            "enemy_recognition_name": "High-speed_Train_Target",
+            "enemy_position": [58.0, 0.0],
+            "enemy_size": [80.0, 80.0],
+            "enemy_path": [
+                "down"
+            ],
+            "enemy_approach_time": 57.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 10
+        },
+        {
+            "enemy_recognition_name": "High-speed_Train_Target",
+            "enemy_position": [965.0, 0.0],
+            "enemy_size": [80.0, 80.0],
+            "enemy_path": [
+                "down"
+            ],
+            "enemy_approach_time": 58.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 10
+        }
+    ],
+    "message_box": [
+        {
+            "box_size": [400.0, 100.0],
+            "box_image_path": "Resources/assets/images/advanced_train_target_4.png",
+            "box_title": [
+                "出现新敌人：高级训练靶",
+                "New enemy: Advanced Train Target"
+            ],
+            "box_content": [
+                "最难以摧毁的训练靶。",
+                "The most difficult train target to destroy."
+            ],
+            "box_title_color": [255, 255, 255, 255],
+            "box_content_color": [255, 255, 255, 255],
+            "box_existing_time": 5.0,
+            "box_appear_time": 1.0
+        }
+    ]
+}

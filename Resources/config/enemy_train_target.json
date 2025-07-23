@@ -8,11 +8,11 @@
     "enemy_def": 0.0,
     "enemy_speed": 1,
     "enemy_invincible_time": 0.1,
-    "enemy_image_count": 5,
+    "enemy_image_count": 1,
     "enemy_tag": [],
     "enemy_image": "Resources/assets/images/train_target",
     "enemy_image_type": ".png",
-    "enemy_minus_target_point": 0,
+    "enemy_minus_target_point": 1,
     "enemy_walk_interval": 0,
     "enemy_animation_interval": 0.1
 }

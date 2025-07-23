@@ -106,51 +106,6 @@ impl eframe::App for App {
                             self.config.language = self.login_user_config.language;
                             self.switch_page("Home_Page");
                         };
-                        self.add_text(
-                            [
-                                "Dev_Welcome1",
-                                &game_text["dev_welcome_play_tvec_title"][if self
-                                    .config
-                                    .login_user_name
-                                    .is_empty()
-                                {
-                                    self.config.language as usize
-                                } else {
-                                    self.login_user_config.language as usize
-                                }],
-                            ],
-                            [0_f32, 0_f32, 20_f32, 325_f32, 0.0],
-                            [30, 30, 30, 255, 0, 0, 0],
-                            [true, true, false, false],
-                            false,
-                            [0, 0, 0, 0],
-                        );
-                        self.add_text(
-                            [
-                                "Dev_Welcome2",
-                                &game_text["dev_welcome_play_tvec_content"][if self
-                                    .config
-                                    .login_user_name
-                                    .is_empty()
-                                {
-                                    self.config.language as usize
-                                } else {
-                                    self.login_user_config.language as usize
-                                }],
-                            ],
-                            [0_f32, 0_f32, 15_f32, 325_f32, 0.0],
-                            [30, 30, 30, 255, 0, 0, 0],
-                            [true, true, false, false],
-                            false,
-                            [0, 0, 0, 0],
-                        );
-                        self.add_message_box(
-                            ["Dev_Welcome", "Dev_Welcome1", "Dev_Welcome2", "Icon_Dev"],
-                            [500_f32, 50_f32],
-                            false,
-                            5_f32,
-                            [30_f32, 10_f32],
-                        );
                     };
                     if self.timer.now_time >= 1.0 {
                         if self.var_i("progress") < 2 {
@@ -231,56 +186,6 @@ impl eframe::App for App {
                                             self.config.language = self.login_user_config.language;
                                             self.switch_page("Home_Page");
                                         };
-                                        self.add_text(
-                                            [
-                                                "Dev_Welcome1",
-                                                &game_text["dev_welcome_play_tvec_title"][if self
-                                                    .config
-                                                    .login_user_name
-                                                    .is_empty()
-                                                {
-                                                    self.config.language as usize
-                                                } else {
-                                                    self.login_user_config.language as usize
-                                                }],
-                                            ],
-                                            [0_f32, 0_f32, 20_f32, 325_f32, 0.0],
-                                            [30, 30, 30, 255, 0, 0, 0],
-                                            [true, true, false, false],
-                                            false,
-                                            [0, 0, 0, 0],
-                                        );
-                                        self.add_text(
-                                            [
-                                                "Dev_Welcome2",
-                                                &game_text["dev_welcome_play_tvec_content"][if self
-                                                    .config
-                                                    .login_user_name
-                                                    .is_empty()
-                                                {
-                                                    self.config.language as usize
-                                                } else {
-                                                    self.login_user_config.language as usize
-                                                }],
-                                            ],
-                                            [0_f32, 0_f32, 15_f32, 325_f32, 0.0],
-                                            [30, 30, 30, 255, 0, 0, 0],
-                                            [true, true, false, false],
-                                            false,
-                                            [0, 0, 0, 0],
-                                        );
-                                        self.add_message_box(
-                                            [
-                                                "Dev_Welcome",
-                                                "Dev_Welcome1",
-                                                "Dev_Welcome2",
-                                                "Icon_Dev",
-                                            ],
-                                            [500_f32, 80_f32],
-                                            false,
-                                            5_f32,
-                                            [30_f32, 10_f32],
-                                        );
                                     };
                                 }
                                 _ => {}
@@ -360,11 +265,11 @@ impl eframe::App for App {
                         );
                         self.resource_image[id].image_size =
                             [ctx.available_rect().width(), ctx.available_rect().height()];
-                        self.resource_image[id].image_position[0] =
+                        self.resource_image[id].origin_position[0] =
                             i as f32 * self.resource_image[id].image_size[0];
                         self.resource_scroll_background[scroll_background].boundary =
                             -ctx.available_rect().width();
-                    }
+                    };
                 };
                 let mut input1 = self.var_s("account_name_str");
                 let mut input2 = self.var_s("account_password_str");
@@ -861,6 +766,10 @@ impl eframe::App for App {
             }
             "Home_Page" => {
                 if !self.check_updated(&self.page.clone()) {
+                    self.login_user_config
+                        .settings
+                        .entry("enable_timer".to_string())
+                        .or_insert("false".to_string());
                     self.add_image_texture(
                         "Home_Wallpaper",
                         &self.login_user_config.wallpaper.clone(),
@@ -989,6 +898,36 @@ impl eframe::App for App {
                             ui.horizontal(|ui| {
                                 ui.label(
                                     egui::WidgetText::from(
+                                        game_text["game_enable_timer"]
+                                            [self.login_user_config.language as usize]
+                                            .clone()
+                                            .to_string(),
+                                    )
+                                    .text_style(egui::TextStyle::Heading),
+                                );
+                                ui.separator();
+                                let mut enable_timer =
+                                    self.login_user_config.settings["enable_timer"] == "true";
+                                ui.checkbox(&mut enable_timer, "");
+                                if enable_timer
+                                    != (self.login_user_config.settings["enable_timer"] == "true")
+                                {
+                                    general_click_feedback();
+                                };
+                                self.login_user_config
+                                    .settings
+                                    .entry("enable_timer".to_string())
+                                    .and_modify(|v| {
+                                        *v = if enable_timer {
+                                            "true".to_string()
+                                        } else {
+                                            "false".to_string()
+                                        }
+                                    });
+                            });
+                            ui.horizontal(|ui| {
+                                ui.label(
+                                    egui::WidgetText::from(
                                         game_text["game_wallpaper"]
                                             [self.login_user_config.language as usize]
                                             .clone()
@@ -1078,6 +1017,77 @@ impl eframe::App for App {
                                         self.resource_image_texture[id].texture.clone();
                                     self.login_user_config.wallpaper =
                                         "Resources/assets/images/wallpaper.png".to_string();
+                                };
+                            });
+                            ui.horizontal(|ui| {
+                                ui.label(
+                                    egui::WidgetText::from(
+                                        game_text["game_logout_account"]
+                                            [self.login_user_config.language as usize]
+                                            .clone()
+                                            .to_string(),
+                                    )
+                                    .text_style(egui::TextStyle::Heading),
+                                );
+                                ui.separator();
+                                if ui
+                                    .button(
+                                        game_text["game_logout_account"]
+                                            [self.login_user_config.language as usize]
+                                            .clone()
+                                            .to_string(),
+                                    )
+                                    .clicked()
+                                {
+                                    write_to_json(
+                                        format!(
+                                            "Resources/config/user_{}.json",
+                                            self.config.login_user_name
+                                        ),
+                                        self.login_user_config.to_json_value(),
+                                    )
+                                    .unwrap();
+                                    self.config.login_user_name = "".to_string();
+                                    write_to_json(
+                                        "Resources/config/Preferences.json",
+                                        self.config.to_json_value(),
+                                    )
+                                    .unwrap();
+                                    exit(0);
+                                };
+                            });
+                            ui.horizontal(|ui| {
+                                ui.label(
+                                    egui::WidgetText::from(
+                                        game_text["game_delete_account"]
+                                            [self.login_user_config.language as usize]
+                                            .clone()
+                                            .to_string(),
+                                    )
+                                    .text_style(egui::TextStyle::Heading),
+                                );
+                                ui.separator();
+                                if ui
+                                    .button(
+                                        game_text["game_delete_account"]
+                                            [self.login_user_config.language as usize]
+                                            .clone()
+                                            .to_string(),
+                                    )
+                                    .double_clicked()
+                                {
+                                    fs::remove_file(format!(
+                                        "Resources/config/user_{}.json",
+                                        self.config.login_user_name
+                                    ))
+                                    .unwrap();
+                                    self.config.login_user_name = "".to_string();
+                                    write_to_json(
+                                        "Resources/config/Preferences.json",
+                                        self.config.to_json_value(),
+                                    )
+                                    .unwrap();
+                                    exit(0);
                                 };
                             });
                         });
@@ -1483,6 +1493,7 @@ impl eframe::App for App {
                 };
                 if !self.check_updated(&self.page.clone()) {
                     self.add_var("expect_scroll_distance", Value::Float(0_f32));
+                    self.add_var("farthest_node_position", Value::Float(0_f32));
                     self.add_var("select_level_switch_target", "".to_string());
                     self.add_split_time("scroll_animation", false);
                     self.add_split_time("opened_level_animation", false);
@@ -1529,7 +1540,12 @@ impl eframe::App for App {
 
                     // 补全缺少的关卡数据
                     for i in 0..map_information.map_content.len() {
-                        if !self.login_user_config.level_status.iter().any(|x| x.level_name == map_information.map_content[i].level_name) {
+                        if !self
+                            .login_user_config
+                            .level_status
+                            .iter()
+                            .any(|x| x.level_name == map_information.map_content[i].level_name)
+                        {
                             self.login_user_config.level_status.push(UserLevelStatus {
                                 level_name: map_information.map_content[i].level_name.clone(),
                                 level_map: self.login_user_config.current_map.clone(),
@@ -1565,10 +1581,12 @@ impl eframe::App for App {
                                             {
                                                 line[n] = Pos2 {
                                                     x: map_information.map_content[j]
-                                                        .level_position[0] * (ctx.available_rect().width() / 1280_f32)
+                                                        .level_position[0]
+                                                        * (ctx.available_rect().width() / 1280_f32)
                                                         + self.var_f("scroll_offset"),
                                                     y: map_information.map_content[j]
-                                                        .level_position[1] * (ctx.available_rect().height() / 720_f32),
+                                                        .level_position[1]
+                                                        * (ctx.available_rect().height() / 720_f32),
                                                 };
                                             };
                                             break;
@@ -1681,12 +1699,12 @@ impl eframe::App for App {
                             );
                         };
                         if level_status != -1 {
-                            if map_information.map_content[i].level_position[0] + 100_f32
-                                > self.var_f("expect_scroll_distance")
+                            if self.var_f("farthest_node_position")
+                                < map_information.map_content[i].level_position[0]
                             {
                                 self.modify_var(
-                                    "expect_scroll_distance",
-                                    map_information.map_content[i].level_position[0] + 100_f32,
+                                    "farthest_node_position",
+                                    map_information.map_content[i].level_position[0],
                                 );
                             };
                             let id = self.track_resource(
@@ -1701,9 +1719,11 @@ impl eframe::App for App {
                                 self.modify_var("opened_level", i as i32);
                             };
                             self.resource_image[id].origin_position = [
-                                map_information.map_content[i].level_position[0] * (ctx.available_rect().width() / 1280_f32)
+                                map_information.map_content[i].level_position[0]
+                                    * (ctx.available_rect().width() / 1280_f32)
                                     + self.var_f("scroll_offset"),
-                                map_information.map_content[i].level_position[1] * (ctx.available_rect().height() / 720_f32),
+                                map_information.map_content[i].level_position[1]
+                                    * (ctx.available_rect().height() / 720_f32),
                             ];
                             let enable = !self.var_b("cut_to") && self.var_i("opened_level") == -1;
                             if self.switch(
@@ -1757,6 +1777,12 @@ impl eframe::App for App {
                             };
                         };
                     }
+                    let farthest_node_position = self.var_f("farthest_node_position");
+                    self.modify_var(
+                        "expect_scroll_distance",
+                        farthest_node_position * (ctx.available_rect().width() / 1280_f32)
+                            + 100_f32,
+                    );
                     let rect_id = self
                         .track_resource(self.resource_rect.clone(), "Level_Information_Background");
                     self.resource_rect[rect_id].size[1] = ctx.available_rect().height();
@@ -1785,6 +1811,16 @@ impl eframe::App for App {
                             self.resource_rect[rect_id].origin_position[0] + 300_f32;
                         self.resource_image[image_id].origin_position[0] =
                             self.resource_rect[rect_id].origin_position[0] + 300_f32;
+                        if self.resource_text[text_id2].position[1]
+                            < self.resource_text[text_id].position[1]
+                                + self.get_text_size("Level_Title", ui)[1]
+                                + 10_f32
+                        {
+                            self.resource_text[text_id2].origin_position[1] =
+                                self.resource_text[text_id].position[1]
+                                    + self.get_text_size("Level_Title", ui)[1]
+                                    + 10_f32;
+                        };
                         self.text(ui, "Level_Title", ctx);
                         self.text(ui, "Level_Description", ctx);
                         if self.switch("Start_Operation", ui, ctx, true, false)[0] == 0 {
@@ -2411,6 +2447,7 @@ impl eframe::App for App {
                         self.add_split_time("horizontal_scrolling_time", true);
                         self.add_split_time("cost_recover_time", true);
                         self.add_split_time("operation_start_fade_animation", true);
+                        self.add_split_time("Operation_Expand", true);
                     } else if self.var_b("in_operation") {
                         let operation_refresh_time = self.split_time("operation_refresh_time")[0];
                         let refresh_index = self.find_pause_index(operation_refresh_time);
@@ -3099,7 +3136,6 @@ impl eframe::App for App {
                                 kira_play_wav("Resources/assets/sounds/Pause.wav").unwrap();
                             });
                         };
-                        ui.label(self.var_f("operation_runtime").to_string());
                         if self.var_b("pause") {
                             let len = self.pause_list.len();
                             self.pause_list[len - 1].pause_total_time =
@@ -3109,6 +3145,25 @@ impl eframe::App for App {
                             ctx.set_cursor_icon(egui::CursorIcon::Wait);
                         } else {
                             ctx.set_cursor_icon(egui::CursorIcon::None);
+                        };
+                        if self.login_user_config.settings["enable_timer"] == "true" {
+                            let id = self
+                                .resource_text
+                                .iter()
+                                .position(|x| x.name == "Operation_Runtime")
+                                .unwrap();
+                            let id2 = self
+                                .resource_rect
+                                .iter()
+                                .position(|x| x.name == "Operation_Runtime")
+                                .unwrap();
+                            self.resource_text[id].text_content =
+                                format!("{:.2}", self.var_f("operation_runtime"));
+                            self.resource_rect[id2].size[0] =
+                                90_f32 + self.get_text_size("Operation_Runtime", ui)[0];
+                            self.rect(ui, "Operation_Runtime", ctx);
+                            self.image(ui, "Operation_Runtime", ctx);
+                            self.text(ui, "Operation_Runtime", ctx);
                         };
                         if self.var_u("target_point") == 0
                             || self.var_u("current_killed_target_enemy")
@@ -3641,7 +3696,8 @@ impl eframe::App for App {
                 let id2 = self.track_resource(self.resource_text.clone(), "Operation_Over_Text");
                 self.resource_text[id2].text_content = self.resource_text[id].text_content.clone();
                 let id4 = self.track_resource(self.resource_text.clone(), "Operation_Over_Text2");
-                self.resource_text[id4].text_content = game_text["operation_over"][self.login_user_config.language as usize].clone();
+                self.resource_text[id4].text_content =
+                    game_text["operation_over"][self.login_user_config.language as usize].clone();
                 let id3 = self.track_resource(self.resource_image.clone(), "Operation_Over_Image");
                 self.resource_image[id3].image_size =
                     [ctx.available_rect().width(), ctx.available_rect().height()];

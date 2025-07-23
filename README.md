@@ -8,7 +8,7 @@
 [![Language: Rust](https://img.shields.io/badge/Language-Rust-5F4C49)](https://www.rust-lang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 ![Github Stars](https://img.shields.io/github/stars/ChepleBob30/targeted-vector?style=flat&color=red)
-[![Version](https://img.shields.io/badge/Version-v1.2.0_beta.1-D81A1A)](https://github.com/ChepleBob30/Targeted-Vector/releases)
+[![Version](https://img.shields.io/badge/Version-v1.0.0-09EEE7)](https://github.com/ChepleBob30/Targeted-Vector/releases)
 
 [English](./README.md) | [简体中文](./README_zh.md)
 
@@ -69,7 +69,7 @@ Special thanks to the following for their outstanding contributions to the const
 
 - What is the development status of Targeted Vector?
 
-    *Targeted Vector is currently in the development phase (beta stage).*
+    *Targeted Vector has now completed its development stage.*
 
 - What languages will the Targeted Vector support?
 

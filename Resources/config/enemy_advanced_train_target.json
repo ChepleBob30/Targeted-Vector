@@ -1,0 +1,18 @@
+{
+    "enemy_recognition_name": "Advanced_Train_Target",
+    "enemy_name": [
+        "高级训练靶",
+        "Advanced Train Target"
+    ],
+    "enemy_hp": 100.0,
+    "enemy_def": 2.0,
+    "enemy_speed": 3,
+    "enemy_invincible_time": 0.1,
+    "enemy_image_count": 1,
+    "enemy_tag": [],
+    "enemy_image": "Resources/assets/images/advanced_train_target",
+    "enemy_image_type": ".png",
+    "enemy_minus_target_point": 5,
+    "enemy_walk_interval": 0,
+    "enemy_animation_interval": 0.025
+}

@@ -1,0 +1,182 @@
+{
+    "global": {
+        "target_point": 3,
+        "storage_bullet": 100,
+        "cost": 0,
+        "cost_recover_speed": 1,
+        "instrument_ceiling": 5,
+        "target_line": [[0.0, 720.0], [1280.0, 720.0]],
+        "operation_background": "Resources/assets/images/map_tutorial_operation_background.png",
+        "operation_background_expand": "Resources/assets/images/map_tutorial_operation_background_expand.png",
+        "operation_start_background": "Resources/assets/images/map_tutorial_operation_start_background.png",
+        "operation_over_background": "Resources/assets/images/map_tutorial_operation_start_background.png"
+    },
+    "target_enemy": [
+        {
+            "enemy_recognition_name": "High-speed_Train_Target",
+            "enemy_position": [640.0, 0.0],
+            "enemy_size": [80.0, 80.0],
+            "enemy_path": [
+                "down"
+            ],
+            "enemy_approach_time": 13.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 10
+        },
+        {
+            "enemy_recognition_name": "High-speed_Train_Target",
+            "enemy_position": [640.0, 0.0],
+            "enemy_size": [80.0, 80.0],
+            "enemy_path": [
+                "left_lower",
+                "right_lower"
+            ],
+            "enemy_approach_time": 14.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 10
+        },
+        {
+            "enemy_recognition_name": "High-speed_Train_Target",
+            "enemy_position": [640.0, 0.0],
+            "enemy_size": [80.0, 80.0],
+            "enemy_path": [
+                "left_lower",
+                "right_lower"
+            ],
+            "enemy_approach_time": 15.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 10
+        },
+        {
+            "enemy_recognition_name": "High-speed_Train_Target",
+            "enemy_position": [320.0, 0.0],
+            "enemy_size": [80.0, 80.0],
+            "enemy_path": [
+                "left_lower",
+                "right_lower"
+            ],
+            "enemy_approach_time": 16.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 10
+        },
+        {
+            "enemy_recognition_name": "High-speed_Train_Target",
+            "enemy_position": [960.0, 0.0],
+            "enemy_size": [80.0, 80.0],
+            "enemy_path": [
+                "right_lower",
+                "left_lower"
+            ],
+            "enemy_approach_time": 16.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 10
+        },
+        {
+            "enemy_recognition_name": "High-speed_Train_Target",
+            "enemy_position": [320.0, 0.0],
+            "enemy_size": [80.0, 80.0],
+            "enemy_path": [
+                "down"
+            ],
+            "enemy_approach_time": 16.5,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 10
+        },
+        {
+            "enemy_recognition_name": "High-speed_Train_Target",
+            "enemy_position": [960.0, 0.0],
+            "enemy_size": [80.0, 80.0],
+            "enemy_path": [
+                "down"
+            ],
+            "enemy_approach_time": 16.5,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 10
+        },
+        {
+            "enemy_recognition_name": "High-speed_Train_Target",
+            "enemy_position": [640.0, 0.0],
+            "enemy_size": [80.0, 80.0],
+            "enemy_path": [
+                "down",
+                "left_lower"
+            ],
+            "enemy_approach_time": 18.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 10
+        },
+        {
+            "enemy_recognition_name": "High-speed_Train_Target",
+            "enemy_position": [640.0, 0.0],
+            "enemy_size": [80.0, 80.0],
+            "enemy_path": [
+                "down"
+            ],
+            "enemy_approach_time": 18.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 10
+        },
+        {
+            "enemy_recognition_name": "High-speed_Train_Target",
+            "enemy_position": [640.0, 0.0],
+            "enemy_size": [80.0, 80.0],
+            "enemy_path": [
+                "down",
+                "right_lower"
+            ],
+            "enemy_approach_time": 18.0,
+            "enemy_approach_alpha": 0,
+            "enemy_increase_alpha_speed": 10
+        }
+    ],
+    "message_box": [
+        {
+            "box_size": [300.0, 100.0],
+            "box_image_path": "Resources/assets/images/tutorial_pause.png",
+            "box_title": [
+                "暂停",
+                "Pause"
+            ],
+            "box_content": [
+                "如果你遇到一些问题，按下esc即可暂停游戏！",
+                "If you encounter any problems, press esc to pause the game!"
+            ],
+            "box_title_color": [255, 255, 255, 255],
+            "box_content_color": [255, 255, 255, 255],
+            "box_existing_time": 3.0,
+            "box_appear_time": 1.0
+        },
+        {
+            "box_size": [500.0, 100.0],
+            "box_image_path": "Resources/assets/images/tutorial_overheat.png",
+            "box_title": [
+                "枪支过热",
+                "Gun Overheated"
+            ],
+            "box_content": [
+                "每次开枪都会导致枪口温度升高（枪口温度会在枪口右侧显示），如果枪口温度过高，你将无法开枪，直至枪口温度恢复正常。",
+                "Every time you fire, the temperature of the muzzle will increase (the temperature of the muzzle will be displayed on the right side of the muzzle). If the temperature of the muzzle is too high, you will not be able to fire, until the temperature of the muzzle returns to normal."
+            ],
+            "box_title_color": [255, 255, 255, 255],
+            "box_content_color": [255, 255, 255, 255],
+            "box_existing_time": 5.0,
+            "box_appear_time": 5.0
+        },
+        {
+            "box_size": [400.0, 100.0],
+            "box_image_path": "Resources/assets/images/high-speed_train_target_4.png",
+            "box_title": [
+                "出现新敌人：高速型训练靶",
+                "New enemy: High-speed Train Target"
+            ],
+            "box_content": [
+                "拥有更快的速度，但是比普通的训练靶要脆弱。",
+                "Has a faster speed, but is more vulnerable than the normal train target."
+            ],
+            "box_title_color": [255, 255, 255, 255],
+            "box_content_color": [255, 255, 255, 255],
+            "box_existing_time": 5.0,
+            "box_appear_time": 11.0
+        }
+    ]
+}

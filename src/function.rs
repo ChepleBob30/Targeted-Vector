@@ -214,7 +214,6 @@ fn load_fonts(ctx: &egui::Context) {
     ctx.set_fonts(fonts);
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct Config {
     pub launch_path: String,
@@ -390,14 +389,12 @@ impl Operation {
 }
 
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 pub struct MovePath {
     pub move_status: [bool; 4],
     pub move_time: f32,
 }
 
 impl MovePath {
-    #[allow(dead_code)]
     pub fn from_json_value(value: &JsonValue) -> Option<MovePath> {
         Some(MovePath {
             move_status: [
@@ -490,7 +487,6 @@ impl JsonReadEnemy {
     }
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct GameText {
     pub game_text: HashMap<String, Vec<String>>,
@@ -526,7 +522,6 @@ pub struct PauseMessage {
     pub mentioned: bool,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct Level {
     pub level_name: String,
@@ -540,7 +535,6 @@ pub struct Level {
 }
 
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 pub struct UnlockMap {
     pub map_name: String,
     pub require_perfect_clear: bool,
@@ -556,7 +550,6 @@ impl UnlockMap {
 }
 
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 pub struct UnlockLevel {
     pub level_name: String,
     pub level_map: String,
@@ -589,7 +582,6 @@ pub struct Map {
     pub map_lock_intro: String,
 }
 
-#[allow(dead_code)]
 impl Map {
     pub fn from_json_value(value: &JsonValue) -> Option<Self> {
         Some(Self {
@@ -709,7 +701,6 @@ pub struct Gun {
     pub gun_overheating_sound: String,
 }
 
-#[allow(dead_code)]
 impl Gun {
     pub fn from_json_value(value: &JsonValue) -> Option<Gun> {
         Some(Gun {
@@ -785,11 +776,8 @@ pub struct User {
 impl User {
     pub fn from_json_value(value: &JsonValue) -> Option<User> {
         let mut parsed = HashMap::new();
-        for (key, val) in value["game_text"].entries() {
-            if let JsonValue::String(string) = val {
-                let str: String = string.clone();
-                parsed.insert(key.to_string(), str);
-            };
+        for (key, val) in value["settings"].entries() {
+            parsed.insert(key.to_string(), val.to_string());
         }
         Some(User {
             name: value["name"].as_str()?.to_string(),
@@ -2216,11 +2204,11 @@ impl App {
         );
         self.add_text(
             ["Level_Description", ""],
-            [-200_f32, 0_f32, 20_f32, 500_f32, 0.0],
+            [-200_f32, 200_f32, 20_f32, 500_f32, 0.0],
             [255, 255, 255, 255, 0, 0, 0],
             [true, true, true, false],
             false,
-            [1, 1, 1, 4],
+            [1, 1, 0, 0],
         );
         self.add_rect(
             "Operation_Status_Bar",
@@ -2490,21 +2478,6 @@ impl App {
             ctx,
         );
         self.add_image_texture(
-            "Icon_Dev",
-            "Resources/assets/images/icon_dev.png",
-            [false, false],
-            true,
-            ctx,
-        );
-        self.add_image(
-            "Icon_Dev",
-            [0_f32, 0_f32, 50_f32, 50_f32],
-            [0, 0, 0, 0],
-            [false, false, true, true, false],
-            [255, 0, 0, 0, 0],
-            "Icon_Dev",
-        );
-        self.add_image_texture(
             "Editor",
             "Resources/assets/images/editor.png",
             [false, false],
@@ -2594,6 +2567,37 @@ impl App {
             [true, true, false, false],
             false,
             [1, 6, 1, 3],
+        );
+        self.add_rect(
+            "Operation_Runtime",
+            [10_f32, 10_f32, 200_f32, 70_f32, 20_f32],
+            [0, 1, 0, 1],
+            [true, true, false, false],
+            [100, 100, 100, 125, 240, 255, 255, 255],
+            0.0,
+        );
+        self.add_image_texture(
+            "Operation_Runtime",
+            "Resources/assets/images/operation_runtime.png",
+            [false, false],
+            true,
+            ctx,
+        );
+        self.add_image(
+            "Operation_Runtime",
+            [20_f32, 45_f32, 50_f32, 50_f32],
+            [0, 1, 0, 1],
+            [true, false, false, true, false],
+            [120, 0, 0, 0, 0],
+            "Operation_Runtime",
+        );
+        self.add_text(
+            ["Operation_Runtime", ""],
+            [80_f32, 45_f32, 30_f32, 300_f32, 0.0],
+            [255, 255, 255, 120, 0, 0, 0],
+            [true, false, false, true],
+            false,
+            [0, 1, 0, 1],
         );
     }
 
@@ -3127,7 +3131,9 @@ impl App {
                             self.enemy_list[i].enemy_activated = true;
                         };
                     };
-                    self.image(ui, &self.enemy_list[i].enemy_name.clone(), ctx);
+                    if self.resource_image[id].alpha != 0 {
+                        self.image(ui, &self.enemy_list[i].enemy_name.clone(), ctx);
+                    };
                     if self.enemy_list[i].enemy_activated {
                         ui.painter().line(
                             vec![

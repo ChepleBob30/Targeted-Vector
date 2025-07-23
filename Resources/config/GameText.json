@@ -109,8 +109,8 @@
       "Page"
     ],
     "debug_game_version": [
-      "靶向载体 v1.2.0-beta.1",
-      "Targeted Vector v1.2.0-beta.1"
+      "靶向载体 v1.0.0",
+      "Targeted Vector v1.0.0"
     ],
     "debug_game_now_time": [
       "当前页面运行时间",
@@ -492,14 +492,6 @@
       "请检查生成消息框的代码是否被意外多次调用。",
       "Please check whether the code for generating the message box has been accidentally called multiple times."
     ],
-    "dev_welcome_play_tvec_title": [
-      "感谢游玩靶向载体开发版本！",
-      "Thank you for playing the development version of Targeted Vector!"
-    ],
-    "dev_welcome_play_tvec_content": [
-      "此版本未经过系统化测试，如果你发现任何bug，请在github上反馈给我。感谢你的合作！",
-      "This version has not been systematically tested. If you find any bugs, please report them to me on github. Thank you for your cooperation!"
-    ],
     "unlock_new_map": [
       "解锁新地图",
       "Unlock new map"
@@ -531,6 +523,18 @@
     "editor_level_mode": [
       "添加关卡",
       "Add level"
+    ],
+    "game_enable_timer": [
+      "启用计时器",
+      "Enable timer"
+    ],
+    "game_delete_account": [
+      "删除账户（双击触发）",
+      "Delete account (double click to trigger)"
+    ],
+    "game_logout_account": [
+      "登出账户",
+      "Logout account"
     ]
   }
 }
